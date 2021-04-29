@@ -2,17 +2,25 @@
  
  project(VulkanPBRT
     VERSION 1.0.0
-    DESCRIPTION "Vulkan based physically correct raytracer"
+    DESCRIPTION "Vulkan physically based raytracer"
     LANGUAGES CXX
 )
 
-find_package(vsg REQUIRED)
-find_package(vsgXchange QUIET)
-find_package(vsgImGui QUIET)
+find_package(Vulkan REQUIRED)
+find_package(Threads REQUIRED)
+find_package(PkgConfig)
+pkg_check_modules(xcb REQUIRED IMPORTED_TARGET xcb)
+include(CMakeFindDependencyMacro)
+set(vsg_glslang_DIR ${CMAKE_SOURCE_DIR}/vsg)
+find_dependency(vsg_glslang)
+message("xcb: ${xcb}")
+
+add_subdirectory(vsg)
+set(IMGUI_HEADER
+    vsg/src/imgui/)
+include_directories(vsg/include ${glslang_INCLUDE_DIRS} ${IMGUI_HEADER})
 
 set(CMAKE_CXX_STANDARD 17)
-
-
 
 file(GLOB SOURCES
     "*.h"
@@ -26,9 +34,9 @@ set(SHADERS
     simple_raygen.rgen
 )
 
-add_executable(VulkanPBRT ${SOURCES})
+add_executable(VulkanPBRT ${SOURCES} ${VSG_ALL})
 
-target_link_libraries(VulkanPBRT vsg::vsg)
+target_link_libraries(VulkanPBRT Vulkan::Vulkan glslang::glslang Threads::Threads xcb)
 
 ## compilaiton of shader files
 function(add_shader TARGET SHADER)

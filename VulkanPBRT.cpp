@@ -1,5 +1,7 @@
  #include <iostream>
  #include <vsg/all.h>
+ 
+ #include "gui.hpp"
 
  struct RayTracingUniform{
      vsg::mat4 viewInverse;
@@ -34,6 +36,7 @@ int main(int argc, char** argv){
         windowTraits->queueFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
         windowTraits->imageAvailableSemaphoreWaitFlag = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
         windowTraits->swapchainPreferences.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        //windowTraits->instanceExtensionNames.push_back("VK_VERSION_1_1");
         windowTraits->deviceExtensionNames = {VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME, VK_NV_RAY_TRACING_EXTENSION_NAME};
 
         auto window = vsg::Window::create(windowTraits);
@@ -41,6 +44,65 @@ int main(int argc, char** argv){
             std::cout << "Could not create windows." << std::endl;
             return 1;
         }
+        vsg::ref_ptr<vsg::Device> device;
+        try{
+            device = window->getOrCreateDevice();
+        }
+        catch(const vsg::Exception& e){
+            std::cout << e.message << " Vk Result = " << e.result << std::endl;
+            return 0;
+        }
+        //setting a custom render pass
+        vsg::AttachmentDescription  colorAttachment = vsg::defaultColorAttachment(window->surfaceFormat().format);
+        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        vsg::AttachmentDescription depthAttachment = vsg::defaultDepthAttachment(window->depthFormat());
+        depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        vsg::RenderPass::Attachments attachments{
+            colorAttachment,
+            depthAttachment};
+
+        VkAttachmentReference colorAttachmentRef = {};
+        colorAttachmentRef.attachment = 0;
+        colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+        VkAttachmentReference depthAttachmentRef = {};
+        depthAttachmentRef.attachment = 1;
+        depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+        vsg::SubpassDescription subpass = {};
+        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        subpass.colorAttachments.emplace_back(colorAttachmentRef);
+        subpass.depthStencilAttachments.emplace_back(depthAttachmentRef);
+
+        vsg::RenderPass::Subpasses subpasses{subpass};
+
+        // image layout transition
+        VkSubpassDependency colorDependency = {};
+        colorDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+        colorDependency.dstSubpass = 0;
+        colorDependency.srcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        colorDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        colorDependency.srcAccessMask = 0;
+        colorDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        colorDependency.dependencyFlags = 0;
+
+        // depth buffer is shared between swap chain images
+        VkSubpassDependency depthDependency = {};
+        depthDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+        depthDependency.dstSubpass = 0;
+        depthDependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+        depthDependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+        depthDependency.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        depthDependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        depthDependency.dependencyFlags = 0;
+
+        vsg::RenderPass::Dependencies dependencies{colorDependency, depthDependency};
+
+        auto renderPass = vsg::RenderPass::create(device, attachments, subpasses, dependencies);
+        window->setRenderPass(renderPass);
+        //window->clearColor() = {};
         viewer->addWindow(window);
 
         //shader creation
@@ -75,15 +137,6 @@ int main(int argc, char** argv){
         //creating camera things
         auto perspective = vsg::Perspective::create(60, static_cast<double>(windowTraits->width) / static_cast<double>(windowTraits->height), .1, 1000);
         vsg::ref_ptr<vsg::LookAt> lookAt;
-        
-        vsg::ref_ptr<vsg::Device> device;
-        try{
-            device = window->getOrCreateDevice();
-        }
-        catch(const vsg::Exception& e){
-            std::cout << e.message << " Vk Result = " << e.result << std::endl;
-            return 0;
-        }
 
         vsg::ref_ptr<vsg::TopLevelAccelerationStructure> tlas;
         if(filename.empty()){
@@ -188,15 +241,20 @@ int main(int argc, char** argv){
         auto viewport = vsg::ViewportState::create(0, 0, windowTraits->width, windowTraits->height);
         auto camera = vsg::Camera::create(perspective, lookAt, viewport);
 
-        //close handler to close
-        viewer->addEventHandlers({vsg::CloseHandler::create(viewer)});
-
         auto commandGraph = vsg::CommandGraph::create(window);
+        auto renderGraph = vsg::RenderGraph::create(window); // render graph for gui rendering
+        renderGraph->clearValues.clear();   //removing clear values to avoid clearing the raytraced image
+        auto guiValues = Gui::Values::create();
         auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(storageImageInfo.imageView, window);
 
-        commandGraph->addChild(scenegraph);
-        commandGraph->addChild(copyImageViewToWindow);
+        //renderGraph->addChild(scenegraph);
+        //renderGraph->addChild(copyImageViewToWindow);
+        renderGraph->addChild(vsgImGui::RenderImGui::create(window, Gui(guiValues)));
+        commandGraph->addChild(renderGraph);
         
+        //close handler to close and imgui handler to forward to imgui
+        viewer->addEventHandler(vsgImGui::SendEventsToImGui::create());
+        viewer->addEventHandlers({vsg::CloseHandler::create(viewer)});
         viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph});
         viewer->compile();
 
