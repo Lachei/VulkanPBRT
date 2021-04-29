@@ -21,12 +21,12 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 using namespace vsg;
 
-AccelerationStructure::AccelerationStructure(VkAccelerationStructureTypeNV type, Device* device, Allocator* allocator) :
+AccelerationStructure::AccelerationStructure(VkAccelerationStructureTypeKHR type, Device* device, Allocator* allocator) :
     Inherit(allocator),
     _requiredBuildScratchSize(0),
     _device(device)
 {
-    _accelerationStructureInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_INFO_NV;
+    _accelerationStructureInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
     _accelerationStructureInfo.type = type;
     _accelerationStructureInfo.flags = 0; // probably be useful to set this somehow
     _accelerationStructureInfo.instanceCount = 0;
@@ -40,7 +40,7 @@ AccelerationStructure::~AccelerationStructure()
     if (_accelerationStructure)
     {
         Extensions* extensions = Extensions::Get(_device, true);
-        extensions->vkDestroyAccelerationStructureNV(*_device, _accelerationStructure, nullptr);
+        extensions->vkDestroyAccelerationStructureKHR(*_device, _accelerationStructure, nullptr);
     }
 }
 
@@ -48,11 +48,7 @@ void AccelerationStructure::compile(Context& context)
 {
     Extensions* extensions = Extensions::Get(context.device, true);
 
-    VkAccelerationStructureCreateInfoNV createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_NV;
-    createInfo.info = _accelerationStructureInfo;
-
-    VkResult result = extensions->vkCreateAccelerationStructureNV(*context.device, &createInfo, nullptr, &_accelerationStructure);
+    VkResult result = extensions->vkCreateAccelerationStructureKHR(*context.device, &_accelerationStructureInfo, nullptr, &_accelerationStructure);
 
     if (result == VK_SUCCESS)
     {

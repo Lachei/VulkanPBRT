@@ -41,7 +41,7 @@ namespace vsg
         AccelerationStructures _accelerationStructures;
 
         // populated by compile()
-        std::vector<VkAccelerationStructureNV> _vkAccelerationStructures;
+        std::vector<VkAccelerationStructureKHR> _vkAccelerationStructures;
     };
     VSG_type_name(vsg::DescriptorAccelerationStructure)
 

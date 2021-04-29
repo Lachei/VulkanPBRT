@@ -24,11 +24,11 @@ namespace vsg
     class VSG_DECLSPEC AccelerationStructure : public Inherit<Object, AccelerationStructure>
     {
     public:
-        AccelerationStructure(VkAccelerationStructureTypeNV type, Device* device, Allocator* allocator = nullptr);
+        AccelerationStructure(VkAccelerationStructureTypeKHR type, Device* device, Allocator* allocator = nullptr);
 
         virtual void compile(Context& context);
 
-        operator VkAccelerationStructureNV() const { return _accelerationStructure; }
+        operator VkAccelerationStructureKHR() const { return _accelerationStructure; }
 
         uint64_t handle() const { return _handle; }
 
@@ -37,8 +37,8 @@ namespace vsg
     protected:
         virtual ~AccelerationStructure();
 
-        VkAccelerationStructureNV _accelerationStructure;
-        VkAccelerationStructureInfoNV _accelerationStructureInfo;
+        VkAccelerationStructureKHR _accelerationStructure;
+        VkAccelerationStructureCreateInfoKHR _accelerationStructureInfo;
         ref_ptr<DeviceMemory> _memory;
         uint64_t _handle;
         VkDeviceSize _requiredBuildScratchSize;

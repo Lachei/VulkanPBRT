@@ -247,8 +247,8 @@ int main(int argc, char** argv){
         auto guiValues = Gui::Values::create();
         auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(storageImageInfo.imageView, window);
 
-        //renderGraph->addChild(scenegraph);
-        //renderGraph->addChild(copyImageViewToWindow);
+        commandGraph->addChild(scenegraph);
+        commandGraph->addChild(copyImageViewToWindow);
         renderGraph->addChild(vsgImGui::RenderImGui::create(window, Gui(guiValues)));
         commandGraph->addChild(renderGraph);
         

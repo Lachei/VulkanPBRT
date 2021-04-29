@@ -13,7 +13,6 @@ pkg_check_modules(xcb REQUIRED IMPORTED_TARGET xcb)
 include(CMakeFindDependencyMacro)
 set(vsg_glslang_DIR ${CMAKE_SOURCE_DIR}/vsg)
 find_dependency(vsg_glslang)
-message("xcb: ${xcb}")
 
 add_subdirectory(vsg)
 set(IMGUI_HEADER

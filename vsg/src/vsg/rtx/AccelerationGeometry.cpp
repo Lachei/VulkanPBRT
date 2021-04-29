@@ -57,9 +57,9 @@ void AccelerationGeometry::compile(Context& context)
     _indexBuffer = indexBufferInfo[0];
 
     // create the VkGeometry
-    _geometry.sType = VK_STRUCTURE_TYPE_GEOMETRY_NV;
-    _geometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_NV;
-    _geometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_GEOMETRY_TRIANGLES_NV;
+    _geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+    _geometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
+    _geometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
     _geometry.geometry.triangles.vertexData = _vertexBuffer.buffer->vk(context.deviceID);
     _geometry.geometry.triangles.vertexOffset = 0;
     _geometry.geometry.triangles.vertexCount = vertcount;
@@ -76,8 +76,8 @@ void AccelerationGeometry::compile(Context& context)
     _geometry.geometry.aabbs.aabbData = VK_NULL_HANDLE;
     _geometry.geometry.aabbs.offset = 0;
     _geometry.geometry.aabbs.stride = 0;
-    _geometry.geometry.aabbs.sType = VK_STRUCTURE_TYPE_GEOMETRY_AABB_NV;
+    _geometry.geometry.aabbs.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_AABBS_DATA_KHR;
     _geometry.geometry.aabbs.pNext = nullptr;
-    _geometry.flags = VK_GEOMETRY_OPAQUE_BIT_NV;
+    _geometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
     _geometry.pNext = nullptr;
 }
