@@ -56,6 +56,8 @@ int main(int argc, char** argv){
         vsg::AttachmentDescription  colorAttachment = vsg::defaultColorAttachment(window->surfaceFormat().format);
         colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        colorAttachment.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        //colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         vsg::AttachmentDescription depthAttachment = vsg::defaultDepthAttachment(window->depthFormat());
         depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -247,8 +249,8 @@ int main(int argc, char** argv){
         auto guiValues = Gui::Values::create();
         auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(storageImageInfo.imageView, window);
 
-        //renderGraph->addChild(scenegraph);
-        //renderGraph->addChild(copyImageViewToWindow);
+        commandGraph->addChild(scenegraph);
+        commandGraph->addChild(copyImageViewToWindow);
         renderGraph->addChild(vsgImGui::RenderImGui::create(window, Gui(guiValues)));
         commandGraph->addChild(renderGraph);
         
