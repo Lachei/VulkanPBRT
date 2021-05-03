@@ -1,5 +1,6 @@
  #include <iostream>
  #include <vsg/all.h>
+ #include <vsgXchange/models.h>
  
  #include "gui.hpp"
 
@@ -169,7 +170,8 @@ int main(int argc, char** argv){
             lookAt = vsg::LookAt::create(vsg::dvec3(0,0,-2.5), vsg::dvec3(0,0,0), vsg::dvec3(0,1,0));
         }
         else{
-            auto loaded_scene = vsg::read_cast<vsg::Node>(filename);
+            auto options = vsg::Options::create(vsgXchange::assimp::create()); //using the assimp loader
+            auto loaded_scene = vsg::read_cast<vsg::Node>(filename, options);
             if(!loaded_scene){
                 std::cout << "Scene not found: " << filename << std::endl;
                 return 1;
