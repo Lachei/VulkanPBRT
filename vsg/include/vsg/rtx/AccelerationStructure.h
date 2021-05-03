@@ -39,6 +39,9 @@ namespace vsg
 
         VkAccelerationStructureKHR _accelerationStructure;
         VkAccelerationStructureCreateInfoKHR _accelerationStructureInfo;
+        std::vector<uint32_t> _geometryPrimitiveCounts;
+        VkAccelerationStructureBuildGeometryInfoKHR _accelerationStructureBuildGeometryInfo;
+        ref_ptr<Buffer> _buffer;
         ref_ptr<DeviceMemory> _memory;
         uint64_t _handle;
         VkDeviceSize _requiredBuildScratchSize;

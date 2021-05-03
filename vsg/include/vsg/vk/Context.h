@@ -35,14 +35,14 @@ namespace vsg
     class VSG_DECLSPEC BuildAccelerationStructureCommand : public Inherit<Command, BuildAccelerationStructureCommand>
     {
     public:
-        BuildAccelerationStructureCommand(Device* device, VkAccelerationStructureInfoNV* info, const VkAccelerationStructureNV& structure, Buffer* instanceBuffer, Allocator* allocator = nullptr);
+        BuildAccelerationStructureCommand(Device* device, VkAccelerationStructureCreateInfoKHR* info, const VkAccelerationStructureKHR& structure, Buffer* instanceBuffer, Allocator* allocator = nullptr);
 
         void compile(Context&) override {}
         void record(CommandBuffer& commandBuffer) const override;
 
         ref_ptr<Device> _device;
-        VkAccelerationStructureInfoNV* _accelerationStructureInfo;
-        VkAccelerationStructureNV _accelerationStructure;
+        VkAccelerationStructureCreateInfoKHR* _accelerationStructureInfo;
+        VkAccelerationStructureKHR _accelerationStructure;
         ref_ptr<Buffer> _instanceBuffer;
 
         // scratch buffer set after compile traversal before record of build commands

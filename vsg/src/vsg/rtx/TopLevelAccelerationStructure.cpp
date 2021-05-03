@@ -28,12 +28,12 @@ GeometryInstance::GeometryInstance() :
     id(0),
     mask(0xff),
     shaderOffset(0),
-    flags(VK_GEOMETRY_INSTANCE_TRIANGLE_CULL_DISABLE_BIT_NV)
+    flags(VK_GEOMETRY_INSTANCE_TRIANGLE_FACING_CULL_DISABLE_BIT_KHR)
 {
 }
 
 TopLevelAccelerationStructure::TopLevelAccelerationStructure(Device* device, Allocator* allocator) :
-    Inherit(VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_NV, device, allocator)
+    Inherit(VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR, device, allocator)
 {
 }
 
@@ -55,15 +55,25 @@ void TopLevelAccelerationStructure::compile(Context& context)
     DataList dataList = {_instances};
 
 #if TRANSFER_BUFFERS
-    auto instanceBufferInfo = vsg::createBufferAndTransferData(context, dataList, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, VK_SHARING_MODE_EXCLUSIVE);
+    auto instanceBufferInfo = vsg::createBufferAndTransferData(context, dataList, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_SHARING_MODE_EXCLUSIVE);
     _instanceBuffer = instanceBufferInfo[0].buffer;
 #else
-    auto instanceBufferInfo = vsg::createHostVisibleBuffer(context.device, dataList, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, VK_SHARING_MODE_EXCLUSIVE);
+    auto instanceBufferInfo = vsg::createHostVisibleBuffer(context.device, dataList, VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR, VK_SHARING_MODE_EXCLUSIVE);
     vsg::copyDataListToBuffers(context.device, instanceBufferInfo);
     _instanceBuffer = instanceBufferInfo[0].buffer;
 #endif
 
-    _accelerationStructureInfo.instanceCount = static_cast<uint32_t>(_instances->valueCount());
+    VkAccelerationStructureGeometryKHR accelerationStructureGeometry{};
+    accelerationStructureGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+    accelerationStructureGeometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
+    accelerationStructureGeometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+    accelerationStructureGeometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+    accelerationStructureGeometry.geometry.instances.arrayOfPointers = VK_FALSE;
+    accelerationStructureGeometry.geometry.instances.data.hostAddress = &_instances;
+
+    _accelerationStructureBuildGeometryInfo.geometryCount = 1;
+    _accelerationStructureBuildGeometryInfo.pGeometries = &accelerationStructureGeometry;
+    _geometryPrimitiveCounts = {static_cast<uint32_t>(_instances->valueCount())};
 
     Inherit::compile(context);
 

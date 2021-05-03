@@ -18,6 +18,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/vk/CommandBuffer.h>
 #include <vsg/vk/Context.h>
 #include <vsg/vk/Extensions.h>
+#include <vsg/core/Exception.h>
 
 using namespace vsg;
 
@@ -28,11 +29,16 @@ AccelerationStructure::AccelerationStructure(VkAccelerationStructureTypeKHR type
 {
     _accelerationStructureInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
     _accelerationStructureInfo.type = type;
-    _accelerationStructureInfo.flags = 0; // probably be useful to set this somehow
-    _accelerationStructureInfo.instanceCount = 0;
-    _accelerationStructureInfo.geometryCount = 0;
-    _accelerationStructureInfo.pGeometries = nullptr;
+    _accelerationStructureInfo.createFlags = 0; // probably be useful to set this somehow
+    _accelerationStructureInfo.buffer = 0;
+    _accelerationStructureInfo.deviceAddress = 0;
+    _accelerationStructureInfo.offset = 0;
+    _accelerationStructureInfo.size = 0;
     _accelerationStructureInfo.pNext = nullptr;
+
+    _accelerationStructureBuildGeometryInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+    _accelerationStructureBuildGeometryInfo.type = type;
+    _accelerationStructureBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
 }
 
 AccelerationStructure::~AccelerationStructure()
@@ -48,32 +54,36 @@ void AccelerationStructure::compile(Context& context)
 {
     Extensions* extensions = Extensions::Get(context.device, true);
 
-    VkResult result = extensions->vkCreateAccelerationStructureKHR(*context.device, &_accelerationStructureInfo, nullptr, &_accelerationStructure);
+    VkAccelerationStructureBuildSizesInfoKHR accelerationStructureBuildSizesInfo{};
+    accelerationStructureBuildSizesInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;
+    extensions->vkGetAccelerationStructureBuildSizesKHR(
+        *context.device, 
+        VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, 
+        &_accelerationStructureBuildGeometryInfo, 
+        _geometryPrimitiveCounts.data(), 
+        &accelerationStructureBuildSizesInfo);
+    
+    _buffer = Buffer::create(accelerationStructureBuildSizesInfo.accelerationStructureSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_SHARING_MODE_EXCLUSIVE);
+    VkMemoryRequirements memReq{};
+    vkGetBufferMemoryRequirements(*context.device, _buffer->vk(context.deviceID), &memReq);
+    _memory = DeviceMemory::create(context.device, memReq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    _buffer->bind(_memory, 0);
 
+    _accelerationStructureInfo.buffer = _buffer->vk(context.deviceID);
+    _accelerationStructureInfo.size = accelerationStructureBuildSizesInfo.accelerationStructureSize;
+    VkResult result = extensions->vkCreateAccelerationStructureKHR(*context.device, &_accelerationStructureInfo, nullptr, &_accelerationStructure);
     if (result == VK_SUCCESS)
     {
-        VkAccelerationStructureMemoryRequirementsInfoNV memoryRequirementsInfo{};
-        memoryRequirementsInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_MEMORY_REQUIREMENTS_INFO_NV;
-        memoryRequirementsInfo.accelerationStructure = _accelerationStructure;
+        VkAccelerationStructureDeviceAddressInfoKHR deviceAddressInfo{};
+        deviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
+        deviceAddressInfo.accelerationStructure = _accelerationStructure;
+        _handle = extensions->vkGetAccelerationStructureDeviceAddressKHR(*context.device, &deviceAddressInfo);
 
-        VkMemoryRequirements2 memoryRequirements2{};
-        extensions->vkGetAccelerationStructureMemoryRequirementsNV(*context.device, &memoryRequirementsInfo, &memoryRequirements2);
-
-        _memory = DeviceMemory::create(context.device, memoryRequirements2.memoryRequirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-        VkBindAccelerationStructureMemoryInfoNV accelerationStructureMemoryInfo{};
-        accelerationStructureMemoryInfo.sType = VK_STRUCTURE_TYPE_BIND_ACCELERATION_STRUCTURE_MEMORY_INFO_NV;
-        accelerationStructureMemoryInfo.accelerationStructure = _accelerationStructure;
-        accelerationStructureMemoryInfo.memory = *_memory;
-        result = extensions->vkBindAccelerationStructureMemoryNV(*context.device, 1, &accelerationStructureMemoryInfo);
-
-        result = extensions->vkGetAccelerationStructureHandleNV(*context.device, _accelerationStructure, sizeof(uint64_t), &_handle);
-
-        _requiredBuildScratchSize = memoryRequirements2.memoryRequirements.size;
+        _requiredBuildScratchSize = accelerationStructureBuildSizesInfo.buildScratchSize;
         context.scratchBufferSize = std::max(_requiredBuildScratchSize, context.scratchBufferSize);
     }
     else
     {
-        // error
+        throw Exception{"Error: vsg::AccelerationStructure::compile(...) failed to create AccelerationStructure.", result};
     }
 }

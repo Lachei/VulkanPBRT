@@ -117,8 +117,8 @@ RayTracingPipeline::Implementation::Implementation(Context& context, RayTracingP
 
     Extensions* extensions = Extensions::Get(_device, true);
 
-    VkRayTracingPipelineCreateInfoNV pipelineInfo = {};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_NV;
+    VkRayTracingPipelineCreateInfoKHR pipelineInfo = {};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
     pipelineInfo.layout = pipelineLayout->vk(context.deviceID);
     pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
     pipelineInfo.pNext = nullptr;
@@ -138,7 +138,7 @@ RayTracingPipeline::Implementation::Implementation(Context& context, RayTracingP
 
     // assign the RayTracingShaderGroups
     auto& rayTracingShaderGroups = rayTracingPipeline->getRayTracingShaderGroups();
-    std::vector<VkRayTracingShaderGroupCreateInfoNV> shaderGroups(rayTracingShaderGroups.size());
+    std::vector<VkRayTracingShaderGroupCreateInfoKHR> shaderGroups(rayTracingShaderGroups.size());
     for (size_t i = 0; i < rayTracingShaderGroups.size(); ++i)
     {
         rayTracingShaderGroups[i]->applyTo(shaderGroups[i]);
@@ -147,23 +147,23 @@ RayTracingPipeline::Implementation::Implementation(Context& context, RayTracingP
     pipelineInfo.groupCount = static_cast<uint32_t>(shaderGroups.size());
     pipelineInfo.pGroups = shaderGroups.data();
 
-    pipelineInfo.maxRecursionDepth = rayTracingPipeline->maxRecursionDepth();
+    pipelineInfo.maxPipelineRayRecursionDepth = rayTracingPipeline->maxRecursionDepth();
 
-    VkResult result = extensions->vkCreateRayTracingPipelinesNV(*_device, VK_NULL_HANDLE, 1, &pipelineInfo, _device->getAllocationCallbacks(), &_pipeline);
+    VkResult result = extensions->vkCreateRayTracingPipelinesKHR(*_device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipelineInfo, _device->getAllocationCallbacks(), &_pipeline);
     if (result == VK_SUCCESS)
     {
-        auto rayTracingProperties = _device->getPhysicalDevice()->getProperties<VkPhysicalDeviceRayTracingPropertiesNV, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PROPERTIES_NV>();
+        auto rayTracingProperties = _device->getPhysicalDevice()->getProperties<VkPhysicalDeviceRayTracingPipelinePropertiesKHR, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR>();
         const uint32_t shaderGroupHandleSize = rayTracingProperties.shaderGroupHandleSize;
         const uint32_t sbtSize = shaderGroupHandleSize * pipelineInfo.groupCount;
 
-        BufferInfo bindingTableBufferInfo = context.stagingMemoryBufferPools->reserveBuffer(sbtSize, 4, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+        BufferInfo bindingTableBufferInfo = context.stagingMemoryBufferPools->reserveBuffer(sbtSize, 4, VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_SHARING_MODE_EXCLUSIVE, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
         auto bindingTableBuffer = bindingTableBufferInfo.buffer;
         auto bindingTableMemory = bindingTableBuffer->getDeviceMemory(context.deviceID);
 
         void* buffer_data;
         bindingTableMemory->map(bindingTableBuffer->getMemoryOffset(context.deviceID) + bindingTableBufferInfo.offset, bindingTableBufferInfo.range, 0, &buffer_data);
 
-        extensions->vkGetRayTracingShaderGroupHandlesNV(*_device, _pipeline, 0, static_cast<uint32_t>(rayTracingShaderGroups.size()), sbtSize, buffer_data);
+        extensions->vkGetRayTracingShaderGroupHandlesKHR(*_device, _pipeline, 0, static_cast<uint32_t>(rayTracingShaderGroups.size()), sbtSize, buffer_data);
 
         bindingTableMemory->unmap();
 
@@ -218,7 +218,7 @@ void BindRayTracingPipeline::write(Output& output) const
 
 void BindRayTracingPipeline::record(CommandBuffer& commandBuffer) const
 {
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_NV, _pipeline->vk(commandBuffer.deviceID));
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, _pipeline->vk(commandBuffer.deviceID));
     commandBuffer.setCurrentPipelineLayout(_pipeline->getPipelineLayout());
 }
 

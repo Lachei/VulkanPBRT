@@ -24,15 +24,15 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 using namespace vsg;
 
 AccelerationGeometry::AccelerationGeometry(Allocator* allocator) :
-    Inherit(allocator)
+    Inherit(allocator), _geometry({})
 {
-    _geometry.geometry.triangles.vertexData = VK_NULL_HANDLE;
+    _geometry.geometry.triangles.vertexData.deviceAddress = VK_NULL_HANDLE;
 }
 
 void AccelerationGeometry::compile(Context& context)
 {
-    if (!verts) return;                                                    // no data set
-    if (_geometry.geometry.triangles.vertexData != VK_NULL_HANDLE) return; // already compiled
+    if (!verts) return;                                                                     // no data set
+    if (_geometry.geometry.triangles.vertexData.deviceAddress != VK_NULL_HANDLE) return;    // already compiled
 
     uint32_t vertcount = static_cast<uint32_t>(verts->valueCount());
     uint32_t strideSize = static_cast<uint32_t>(verts->valueSize());
@@ -57,27 +57,25 @@ void AccelerationGeometry::compile(Context& context)
     _indexBuffer = indexBufferInfo[0];
 
     // create the VkGeometry
+    Extensions* extensions = Extensions::Get(context.device.get(), true);
+    VkDeviceOrHostAddressConstKHR vertexDataDeviceAddress{};
+    VkDeviceOrHostAddressConstKHR indexDataDeviceAddress{};
+    VkBufferDeviceAddressInfoKHR bufferDeviceAI{};
+	bufferDeviceAI.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+	bufferDeviceAI.buffer = _vertexBuffer.buffer->vk(context.deviceID);
+	vertexDataDeviceAddress.deviceAddress = vkGetBufferDeviceAddressKHR(*context.device, &bufferDeviceAI);
+    bufferDeviceAI.buffer = _indexBuffer.buffer->vk(context.deviceID);
+
     _geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
     _geometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;
     _geometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
-    _geometry.geometry.triangles.vertexData = _vertexBuffer.buffer->vk(context.deviceID);
-    _geometry.geometry.triangles.vertexOffset = 0;
-    _geometry.geometry.triangles.vertexCount = vertcount;
+    _geometry.geometry.triangles.vertexData = vertexDataDeviceAddress;
+    _geometry.geometry.triangles.maxVertex = vertcount;
     _geometry.geometry.triangles.vertexStride = strideSize;
     _geometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
-    _geometry.geometry.triangles.indexData = _indexBuffer.buffer->vk(context.deviceID);
-    _geometry.geometry.triangles.indexOffset = 0;
-    _geometry.geometry.triangles.indexCount = static_cast<uint32_t>(indices->valueCount());
+    _geometry.geometry.triangles.indexData = indexDataDeviceAddress;
     _geometry.geometry.triangles.indexType = computeIndexType(indices);
-    _geometry.geometry.triangles.transformData = VK_NULL_HANDLE;
-    _geometry.geometry.triangles.transformOffset = 0;
     _geometry.geometry.triangles.pNext = nullptr;
-    _geometry.geometry.aabbs.numAABBs = 0;
-    _geometry.geometry.aabbs.aabbData = VK_NULL_HANDLE;
-    _geometry.geometry.aabbs.offset = 0;
-    _geometry.geometry.aabbs.stride = 0;
-    _geometry.geometry.aabbs.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_AABBS_DATA_KHR;
-    _geometry.geometry.aabbs.pNext = nullptr;
     _geometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
     _geometry.pNext = nullptr;
 }

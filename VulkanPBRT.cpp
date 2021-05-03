@@ -278,11 +278,7 @@ int main(int argc, char** argv){
 
         commandGraph->addChild(scenegraph);
         commandGraph->addChild(copyImageViewToWindow);
-<<<<<<< HEAD
-        renderGraph->addChild(vsgImGui::RenderImGui::create(window, Gui(guiValues)));
-=======
         //renderGraph->addChild(vsgImGui::RenderImGui::create(window, Gui(guiValues)));
->>>>>>> master
         commandGraph->addChild(renderGraph);
         
         //close handler to close and imgui handler to forward to imgui

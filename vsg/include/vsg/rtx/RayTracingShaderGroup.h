@@ -28,7 +28,7 @@ namespace vsg
 
         void applyTo(VkRayTracingShaderGroupCreateInfoKHR& shaderGroupInfo) const;
 
-        VkRayTracingShaderGroupTypeKHR type = VkRayTracingShaderGroupTypeKHR(0x7FFFFFFF); // TODO: adopt KHR versions i.e VK_RAY_TRACING_SHADER_GROUP_TYPE_MAX_ENUM_NV -> VK_RAY_TRACING_SHADER_GROUP_TYPE_MAX_ENUM_KHR
+        VkRayTracingShaderGroupTypeKHR type = VkRayTracingShaderGroupTypeKHR(VK_RAY_TRACING_SHADER_GROUP_TYPE_MAX_ENUM_KHR);
         uint32_t generalShader = VK_SHADER_UNUSED_KHR;
         uint32_t closestHitShader = VK_SHADER_UNUSED_KHR;
         uint32_t anyHitShader = VK_SHADER_UNUSED_KHR;

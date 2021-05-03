@@ -35,7 +35,7 @@ using namespace vsg;
 // BuildAccelerationStructureCommand
 //
 
-BuildAccelerationStructureCommand::BuildAccelerationStructureCommand(Device* device, VkAccelerationStructureInfoNV* info, const VkAccelerationStructureNV& structure, Buffer* instanceBuffer, Allocator* allocator) :
+BuildAccelerationStructureCommand::BuildAccelerationStructureCommand(Device* device, VkAccelerationStructureCreateInfoKHR* info, const VkAccelerationStructureKHR& structure, Buffer* instanceBuffer, Allocator* allocator) :
     Inherit(allocator),
     _device(device),
     _accelerationStructureInfo(info),
@@ -48,7 +48,7 @@ void BuildAccelerationStructureCommand::record(CommandBuffer& commandBuffer) con
 {
     Extensions* extensions = Extensions::Get(_device, true);
 
-    extensions->vkCmdBuildAccelerationStructureNV(commandBuffer,
+    extensions->vkCmdBuildAccelerationStructuresKHR(commandBuffer,
                                                   _accelerationStructureInfo,
                                                   _instanceBuffer.valid() ? _instanceBuffer->vk(commandBuffer.deviceID) : (VkBuffer)VK_NULL_HANDLE,
                                                   0,
@@ -61,10 +61,10 @@ void BuildAccelerationStructureCommand::record(CommandBuffer& commandBuffer) con
     VkMemoryBarrier memoryBarrier;
     memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
     memoryBarrier.pNext = nullptr;
-    memoryBarrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV;
-    memoryBarrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV;
+    memoryBarrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+    memoryBarrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
 
-    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV, 0, 1, &memoryBarrier, 0, 0, 0, 0);
+    vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 1, &memoryBarrier, 0, 0, 0, 0);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -191,7 +191,7 @@ bool Context::record()
     ref_ptr<DeviceMemory> scratchBufferMemory;
     if (scratchBufferSize > 0)
     {
-        scratchBuffer = vsg::createBufferAndMemory(device, scratchBufferSize, VK_BUFFER_USAGE_RAY_TRACING_BIT_NV, VK_SHARING_MODE_EXCLUSIVE, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        scratchBuffer = vsg::createBufferAndMemory(device, scratchBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_SHARING_MODE_EXCLUSIVE, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
         for (auto& command : buildAccelerationStructureCommands)
         {
