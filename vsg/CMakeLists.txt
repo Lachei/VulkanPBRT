@@ -2,6 +2,7 @@
 
 file(GLOB_RECURSE VSG_SRC src/
     *.cpp
+    +.h
 )
 list(FILTER VSG_SRC EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/vsg/src/imgui/.*" )
 

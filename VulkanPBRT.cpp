@@ -1,5 +1,6 @@
  #include <iostream>
  #include <vsg/all.h>
+ #include <vsgXchange/models.h>
  
  #include "gui.hpp"
 
@@ -11,6 +12,26 @@
 class RayTracingUniformValue : public vsg::Inherit<vsg::Value<RayTracingUniform>, RayTracingUniformValue>{
     public:
     RayTracingUniformValue(){}
+};
+
+class CountTrianglesVisitor : public vsg::Visitor
+{
+public:
+    CountTrianglesVisitor():triangleCount(0){};
+
+    void apply(vsg::Object& object){
+        object.traverse(*this);
+    };
+    void apply(vsg::Geometry& geometry){
+        triangleCount += geometry.indices->dataSize() / 3;
+    };
+
+    void apply(vsg::VertexIndexDraw& vid)
+    {
+        triangleCount += vid.indices->dataSize() / 3;
+    }
+
+    int triangleCount;
 };
 
 int main(int argc, char** argv){
@@ -28,6 +49,7 @@ int main(int argc, char** argv){
 
         auto numFrames = arguments.value(-1, "-f");
         auto filename = arguments.value(std::string(), "-i");
+        filename = "/home/lachei/Downloads/teapot.obj";//"/home/lachei/Downloads/glTF-Sample-Models-master/2.0/Sponza/glTF/Sponza.gltf";
         if(arguments.read("m")) filename = "models/raytracing_scene.vsgt";
         if(arguments.errors()) return arguments.writeErrorMessages(std::cerr);
 
@@ -56,6 +78,8 @@ int main(int argc, char** argv){
         vsg::AttachmentDescription  colorAttachment = vsg::defaultColorAttachment(window->surfaceFormat().format);
         colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        colorAttachment.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+        //colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         vsg::AttachmentDescription depthAttachment = vsg::defaultDepthAttachment(window->depthFormat());
         depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -139,6 +163,7 @@ int main(int argc, char** argv){
         vsg::ref_ptr<vsg::LookAt> lookAt;
 
         vsg::ref_ptr<vsg::TopLevelAccelerationStructure> tlas;
+        auto guiValues = Gui::Values::create();
         if(filename.empty()){
             //no extern geometry
             //acceleration structures
@@ -165,9 +190,11 @@ int main(int argc, char** argv){
             tlas->geometryInstances.push_back(geominstance);
 
             lookAt = vsg::LookAt::create(vsg::dvec3(0,0,-2.5), vsg::dvec3(0,0,0), vsg::dvec3(0,1,0));
+            guiValues->triangleCount = 1;
         }
         else{
-            auto loaded_scene = vsg::read_cast<vsg::Node>(filename);
+            auto options = vsg::Options::create(vsgXchange::assimp::create()); //using the assimp loader
+            auto loaded_scene = vsg::read_cast<vsg::Node>(filename, options);
             if(!loaded_scene){
                 std::cout << "Scene not found: " << filename << std::endl;
                 return 1;
@@ -177,6 +204,9 @@ int main(int argc, char** argv){
             tlas = buildAccelStruct.tlas;
 
             lookAt = vsg::LookAt::create(vsg::dvec3(0.0, 1.0, -5.0), vsg::dvec3(0.0, 0.5, 0.0), vsg::dvec3(0.0, 1.0, 0.0));
+            CountTrianglesVisitor counter;
+            loaded_scene->accept(counter);
+            guiValues->triangleCount = counter.triangleCount;
         }
 
         vsg::CompileTraversal compile(window);
@@ -242,24 +272,32 @@ int main(int argc, char** argv){
         auto camera = vsg::Camera::create(perspective, lookAt, viewport);
 
         auto commandGraph = vsg::CommandGraph::create(window);
-        auto renderGraph = vsg::RenderGraph::create(window); // render graph for gui rendering
+        auto renderGraph = vsg::createRenderGraphForView(window, camera, vsgImGui::RenderImGui::create(window, Gui(guiValues)));//vsg::RenderGraph::create(window); // render graph for gui rendering
         renderGraph->clearValues.clear();   //removing clear values to avoid clearing the raytraced image
-        auto guiValues = Gui::Values::create();
         auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(storageImageInfo.imageView, window);
 
         commandGraph->addChild(scenegraph);
         commandGraph->addChild(copyImageViewToWindow);
+<<<<<<< HEAD
         renderGraph->addChild(vsgImGui::RenderImGui::create(window, Gui(guiValues)));
+=======
+        //renderGraph->addChild(vsgImGui::RenderImGui::create(window, Gui(guiValues)));
+>>>>>>> master
         commandGraph->addChild(renderGraph);
         
         //close handler to close and imgui handler to forward to imgui
         viewer->addEventHandler(vsgImGui::SendEventsToImGui::create());
-        viewer->addEventHandlers({vsg::CloseHandler::create(viewer)});
+        viewer->addEventHandler(vsg::CloseHandler::create(viewer));
+        viewer->addEventHandler(vsg::Trackball::create(camera));
         viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph});
         viewer->compile();
 
         while(viewer->advanceToNextFrame() && (numFrames < 0 || (numFrames--) > 0)){
             viewer->handleEvents();
+            //update camera matrix
+            lookAt->get_inverse(raytracingUniformValues->value().viewInverse);
+            raytracingUniformDescriptor->copyDataListToBuffers();
+
             viewer->update();
             viewer->recordAndSubmit();
             viewer->present();

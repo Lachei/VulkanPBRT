@@ -1,6 +1,6 @@
  cmake_minimum_required(VERSION 3.7)
  
- project(VulkanPBRT
+project(VulkanPBRT
     VERSION 1.0.0
     DESCRIPTION "Vulkan physically based raytracer"
     LANGUAGES CXX
@@ -35,7 +35,7 @@ set(SHADERS
 
 add_executable(VulkanPBRT ${SOURCES} ${VSG_ALL})
 
-target_link_libraries(VulkanPBRT Vulkan::Vulkan glslang::glslang Threads::Threads xcb)
+target_link_libraries(VulkanPBRT Vulkan::Vulkan glslang::glslang Threads::Threads xcb assimp)
 
 ## compilaiton of shader files
 function(add_shader TARGET SHADER)
