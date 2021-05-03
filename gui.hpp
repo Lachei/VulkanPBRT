@@ -15,6 +15,7 @@ public:
         float testFloatSlider[3];
         float testColor[4];
         char testTextInput[200];
+        int triangleCount;
     };
     Gui(vsg::ref_ptr<Values> values): _values(values), _state({true}){}
 
@@ -29,7 +30,7 @@ public:
         ImGui::SliderFloat3("testFloatSlider", _values->testFloatSlider, 0, 100);
         ImGui::ColorEdit4("testColor", _values->testColor);
         ImGui::InputText("testTextInput", _values->testTextInput, 200);
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS) for %d triangles", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate, _values->triangleCount);
 
         ImGui::End();
         return _state.active;
