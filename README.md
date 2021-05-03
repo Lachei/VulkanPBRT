@@ -8,9 +8,9 @@ For faster and easier development the [VulkanSceneGraph](https://github.com/vsg-
 # Compilation Notes
 This project depends on the Vulkan library to be installed, so head over to the [Vulkan Website](https://vulkan.lunarg.com/sdk/home) and download the appropriate SDK.
 
-Further it is required that [VulkanSceneGraph](https://github.com/vsg-dev/VulkanSceneGraph) library is installed.
+The basis for implementation is the [VulkanScenGraph (VSG)](https://github.com/vsg-dev/VulkanSceneGraph) library. All needed files of VSG are included in this repository and do not have to be installed.
 
-Both libraries have to be set up so that they can be found by cmake via `find_package`. For details go to the links posted above and follow the install instructions on the websites.
+Further the threads, xcb and assimp libraries are needed and have to be found by cmake via a find_package call.
 
 The shaders for the projects are automatically compiled by cmake when the project is built. If you should change the source code of the shaders this compilation will automatically be re-run on the next build instruction.
 
