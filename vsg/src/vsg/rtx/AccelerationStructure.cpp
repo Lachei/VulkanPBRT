@@ -63,11 +63,8 @@ void AccelerationStructure::compile(Context& context)
         _geometryPrimitiveCounts.data(), 
         &accelerationStructureBuildSizesInfo);
     
-    _buffer = Buffer::create(accelerationStructureBuildSizesInfo.accelerationStructureSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_SHARING_MODE_EXCLUSIVE);
-    VkMemoryRequirements memReq{};
-    vkGetBufferMemoryRequirements(*context.device, _buffer->vk(context.deviceID), &memReq);
-    _memory = DeviceMemory::create(context.device, memReq, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    _buffer->bind(_memory, 0);
+    _buffer = vsg::createBufferAndMemory(context.device, accelerationStructureBuildSizesInfo.accelerationStructureSize, 
+        VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_SHARING_MODE_EXCLUSIVE, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
 
     _accelerationStructureInfo.buffer = _buffer->vk(context.deviceID);
     _accelerationStructureInfo.size = accelerationStructureBuildSizesInfo.accelerationStructureSize;
