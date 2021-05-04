@@ -38,13 +38,15 @@ void BottomLevelAccelerationStructure::compile(Context& context)
     }
 
     // set the additional acceleration structure info used in the base AccelerationStructure compile function
+    uint32_t primitiveCount = 0;
     for (auto& geom : geometries){
         _geometryPrimitiveCounts.push_back(geom->indices->dataSize() / 3);
+        primitiveCount += _geometryPrimitiveCounts.back();
     }
     _accelerationStructureBuildGeometryInfo.geometryCount = static_cast<uint32_t>(geometries.size());
     _accelerationStructureBuildGeometryInfo.pGeometries = _vkGeometries.data();
 
     Inherit::compile(context);
 
-    context.buildAccelerationStructureCommands.push_back(BuildAccelerationStructureCommand::create(context.device, &_accelerationStructureInfo, _accelerationStructure, nullptr));
+    context.buildAccelerationStructureCommands.push_back(BuildAccelerationStructureCommand::create(context.device, _accelerationStructureBuildGeometryInfo, _accelerationStructure, primitiveCount, context.getAllocator()));
 }

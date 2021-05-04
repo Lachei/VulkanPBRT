@@ -63,7 +63,7 @@ void AccelerationGeometry::compile(Context& context)
     VkBufferDeviceAddressInfoKHR bufferDeviceAI{};
 	bufferDeviceAI.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
 	bufferDeviceAI.buffer = _vertexBuffer.buffer->vk(context.deviceID);
-	vertexDataDeviceAddress.deviceAddress = vkGetBufferDeviceAddressKHR(*context.device, &bufferDeviceAI);
+	vertexDataDeviceAddress.deviceAddress = extensions->vkGetBufferDeviceAddressKHR(*context.device, &bufferDeviceAI);
     bufferDeviceAI.buffer = _indexBuffer.buffer->vk(context.deviceID);
 
     _geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;

@@ -77,5 +77,5 @@ void TopLevelAccelerationStructure::compile(Context& context)
 
     Inherit::compile(context);
 
-    context.buildAccelerationStructureCommands.push_back(BuildAccelerationStructureCommand::create(context.device, &_accelerationStructureInfo, _accelerationStructure, _instanceBuffer));
+    context.buildAccelerationStructureCommands.push_back(BuildAccelerationStructureCommand::create(context.device, _accelerationStructureBuildGeometryInfo, _accelerationStructure, _geometryPrimitiveCounts.front(), context.getAllocator()));
 }

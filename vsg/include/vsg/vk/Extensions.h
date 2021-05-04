@@ -42,6 +42,7 @@ namespace vsg
         PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR = nullptr;
         PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR = nullptr;
         PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR = nullptr;
+        PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR = nullptr;
 
         // VK_NV_mesh_shader
         PFN_vkCmdDrawMeshTasksNV vkCmdDrawMeshTasksNV = nullptr;

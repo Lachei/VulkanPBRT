@@ -35,28 +35,26 @@ using namespace vsg;
 // BuildAccelerationStructureCommand
 //
 
-BuildAccelerationStructureCommand::BuildAccelerationStructureCommand(Device* device, VkAccelerationStructureCreateInfoKHR* info, const VkAccelerationStructureKHR& structure, Buffer* instanceBuffer, Allocator* allocator) :
+BuildAccelerationStructureCommand::BuildAccelerationStructureCommand(Device* device, const VkAccelerationStructureBuildGeometryInfoKHR& info, const VkAccelerationStructureKHR& structure, uint32_t primitiveCount, Allocator* allocator) :
     Inherit(allocator),
     _device(device),
     _accelerationStructureInfo(info),
-    _accelerationStructure(structure),
-    _instanceBuffer(instanceBuffer)
+    _accelerationStructureBuildRangeInfo({primitiveCount, 0, 0, 0}),
+    _accelerationStructure(structure)
 {
+    _accelerationStructureInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+    _accelerationStructureInfo.dstAccelerationStructure = _accelerationStructure;
 }
 
 void BuildAccelerationStructureCommand::record(CommandBuffer& commandBuffer) const
 {
     Extensions* extensions = Extensions::Get(_device, true);
-
-    extensions->vkCmdBuildAccelerationStructuresKHR(commandBuffer,
-                                                  _accelerationStructureInfo,
-                                                  _instanceBuffer.valid() ? _instanceBuffer->vk(commandBuffer.deviceID) : (VkBuffer)VK_NULL_HANDLE,
-                                                  0,
-                                                  VK_FALSE,
-                                                  _accelerationStructure,
-                                                  VK_NULL_HANDLE,
-                                                  _scratchBuffer->vk(commandBuffer.deviceID),
-                                                  0);
+    const VkAccelerationStructureBuildRangeInfoKHR* rangeInfos[1]{&_accelerationStructureBuildRangeInfo};
+    extensions->vkCmdBuildAccelerationStructuresKHR(
+        commandBuffer,
+        1,
+        &_accelerationStructureInfo,
+        rangeInfos);
 
     VkMemoryBarrier memoryBarrier;
     memoryBarrier.sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER;
@@ -65,6 +63,13 @@ void BuildAccelerationStructureCommand::record(CommandBuffer& commandBuffer) con
     memoryBarrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
 
     vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 1, &memoryBarrier, 0, 0, 0, 0);
+}
+
+void BuildAccelerationStructureCommand::setScratchBuffer(ref_ptr<Buffer>& scratchBuffer)
+{
+    Extensions* extensions = Extensions::Get(_device, true);
+    VkBufferDeviceAddressInfo devAddressInfo{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO, nullptr, _scratchBuffer->vk(_device->deviceID)};
+	_accelerationStructureInfo.scratchData.deviceAddress = vkGetBufferDeviceAddress(_device->getDevice(), &devAddressInfo);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -195,7 +200,7 @@ bool Context::record()
 
         for (auto& command : buildAccelerationStructureCommands)
         {
-            command->_scratchBuffer = scratchBuffer;
+            command->setScratchBuffer(scratchBuffer);
             command->record(*commandBuffer);
         }
     }

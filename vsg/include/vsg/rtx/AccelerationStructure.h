@@ -29,6 +29,7 @@ namespace vsg
         virtual void compile(Context& context);
 
         operator VkAccelerationStructureKHR() const { return _accelerationStructure; }
+        operator VkAccelerationStructureBuildGeometryInfoKHR() const { return _accelerationStructureBuildGeometryInfo; }
 
         uint64_t handle() const { return _handle; }
 
