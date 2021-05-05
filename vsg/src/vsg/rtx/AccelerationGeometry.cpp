@@ -49,7 +49,7 @@ void AccelerationGeometry::compile(Context& context)
 #else
     auto vertexBufferInfo = vsg::createHostVisibleBuffer(context.device, vertexDataList, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_SHARING_MODE_EXCLUSIVE);
     vsg::copyDataListToBuffers(context.device, vertexBufferInfo);
-    auto indexBufferInfo = vsg::createHostVisibleBuffer(context.device, indexDataList, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE);
+    auto indexBufferInfo = vsg::createHostVisibleBuffer(context.device, indexDataList, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_SHARING_MODE_EXCLUSIVE);
     vsg::copyDataListToBuffers(context.device, indexBufferInfo);
 #endif
 
@@ -65,6 +65,7 @@ void AccelerationGeometry::compile(Context& context)
 	bufferDeviceAI.buffer = _vertexBuffer.buffer->vk(context.deviceID);
 	vertexDataDeviceAddress.deviceAddress = extensions->vkGetBufferDeviceAddressKHR(*context.device, &bufferDeviceAI);
     bufferDeviceAI.buffer = _indexBuffer.buffer->vk(context.deviceID);
+    indexDataDeviceAddress.deviceAddress = extensions->vkGetBufferDeviceAddressKHR(*context.device, &bufferDeviceAI);
 
     _geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
     _geometry.geometryType = VK_GEOMETRY_TYPE_TRIANGLES_KHR;

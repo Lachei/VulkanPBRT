@@ -42,7 +42,7 @@ int main(int argc, char** argv){
         auto windowTraits = vsg::WindowTraits::create();
         windowTraits->windowTitle = "VulkanPBRT";
         windowTraits->debugLayer = true;//arguments.read({"--debug", "-d"});
-        windowTraits->apiDumpLayer = true;//arguments.read({"--api", "-a"});
+        windowTraits->apiDumpLayer = arguments.read({"--api", "-a"});
         if(arguments.read({"--fullscreen", "--fs"})) windowTraits->fullscreen = true;
         if(arguments.read({"--window", "-w"}, windowTraits->width, windowTraits->height)) windowTraits->fullscreen = false;
         arguments.read("--screen", windowTraits->screenNum);
