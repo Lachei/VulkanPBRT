@@ -41,12 +41,11 @@ void BottomLevelAccelerationStructure::compile(Context& context)
     uint32_t primitiveCount = 0;
     for (auto& geom : geometries){
         _geometryPrimitiveCounts.push_back(geom->indices->dataSize() / 3);
-        primitiveCount += _geometryPrimitiveCounts.back();
     }
     _accelerationStructureBuildGeometryInfo.geometryCount = static_cast<uint32_t>(geometries.size());
     _accelerationStructureBuildGeometryInfo.pGeometries = _vkGeometries.data();
 
     Inherit::compile(context);
 
-    context.buildAccelerationStructureCommands.push_back(BuildAccelerationStructureCommand::create(context.device, _accelerationStructureBuildGeometryInfo, _accelerationStructure, primitiveCount, context.getAllocator()));
+    context.buildAccelerationStructureCommands.push_back(BuildAccelerationStructureCommand::create(context.device, _accelerationStructureBuildGeometryInfo, _accelerationStructure, _geometryPrimitiveCounts, context.getAllocator()));
 }

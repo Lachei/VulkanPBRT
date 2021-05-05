@@ -125,7 +125,14 @@ ref_ptr<Buffer> vsg::createBufferAndMemory(Device* device, VkDeviceSize size, Vk
     buffer->compile(device);
 
     auto memRequirements = buffer->getMemoryRequirements(device->deviceID);
-    auto memory = vsg::DeviceMemory::create(device, memRequirements, memoryProperties);
+    ref_ptr<DeviceMemory> memory;
+    if(usage & VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT){
+        VkMemoryAllocateFlagsInfo allocateFlagsInfo{VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_FLAGS_INFO};
+        allocateFlagsInfo.flags = VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT;
+        memory = vsg::DeviceMemory::create(device, memRequirements, memoryProperties, &allocateFlagsInfo);
+    }
+    else
+        memory = vsg::DeviceMemory::create(device, memRequirements, memoryProperties);
 
     buffer->bind(memory, 0);
     return buffer;

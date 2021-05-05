@@ -27,6 +27,7 @@ AccelerationStructure::AccelerationStructure(VkAccelerationStructureTypeKHR type
     _requiredBuildScratchSize(0),
     _device(device)
 {
+    _accelerationStructure = {};
     _accelerationStructureInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
     _accelerationStructureInfo.type = type;
     _accelerationStructureInfo.createFlags = 0; // probably be useful to set this somehow
@@ -36,6 +37,7 @@ AccelerationStructure::AccelerationStructure(VkAccelerationStructureTypeKHR type
     _accelerationStructureInfo.size = 0;
     _accelerationStructureInfo.pNext = nullptr;
 
+    _accelerationStructureBuildGeometryInfo = {};
     _accelerationStructureBuildGeometryInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
     _accelerationStructureBuildGeometryInfo.type = type;
     _accelerationStructureBuildGeometryInfo.flags = VK_BUILD_ACCELERATION_STRUCTURE_PREFER_FAST_TRACE_BIT_KHR;
@@ -64,7 +66,7 @@ void AccelerationStructure::compile(Context& context)
         &accelerationStructureBuildSizesInfo);
     
     _buffer = vsg::createBufferAndMemory(context.device, accelerationStructureBuildSizesInfo.accelerationStructureSize, 
-        VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_SHARING_MODE_EXCLUSIVE, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_ALLOCATE_DEVICE_ADDRESS_BIT);
+        VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_SHARING_MODE_EXCLUSIVE, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
     _accelerationStructureInfo.buffer = _buffer->vk(context.deviceID);
     _accelerationStructureInfo.size = accelerationStructureBuildSizesInfo.accelerationStructureSize;

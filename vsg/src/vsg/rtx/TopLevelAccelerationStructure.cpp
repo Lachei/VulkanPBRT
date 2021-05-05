@@ -62,14 +62,16 @@ void TopLevelAccelerationStructure::compile(Context& context)
     vsg::copyDataListToBuffers(context.device, instanceBufferInfo);
     _instanceBuffer = instanceBufferInfo[0].buffer;
 #endif
-
+    Extensions* extensions = Extensions::Get(context.device, true);
+    VkBufferDeviceAddressInfo bufferDeviceAddressInfo{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO};
+    bufferDeviceAddressInfo.buffer = _instanceBuffer->vk(context.deviceID);
     VkAccelerationStructureGeometryKHR accelerationStructureGeometry{};
     accelerationStructureGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
     accelerationStructureGeometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
     accelerationStructureGeometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
     accelerationStructureGeometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
     accelerationStructureGeometry.geometry.instances.arrayOfPointers = VK_FALSE;
-    accelerationStructureGeometry.geometry.instances.data.hostAddress = &_instances;
+    accelerationStructureGeometry.geometry.instances.data.deviceAddress = extensions->vkGetBufferDeviceAddressKHR(*context.device, &bufferDeviceAddressInfo);
 
     _accelerationStructureBuildGeometryInfo.geometryCount = 1;
     _accelerationStructureBuildGeometryInfo.pGeometries = &accelerationStructureGeometry;
@@ -77,5 +79,5 @@ void TopLevelAccelerationStructure::compile(Context& context)
 
     Inherit::compile(context);
 
-    context.buildAccelerationStructureCommands.push_back(BuildAccelerationStructureCommand::create(context.device, _accelerationStructureBuildGeometryInfo, _accelerationStructure, _geometryPrimitiveCounts.front(), context.getAllocator()));
+    context.buildAccelerationStructureCommands.push_back(BuildAccelerationStructureCommand::create(context.device, _accelerationStructureBuildGeometryInfo, _accelerationStructure, _geometryPrimitiveCounts, context.getAllocator()));
 }
