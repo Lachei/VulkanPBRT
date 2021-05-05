@@ -1,6 +1,7 @@
  #include <iostream>
  #include <vsg/all.h>
  #include <vsgXchange/models.h>
+ #include <vsgXchange/images.h>
  
  #include "gui.hpp"
 
@@ -200,7 +201,7 @@ int main(int argc, char** argv){
             guiValues->triangleCount = 1;
         }
         else{
-            auto options = vsg::Options::create(vsgXchange::assimp::create()); //using the assimp loader
+            auto options = vsg::Options::create(vsgXchange::assimp::create(), vsgXchange::dds::create(), vsgXchange::stbi::create()); //using the assimp loader
             auto loaded_scene = vsg::read_cast<vsg::Node>(filename, options);
             if(!loaded_scene){
                 std::cout << "Scene not found: " << filename << std::endl;
