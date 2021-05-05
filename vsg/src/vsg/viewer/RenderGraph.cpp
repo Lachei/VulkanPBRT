@@ -102,7 +102,7 @@ void RenderGraph::accept(RecordTraversal& recordTraversal) const
 
             this_renderGraph->traverse(resizeHandler);
 
-            this_renderGraph->renderArea = resizeHandler.renderArea;
+            resizeHandler.scale_rect(this_renderGraph->renderArea);
             previous_extent = extent;
         }
     }

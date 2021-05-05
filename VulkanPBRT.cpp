@@ -23,12 +23,12 @@ public:
         object.traverse(*this);
     };
     void apply(vsg::Geometry& geometry){
-        triangleCount += geometry.indices->dataSize() / 3;
+        triangleCount += geometry.indices->valueCount() / 3;
     };
 
     void apply(vsg::VertexIndexDraw& vid)
     {
-        triangleCount += vid.indices->dataSize() / 3;
+        triangleCount += vid.indices->valueCount() / 3;
     }
 
     int triangleCount;
