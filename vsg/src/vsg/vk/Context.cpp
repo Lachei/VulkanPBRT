@@ -28,6 +28,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 #include <iostream>
 
+#define REDUCE_ACCELERATION_SIZE 1
+
 using namespace vsg;
 
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -71,6 +73,12 @@ void BuildAccelerationStructureCommand::record(CommandBuffer& commandBuffer) con
     memoryBarrier.dstAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR | VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
 
     vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR, 0, 1, &memoryBarrier, 0, 0, 0, 0);
+#if REDUCE_ACCELERATION_SIZE
+
+#if 1
+    std::cout << "Rduced size from " << std::endl;
+#endif
+#endif
 }
 
 void BuildAccelerationStructureCommand::setScratchBuffer(ref_ptr<Buffer>& scratchBuffer)
