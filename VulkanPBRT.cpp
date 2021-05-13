@@ -35,6 +35,105 @@ public:
     int triangleCount;
 };
 
+class CreateRayTracingDescriptorTraversal : public vsg::Visitor{
+public:
+    CreateRayTracingDescriptorTraversal();
+    CreateRayTracingDescriptorTraversal(vsg::ref_ptr<vsg::PipelineLayout> pipelineLayout): pipelineLayout(pipelineLayout){};
+
+    //default visiting for standard nodes, simply forward to children
+    void apply(vsg::Object& object){
+        object.traverse(*this);
+    }
+
+    //getting the normals, texture coordinates and vertex data
+    void apply(const vsg::VertexIndexDraw& vid)
+    {
+        
+    }
+
+    //getting the texture samplers of the descriptor sets
+    void apply(const vsg::BindDescriptorSet& bds){
+
+    }
+
+    vsg::ref_ptr<vsg::BindDescriptorSet> getBindDescriptorSet(){
+        if(!_bindDescriptor){
+            vsg::DescriptorSetLayoutBindings descriptorBindings{
+                {0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+                {1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+                {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(_positions.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+                {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(_normals.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+                {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(_indices.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+                {5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_diffuse.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+                {6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_mr.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+                {7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_normal.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+                {8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_ao.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+                {9, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_emissive.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+                {10, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_specular.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+                {11, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+                {12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr}
+                };
+            //adding all descriptors
+            vsg::Descriptors descList;
+            for(const auto& d: _diffuse){
+                descList.push_back(d);
+            }
+            for(const auto& d: _mr){
+                descList.push_back(d);
+            }
+            for(const auto& d: _normal){
+                descList.push_back(d);
+            }
+            for(const auto& d: _ao){
+                descList.push_back(d);
+            }
+            for(const auto& d: _emissive){
+                descList.push_back(d);
+            }
+            for(const auto& d: _specular){
+                descList.push_back(d);
+            }
+            descList.push_back(_lights);
+            descList.push_back(_materials);
+            for(const auto& d: _positions){
+                descList.push_back(d);
+            }
+            for(const auto& d: _normals){
+                descList.push_back(d);
+            }
+            for(const auto& d: _texCoords){
+                descList.push_back(d);
+            }
+            for(const auto& d: _indices){
+                descList.push_back(d);
+            }
+            _descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
+            _descriptorSet = vsg::DescriptorSet::create(_descriptorSetLayout, descList);
+            _bindDescriptor = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipelineLayout, 0, _descriptorSet);
+        }
+        return _bindDescriptor;
+    };
+
+    //holds the binding command for the raytracing decriptor
+    vsg::ref_ptr<vsg::PipelineLayout> pipelineLayout;
+protected:
+    vsg::ref_ptr<vsg::DescriptorSetLayout> _descriptorSetLayout;
+    vsg::ref_ptr<vsg::BindDescriptorSet> _bindDescriptor;
+    vsg::ref_ptr<vsg::DescriptorSet> _descriptorSet;
+    std::vector<vsg::ref_ptr<vsg::DescriptorImage>> _diffuse;
+    std::vector<vsg::ref_ptr<vsg::DescriptorImage>> _mr;
+    std::vector<vsg::ref_ptr<vsg::DescriptorImage>> _normal;
+    std::vector<vsg::ref_ptr<vsg::DescriptorImage>> _ao;
+    std::vector<vsg::ref_ptr<vsg::DescriptorImage>> _emissive;
+    std::vector<vsg::ref_ptr<vsg::DescriptorImage>> _specular;
+    std::vector<vsg::ref_ptr<vsg::DescriptorBuffer>> _positions;
+    std::vector<vsg::ref_ptr<vsg::DescriptorBuffer>> _normals;
+    std::vector<vsg::ref_ptr<vsg::DescriptorBuffer>> _texCoords;
+    std::vector<vsg::ref_ptr<vsg::DescriptorBuffer>> _indices;
+    vsg::ref_ptr<vsg::DescriptorBuffer> _materials;
+    vsg::ref_ptr<vsg::DescriptorBuffer> _lights;
+};
+
 int main(int argc, char** argv){
     try{
         // command line parsing
@@ -242,9 +341,10 @@ int main(int argc, char** argv){
 
         //set up graphics pipeline
         vsg::DescriptorSetLayoutBindings descriptorBindings{
-            {0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr},
-            {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr},
-            {2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr}
+            {0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr}, //acceleration structure
+            {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr},              //output image
+            {2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr},             //camear matrices
+            {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, }
         };
         auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
 
