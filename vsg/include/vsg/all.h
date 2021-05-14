@@ -57,6 +57,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/nodes/PagedLOD.h>
 #include <vsg/nodes/QuadGroup.h>
 #include <vsg/nodes/VertexIndexDraw.h>
+#include <vsg/nodes/Light.h>
 
 // Commands header files
 #include <vsg/commands/BindIndexBuffer.h>

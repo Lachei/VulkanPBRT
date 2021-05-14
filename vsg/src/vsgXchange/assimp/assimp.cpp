@@ -480,6 +480,42 @@ vsg::ref_ptr<vsg::Object> assimp::Implementation::processScene(const aiScene* sc
 
     root->addChild(scenegraph);
 
+    for (unsigned int i = 0; i< scene->mNumLights; ++i)
+    {
+        auto light = vsg::Light::create();
+        auto* curLight = scene->mLights[i];
+        light->name = curLight->mName.C_Str();
+        light->v0.set(curLight->mPosition.x, curLight->mPosition.y, curLight->mPosition.z);
+        light->type = (vsg::LightSourceType)curLight->mType;
+        light->strengths.set(curLight->mAttenuationConstant, curLight->mAttenuationLinear, curLight->mAttenuationQuadratic);
+        light->radius = curLight->mSize.x;
+        light->angle = curLight->mAngleInnerCone;
+        light->angle2 = curLight->mAngleOuterCone;
+        light->dir.set(curLight->mDirection.x, curLight->mDirection.y, curLight->mDirection.z);
+        light->colorAmbient.set(curLight->mColorAmbient.r, curLight->mColorAmbient.g, curLight->mColorAmbient.b);
+        light->colorDiffuse.set(curLight->mColorDiffuse.r, curLight->mColorDiffuse.g, curLight->mColorDiffuse.b);
+        light->colorSpecular.set(curLight->mColorSpecular.r, curLight->mColorSpecular.g, curLight->mColorSpecular.b);
+        if(light->type == vsg::LightSourceType::Area){
+            auto l1 = vsg::Light::create(light);
+
+            vsg::vec3 right = vsg::normalize(vsg::cross(vsg::vec3(curLight->mUp.x, curLight->mUp.y, curLight->mUp.x), light->dir));
+            vsg::vec3 top = vsg::normalize(vsg::cross(right, light->dir));
+            vsg::vec2 sizeHalf = vsg::vec2(curLight->mSize.x, curLight->mSize.y) / 2.0f;
+            vsg::vec3 lb = light->v0 - right * sizeHalf.x - top * sizeHalf.y;
+            vsg::vec3 lt = light->v0 - right * sizeHalf.x + top * sizeHalf.y;
+            vsg::vec3 rt = light->v0 + right * sizeHalf.x + top * sizeHalf.y;
+            vsg::vec3 rb = light->v0 + right * sizeHalf.x - top * sizeHalf.y;
+            light->v0 = lb;
+            light->v1 = rb;
+            light->v2 = lt;
+            l1->v0 = lt;
+            l1->v1 = rb;
+            l1->v2 = rt;
+            root->addChild(l1);
+        }
+        root->addChild(light);
+    }
+
     return root;
 }
 

@@ -35,9 +35,10 @@ public:
     int triangleCount;
 };
 
-class CreateRayTracingDescriptorTraversal : public vsg::Visitor{
+class CreateRayTracingDescriptorTraversal : public vsg::Visitor
+{
 public:
-    CreateRayTracingDescriptorTraversal();
+    CreateRayTracingDescriptorTraversal(){};
     CreateRayTracingDescriptorTraversal(vsg::ref_ptr<vsg::PipelineLayout> pipelineLayout): pipelineLayout(pipelineLayout){};
 
     //default visiting for standard nodes, simply forward to children
@@ -45,33 +46,148 @@ public:
         object.traverse(*this);
     }
 
-    //getting the normals, texture coordinates and vertex data
-    void apply(const vsg::VertexIndexDraw& vid)
+    //matrix transformation
+    void apply(vsg::MatrixTransform& mt)
     {
-        
+        _transformStack.pushAndPreMult(mt.getMatrix());
+
+        mt.traverse(*this);
+
+        _transformStack.pop();
+    }
+
+    //getting the normals, texture coordinates and vertex data
+    void apply(vsg::VertexIndexDraw& vid)
+    {
+        if (vid.arrays.size() == 0) return;
+
+        //check cache
+        bool cached = _vertexIndexDrawMap.find(&vid) != _vertexIndexDrawMap.end();
+        ObjectInstance instance;
+        instance.objectMat = _transformStack.top();
+        if(cached) instance.meshId = _vertexIndexDrawMap[&vid];
+        else
+        {
+            instance.meshId = _positions.size();
+            _vertexIndexDrawMap[&vid] = instance.meshId;
+            auto positions = vsg::DescriptorBuffer::create(vid.arrays[0], 2, _positions.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+            _positions.push_back(positions);
+            auto normals = vsg::DescriptorBuffer::create(vid.arrays[1], 3, _normals.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+            _normals.push_back(normals);
+            auto texCoords = vsg::DescriptorBuffer::create(vid.arrays[2], 4, _texCoords.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+            _texCoords.push_back(texCoords);
+            auto indices = vsg::DescriptorBuffer::create(vid.indices, 5, _indices.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+            _indices.push_back(indices);
+        }
+        _instancesArray.push_back(instance);
+    }
+
+    //traversing the states and the group
+    void apply(vsg::StateGroup& sg)
+    {
+        vsg::StateGroup::StateCommands& sc = sg.getStateCommands();
+        for(auto& state: sc)
+        {
+            auto bds = state.cast<vsg::BindDescriptorSet>();
+            if(bds){
+                apply(*bds);
+            }
+        }
+        sg.traverse(*this);
     }
 
     //getting the texture samplers of the descriptor sets
-    void apply(const vsg::BindDescriptorSet& bds){
+    void apply(vsg::BindDescriptorSet &bds){
+        for(const auto& descriptor: bds.descriptorSet->descriptors)
+        {
+            if(descriptor->descriptorType != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) continue;
 
+            vsg::ref_ptr<vsg::DescriptorImage> d = descriptor.cast<vsg::DescriptorImage>();  //cast to descriptor image
+            vsg::ref_ptr<vsg::DescriptorImage> texture;
+            switch(descriptor->dstBinding){
+            case 0: //diffuse map
+                texture = vsg::DescriptorImage::create(d->imageInfoList, 6, _diffuse.size());
+                _diffuse.push_back(texture);
+                break;
+            case 1: //metall roughness map
+                texture = vsg::DescriptorImage::create(d->imageInfoList, 7, _mr.size());
+                _mr.push_back(texture);
+                break;
+            case 2: //normal map
+                texture = vsg::DescriptorImage::create(d->imageInfoList, 8, _normal.size());
+                _normal.push_back(texture);
+                break;
+            case 3: //light map
+                texture = vsg::DescriptorImage::create(d->imageInfoList, 9, _ao.size());
+                _ao.push_back(texture);
+                break;
+            case 4: //emissive map
+                texture = vsg::DescriptorImage::create(d->imageInfoList, 10, _emissive.size());
+                _emissive.push_back(texture);
+                break;
+            case 5: //specular map
+                texture = vsg::DescriptorImage::create(d->imageInfoList, 11, _specular.size());
+                _specular.push_back(texture);
+            default:
+                std::cout << "Missing texture, should enter default texture" << std::endl;
+            }
+        }
+    }
+
+    //getting the lights in the scene
+    void apply(const vsg::Light& l){
+        _packedLights.push_back(l.getPacked());
     }
 
     vsg::ref_ptr<vsg::BindDescriptorSet> getBindDescriptorSet(){
         if(!_bindDescriptor){
+            if(_packedLights.empty())
+            {
+                std::cout << "Adding default directional light for raytracing" << std::endl;
+                vsg::Light l;
+                l.radius = 0;
+                l.type = vsg::LightSourceType::Directional;
+                vsg::vec3 col{1.0f,1.0f,1.0f};
+                l.colorAmbient = col;
+                l.colorDiffuse = col;
+                l.colorSpecular = col;
+                l.strengths = vsg::vec3(1.0f,.0f,.0f);
+                _packedLights.push_back(l.getPacked());
+            }
+            if(!_lights)
+            {
+                auto lights = vsg::Array<vsg::Light::PackedLight>::create(_packedLights.size());
+                std::copy(_packedLights.begin(), _packedLights.end(), lights->data());
+                _lights = vsg::DescriptorBuffer::create(lights, 12, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+            }
+            if(!_materials)
+            {
+                auto materials = vsg::Array<WaveFrontMaterialPacked>::create(_materialArray.size());
+                std::copy(_materialArray.begin(), _materialArray.end(), materials->data());
+                _materials = vsg::DescriptorBuffer::create(materials, 13, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+            }
+            if(!_instances)
+            {
+                auto instances = vsg::Array<ObjectInstance>::create(_instancesArray.size());
+                std::copy(_instancesArray.begin(), _instancesArray.end(), instances->data());
+                _instances = vsg::DescriptorBuffer::create(instances, 14, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+            }
             vsg::DescriptorSetLayoutBindings descriptorBindings{
                 {0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
                 {1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
                 {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(_positions.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
                 {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(_normals.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
                 {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(_indices.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_diffuse.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_mr.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_normal.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_ao.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {9, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_emissive.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {10, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_specular.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {11, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr}
+                {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(_indices.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+                {6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_diffuse.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+                {7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_mr.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+                {8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_normal.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+                {9, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_ao.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+                {10, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_emissive.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+                {11, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_specular.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+                {12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+                {13, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+                {14, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr}
                 };
             //adding all descriptors
             vsg::Descriptors descList;
@@ -109,6 +225,10 @@ public:
             }
             _descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
             _descriptorSet = vsg::DescriptorSet::create(_descriptorSetLayout, descList);
+            if(!pipelineLayout)
+            {
+                pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{_descriptorSetLayout}, vsg::PushConstantRanges{});
+            }
             _bindDescriptor = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipelineLayout, 0, _descriptorSet);
         }
         return _bindDescriptor;
@@ -117,21 +237,43 @@ public:
     //holds the binding command for the raytracing decriptor
     vsg::ref_ptr<vsg::PipelineLayout> pipelineLayout;
 protected:
+    struct ObjectInstance{
+        vsg::mat4 objectMat;
+        int meshId;         //index of the corresponding textuers etc.
+        int pad[3];
+    };
+    struct WaveFrontMaterialPacked
+    {
+        vsg::vec4  ambientShininess;
+        vsg::vec4  diffuseIor;
+        vsg::vec4  specularDissolve;
+        vsg::vec4  transmittanceIllum;
+        vsg::vec4  emissionTextureId;
+    };
+    vsg::ref_ptr<vsg::DescriptorBuffer> _instances;
+    std::vector<ObjectInstance> _instancesArray;
     vsg::ref_ptr<vsg::DescriptorSetLayout> _descriptorSetLayout;
     vsg::ref_ptr<vsg::BindDescriptorSet> _bindDescriptor;
     vsg::ref_ptr<vsg::DescriptorSet> _descriptorSet;
+    //images are available correctly for every instance
     std::vector<vsg::ref_ptr<vsg::DescriptorImage>> _diffuse;
     std::vector<vsg::ref_ptr<vsg::DescriptorImage>> _mr;
     std::vector<vsg::ref_ptr<vsg::DescriptorImage>> _normal;
     std::vector<vsg::ref_ptr<vsg::DescriptorImage>> _ao;
     std::vector<vsg::ref_ptr<vsg::DescriptorImage>> _emissive;
     std::vector<vsg::ref_ptr<vsg::DescriptorImage>> _specular;
+    //buffers are available for each geometry
     std::vector<vsg::ref_ptr<vsg::DescriptorBuffer>> _positions;
     std::vector<vsg::ref_ptr<vsg::DescriptorBuffer>> _normals;
     std::vector<vsg::ref_ptr<vsg::DescriptorBuffer>> _texCoords;
     std::vector<vsg::ref_ptr<vsg::DescriptorBuffer>> _indices;
     vsg::ref_ptr<vsg::DescriptorBuffer> _materials;
+    std::vector<WaveFrontMaterialPacked> _materialArray;
     vsg::ref_ptr<vsg::DescriptorBuffer> _lights;
+    std::vector<vsg::Light::PackedLight> _packedLights;
+
+    std::map<vsg::VertexIndexDraw*, int> _vertexIndexDrawMap;
+    vsg::MatrixStack _transformStack;
 };
 
 int main(int argc, char** argv){
@@ -270,6 +412,8 @@ int main(int argc, char** argv){
         vsg::ref_ptr<vsg::LookAt> lookAt;
 
         vsg::ref_ptr<vsg::TopLevelAccelerationStructure> tlas;
+        vsg::ref_ptr<vsg::BindDescriptorSet> rayTracingBinder;
+        vsg::ref_ptr<vsg::PipelineLayout> rayTracingPipelineLayout;
         auto guiValues = Gui::Values::create();
         if(filename.empty()){
             //no extern geometry
@@ -309,6 +453,11 @@ int main(int argc, char** argv){
             vsg::BuildAccelerationStructureTraversal buildAccelStruct(device);
             loaded_scene->accept(buildAccelStruct);
             tlas = buildAccelStruct.tlas;
+
+            CreateRayTracingDescriptorTraversal buildDescriptorBinding;
+            loaded_scene->accept(buildDescriptorBinding);
+            rayTracingBinder = buildDescriptorBinding.getBindDescriptorSet();
+            rayTracingPipelineLayout = buildDescriptorBinding.pipelineLayout;
 
             lookAt = vsg::LookAt::create(vsg::dvec3(0.0, 1.0, -5.0), vsg::dvec3(0.0, 0.5, 0.0), vsg::dvec3(0.0, 1.0, 0.0));
             CountTrianglesVisitor counter;

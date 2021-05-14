@@ -28,6 +28,12 @@ struct WaveFrontMaterialPacked
   //int   textureId;
 };
 
+struct ObjectInstance{
+  mat4 objectMat;
+  int meshId;
+  int pad[3];
+};
+
 struct WaveFrontMaterial
 {
   vec3  ambient;
@@ -48,7 +54,8 @@ struct Light{
     vec4 v0Type;
     vec4 v1Strength;
     vec4 v2Angle;
-    vec4 dirRadius;
+    vec4 dirAngle2;
+    vec4 colRadius;
 };
 
 #ifdef VERTEXINFOAVAILABLE
