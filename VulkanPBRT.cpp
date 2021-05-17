@@ -289,6 +289,7 @@ public:
             }
             descList.push_back(_lights);
             descList.push_back(_materials);
+            descList.push_back(_instances);
             for(const auto& d: _positions){
                 descList.push_back(d);
             }
@@ -474,12 +475,12 @@ int main(int argc, char** argv){
         const uint32_t shaderIndexRaygen = 0;
         const uint32_t shaderIndexMiss = 1;
         const uint32_t shaderIndexClosestHit = 2;
-        //std::string raygenPath = "shaders/simple_raygen.rgen.spv";
-        //std::string raymissPath = "shaders/simple_miss.rmiss.spv";
-        //std::string closesthitPath = "shaders/simple_closesthit.rchit.spv";
-        std::string raygenPath = "shaders/raygen.rgen.spv";
-        std::string raymissPath = "shaders/miss.rmiss.spv";
-        std::string closesthitPath = "shaders/pbr_closesthit.rchit.spv";
+        std::string raygenPath = "shaders/simple_raygen.rgen.spv";
+        std::string raymissPath = "shaders/simple_miss.rmiss.spv";
+        std::string closesthitPath = "shaders/simple_closesthit.rchit.spv";
+        //std::string raygenPath = "shaders/raygen.rgen.spv";
+        //std::string raymissPath = "shaders/miss.rmiss.spv";
+        //std::string closesthitPath = "shaders/pbr_closesthit.rchit.spv";
 
         auto raygenShader = vsg::ShaderStage::read(VK_SHADER_STAGE_RAYGEN_BIT_KHR, "main", raygenPath);
         auto raymissShader = vsg::ShaderStage::read(VK_SHADER_STAGE_MISS_BIT_KHR, "main", raymissPath);
@@ -549,10 +550,10 @@ int main(int argc, char** argv){
             loaded_scene->accept(buildAccelStruct);
             tlas = buildAccelStruct.tlas;
 
-            CreateRayTracingDescriptorTraversal buildDescriptorBinding;
-            loaded_scene->accept(buildDescriptorBinding);
-            rayTracingBinder = buildDescriptorBinding.getBindDescriptorSet();
-            rayTracingPipelineLayout = buildDescriptorBinding.pipelineLayout;
+            //CreateRayTracingDescriptorTraversal buildDescriptorBinding;
+            //loaded_scene->accept(buildDescriptorBinding);
+            //rayTracingBinder = buildDescriptorBinding.getBindDescriptorSet();
+            //rayTracingPipelineLayout = buildDescriptorBinding.pipelineLayout;
 
             lookAt = vsg::LookAt::create(vsg::dvec3(0.0, 1.0, -5.0), vsg::dvec3(0.0, 0.5, 0.0), vsg::dvec3(0.0, 1.0, 0.0));
             CountTrianglesVisitor counter;
@@ -561,6 +562,7 @@ int main(int argc, char** argv){
         }
 
         vsg::CompileTraversal compile(window);
+        //tlas->compile(compile.context);
 
         auto storageImage = vsg::Image::create();
         storageImage->imageType = VK_IMAGE_TYPE_2D;
@@ -593,16 +595,17 @@ int main(int argc, char** argv){
         auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
 
         auto accelDescriptor = vsg::DescriptorAccelerationStructure::create(vsg::AccelerationStructures{tlas}, 0, 0);
+        //rayTracingBinder->descriptorSet->descriptors.push_back(accelDescriptor);
         auto storageImageDescriptor = vsg::DescriptorImage::create(storageImageInfo,1, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-        rayTracingBinder->descriptorSet->descriptors.push_back(storageImageDescriptor);
-        //auto raytracingUniformDescriptor = vsg::DescriptorBuffer::create(raytracingUniform, 2, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        auto raytracingUniformDescriptor = vsg::DescriptorBuffer::create(raytracingUniform, 15, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        rayTracingBinder->descriptorSet->descriptors.push_back(raytracingUniformDescriptor);
+        //rayTracingBinder->descriptorSet->descriptors.push_back(storageImageDescriptor);
+        auto raytracingUniformDescriptor = vsg::DescriptorBuffer::create(raytracingUniform, 2, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        //auto raytracingUniformDescriptor = vsg::DescriptorBuffer::create(raytracingUniform, 15, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        //rayTracingBinder->descriptorSet->descriptors.push_back(raytracingUniformDescriptor);
         raytracingUniformDescriptor->copyDataListToBuffers();
 
         auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, vsg::PushConstantRanges{});
-        //auto raytracingPipeline = vsg::RayTracingPipeline::create(pipelineLayout, shaderStage, shaderGroups);
-        auto raytracingPipeline = vsg::RayTracingPipeline::create(rayTracingPipelineLayout, shaderStage, shaderGroups);
+        auto raytracingPipeline = vsg::RayTracingPipeline::create(pipelineLayout, shaderStage, shaderGroups);
+        //auto raytracingPipeline = vsg::RayTracingPipeline::create(rayTracingPipelineLayout, shaderStage, shaderGroups);
         auto bindRayTracingPipeline = vsg::BindRayTracingPipeline::create(raytracingPipeline);
 
         auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{accelDescriptor, storageImageDescriptor, raytracingUniformDescriptor});
@@ -611,8 +614,8 @@ int main(int argc, char** argv){
         //state group to bind the pipeline and descriptorset
         auto scenegraph = vsg::Commands::create();
         scenegraph->addChild(bindRayTracingPipeline);
-        //scenegraph->addChild(bindDescriptorSets);
-        scenegraph->addChild(rayTracingBinder);
+        scenegraph->addChild(bindDescriptorSets);
+        //scenegraph->addChild(rayTracingBinder);
 
         //ray trace setup
         auto traceRays = vsg::TraceRays::create();

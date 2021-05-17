@@ -93,12 +93,12 @@ void DescriptorBuffer::write(Output& output) const
 
 void DescriptorBuffer::compile(Context& context)
 {
-    VkBufferUsageFlags bufferUsageFlags;
+    VkBufferUsageFlags bufferUsageFlags{};
     if(descriptorType & VK_DESCRIPTOR_TYPE_STORAGE_BUFFER || descriptorType & VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC)
     {
         bufferUsageFlags |= VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
     }
-    if(descriptorType & VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
+    if(descriptorType & VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER)
     {
         bufferUsageFlags |= VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
     }
