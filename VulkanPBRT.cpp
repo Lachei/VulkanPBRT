@@ -81,11 +81,15 @@ public:
         bool cached = _vertexIndexDrawMap.find(&vid) != _vertexIndexDrawMap.end();
         ObjectInstance instance;
         instance.objectMat = _transformStack.top();
-        if(cached) instance.meshId = _vertexIndexDrawMap[&vid];
+        if(cached) 
+        {
+            instance.meshId = _vertexIndexDrawMap[&vid].meshId;
+            instance.indexStride = _vertexIndexDrawMap[&vid].indexStride;
+        }
         else
         {
             instance.meshId = _positions.size();
-            _vertexIndexDrawMap[&vid] = instance.meshId;
+            _vertexIndexDrawMap[&vid] = instance;
             auto positions = vsg::DescriptorBuffer::create(vid.arrays[0], 2, _positions.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
             _positions.push_back(positions);
             auto normals = vsg::DescriptorBuffer::create(vid.arrays[1], 3, _normals.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
@@ -94,6 +98,7 @@ public:
             _texCoords.push_back(texCoords);
             auto indices = vsg::DescriptorBuffer::create(vid.indices, 5, _indices.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
             _indices.push_back(indices);
+            instance.indexStride = vid.indices->stride();
         }
         _instancesArray.push_back(instance);
     }
@@ -319,8 +324,9 @@ public:
 protected:
     struct ObjectInstance{
         vsg::mat4 objectMat;
-        int meshId;         //index of the corresponding textuers etc.
-        int pad[3];
+        int meshId;         //index of the corresponding textuers, vertices etc.
+        uint32_t indexStride;
+        int pad[2];
     };
     struct VsgPbrMaterial
     {
@@ -363,7 +369,7 @@ protected:
     vsg::ref_ptr<vsg::DescriptorBuffer> _lights;
     std::vector<vsg::Light::PackedLight> _packedLights;
 
-    std::map<vsg::VertexIndexDraw*, int> _vertexIndexDrawMap;
+    std::map<vsg::VertexIndexDraw*, ObjectInstance> _vertexIndexDrawMap;
     vsg::MatrixStack _transformStack;
 
     vsg::ref_ptr<vsg::DescriptorImage> _defaultTexture;   //the default image is used for each texture that is not available
@@ -396,13 +402,17 @@ int main(int argc, char** argv){
         windowTraits->swapchainPreferences.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         windowTraits->deviceExtensionNames = {VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME
         , VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, VK_KHR_SPIRV_1_4_EXTENSION_NAME, VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME};
-        windowTraits->vulkanVersion = VK_API_VERSION_1_1;
+        windowTraits->vulkanVersion = VK_API_VERSION_1_2;
         auto& enabledAccelerationStructureFeatures = windowTraits->deviceFeatures->get<VkPhysicalDeviceAccelerationStructureFeaturesKHR, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR>();
-        auto& enabledBufferDeviceAddressFeatures = windowTraits->deviceFeatures->get<VkPhysicalDeviceBufferDeviceAddressFeatures, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES>();
         auto& enabledRayTracingPipelineFeatures = windowTraits->deviceFeatures->get<VkPhysicalDeviceRayTracingPipelineFeaturesKHR, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR>();
         enabledAccelerationStructureFeatures.accelerationStructure = VK_TRUE;
-        enabledBufferDeviceAddressFeatures.bufferDeviceAddress = VK_TRUE;
         enabledRayTracingPipelineFeatures.rayTracingPipeline = VK_TRUE;
+        auto& enabledPhysicalDeviceVk12Feature = windowTraits->deviceFeatures->get<VkPhysicalDeviceVulkan12Features, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES>();
+        enabledPhysicalDeviceVk12Feature.runtimeDescriptorArray = VK_TRUE;
+        enabledPhysicalDeviceVk12Feature.bufferDeviceAddress = VK_TRUE;
+        enabledPhysicalDeviceVk12Feature.descriptorIndexing = VK_TRUE;
+        enabledPhysicalDeviceVk12Feature.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
+        enabledPhysicalDeviceVk12Feature.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
 
         auto window = vsg::Window::create(windowTraits);
         if(!window){
@@ -476,12 +486,12 @@ int main(int argc, char** argv){
         const uint32_t shaderIndexRaygen = 0;
         const uint32_t shaderIndexMiss = 1;
         const uint32_t shaderIndexClosestHit = 2;
-        std::string raygenPath = "shaders/simple_raygen.rgen.spv";
-        std::string raymissPath = "shaders/simple_miss.rmiss.spv";
-        std::string closesthitPath = "shaders/simple_closesthit.rchit.spv";
-        //std::string raygenPath = "shaders/raygen.rgen.spv";
-        //std::string raymissPath = "shaders/miss.rmiss.spv";
-        //std::string closesthitPath = "shaders/pbr_closesthit.rchit.spv";
+        //std::string raygenPath = "shaders/simple_raygen.rgen.spv";
+        //std::string raymissPath = "shaders/simple_miss.rmiss.spv";
+        //std::string closesthitPath = "shaders/simple_closesthit.rchit.spv";
+        std::string raygenPath = "shaders/raygen.rgen.spv";
+        std::string raymissPath = "shaders/miss.rmiss.spv";
+        std::string closesthitPath = "shaders/pbr_closesthit.rchit.spv";
 
         auto raygenShader = vsg::ShaderStage::read(VK_SHADER_STAGE_RAYGEN_BIT_KHR, "main", raygenPath);
         auto raymissShader = vsg::ShaderStage::read(VK_SHADER_STAGE_MISS_BIT_KHR, "main", raymissPath);
@@ -552,9 +562,9 @@ int main(int argc, char** argv){
             tlas = buildAccelStruct.tlas;
 
             CreateRayTracingDescriptorTraversal buildDescriptorBinding;
-            //loaded_scene->accept(buildDescriptorBinding);
-            //rayTracingBinder = buildDescriptorBinding.getBindDescriptorSet();
-            //rayTracingPipelineLayout = buildDescriptorBinding.pipelineLayout;
+            loaded_scene->accept(buildDescriptorBinding);
+            rayTracingBinder = buildDescriptorBinding.getBindDescriptorSet();
+            rayTracingPipelineLayout = buildDescriptorBinding.pipelineLayout;
 
             lookAt = vsg::LookAt::create(vsg::dvec3(0.0, 1.0, -5.0), vsg::dvec3(0.0, 0.5, 0.0), vsg::dvec3(0.0, 1.0, 0.0));
             CountTrianglesVisitor counter;
@@ -596,17 +606,17 @@ int main(int argc, char** argv){
         auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
 
         auto accelDescriptor = vsg::DescriptorAccelerationStructure::create(vsg::AccelerationStructures{tlas}, 0, 0);
-        //rayTracingBinder->descriptorSet->descriptors.push_back(accelDescriptor);
+        rayTracingBinder->descriptorSet->descriptors.push_back(accelDescriptor);
         auto storageImageDescriptor = vsg::DescriptorImage::create(storageImageInfo,1, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-        //rayTracingBinder->descriptorSet->descriptors.push_back(storageImageDescriptor);
-        auto raytracingUniformDescriptor = vsg::DescriptorBuffer::create(raytracingUniform, 2, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        //auto raytracingUniformDescriptor = vsg::DescriptorBuffer::create(raytracingUniform, 15, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        //rayTracingBinder->descriptorSet->descriptors.push_back(raytracingUniformDescriptor);
+        rayTracingBinder->descriptorSet->descriptors.push_back(storageImageDescriptor);
+        //auto raytracingUniformDescriptor = vsg::DescriptorBuffer::create(raytracingUniform, 2, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        auto raytracingUniformDescriptor = vsg::DescriptorBuffer::create(raytracingUniform, 15, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        rayTracingBinder->descriptorSet->descriptors.push_back(raytracingUniformDescriptor);
         raytracingUniformDescriptor->copyDataListToBuffers();
 
         auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, vsg::PushConstantRanges{});
-        auto raytracingPipeline = vsg::RayTracingPipeline::create(pipelineLayout, shaderStage, shaderGroups);
-        //auto raytracingPipeline = vsg::RayTracingPipeline::create(rayTracingPipelineLayout, shaderStage, shaderGroups);
+        //auto raytracingPipeline = vsg::RayTracingPipeline::create(pipelineLayout, shaderStage, shaderGroups);
+        auto raytracingPipeline = vsg::RayTracingPipeline::create(rayTracingPipelineLayout, shaderStage, shaderGroups);
         auto bindRayTracingPipeline = vsg::BindRayTracingPipeline::create(raytracingPipeline);
 
         auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{accelDescriptor, storageImageDescriptor, raytracingUniformDescriptor});
@@ -615,8 +625,8 @@ int main(int argc, char** argv){
         //state group to bind the pipeline and descriptorset
         auto scenegraph = vsg::Commands::create();
         scenegraph->addChild(bindRayTracingPipeline);
-        scenegraph->addChild(bindDescriptorSets);
-        //scenegraph->addChild(rayTracingBinder);
+        //scenegraph->addChild(bindDescriptorSets);
+        scenegraph->addChild(rayTracingBinder);
 
         //ray trace setup
         auto traceRays = vsg::TraceRays::create();

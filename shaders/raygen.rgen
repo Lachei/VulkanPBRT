@@ -31,5 +31,5 @@ void main()
 
 	traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, worldSpacePos.xyz, tmin, worldSpaceDir.xyz, tmax, 0);
 
-	imageStore(outputImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.normal, 0.0));
+	imageStore(outputImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.color, 0.0));
 }

@@ -31,7 +31,8 @@ struct WaveFrontMaterialPacked
 struct ObjectInstance{
   mat4 objectMat;
   int meshId;
-  int pad[3];
+  uint indexStride;
+  int pad[2];
 };
 
 struct WaveFrontMaterial
@@ -61,14 +62,14 @@ struct Light{
 #ifdef VERTEXINFOAVAILABLE
 Vertex unpack(uint index, uint objId){
     Vertex v;
-    v.pos.x = pos[objId].p[3 * index];
-    v.pos.y = pos[objId].p[3 * index + 1];
-    v.pos.z = pos[objId].p[3 * index + 2];
-    v.normal.x = nor[objId].n[3 * index];
-    v.normal.y = nor[objId].n[3 * index + 1];
-    v.normal.z = nor[objId].n[3 * index + 2];
-    v.uv.x = tex[objId].t[2 * index];
-    v.uv.y = tex[objId].t[2 * index + 1];
+    v.pos.x = pos[nonuniformEXT(objId)].p[3 * index];
+    v.pos.y = pos[nonuniformEXT(objId)].p[3 * index + 1];
+    v.pos.z = pos[nonuniformEXT(objId)].p[3 * index + 2];
+    v.normal.x = nor[nonuniformEXT(objId)].n[3 * index];
+    v.normal.y = nor[nonuniformEXT(objId)].n[3 * index + 1];
+    v.normal.z = nor[nonuniformEXT(objId)].n[3 * index + 2];
+    v.uv.x = tex[nonuniformEXT(objId)].t[2 * index];
+    v.uv.y = tex[nonuniformEXT(objId)].t[2 * index + 1];
 
     return v;
 };
