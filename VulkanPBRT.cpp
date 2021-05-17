@@ -42,7 +42,8 @@ public:
     CreateRayTracingDescriptorTraversal()
     {
         vsg::ubvec4 w{255,255,255,255};
-        auto white = vsg::ubvec4Array2D::create(1,1,&w, vsg::Data::Layout{VK_FORMAT_R8G8B8A8_UNORM});
+        auto white = vsg::ubvec4Array2D::create(1, 1, vsg::Data::Layout{VK_FORMAT_R8G8B8A8_UNORM});
+        std::copy(&w, &w + 1, white->data());
 
         vsg::SamplerImage image;
         image.data = white;
@@ -550,7 +551,7 @@ int main(int argc, char** argv){
             loaded_scene->accept(buildAccelStruct);
             tlas = buildAccelStruct.tlas;
 
-            //CreateRayTracingDescriptorTraversal buildDescriptorBinding;
+            CreateRayTracingDescriptorTraversal buildDescriptorBinding;
             //loaded_scene->accept(buildDescriptorBinding);
             //rayTracingBinder = buildDescriptorBinding.getBindDescriptorSet();
             //rayTracingPipelineLayout = buildDescriptorBinding.pipelineLayout;
