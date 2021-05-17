@@ -235,6 +235,7 @@ public:
                 l.colorDiffuse = col;
                 l.colorSpecular = col;
                 l.strengths = vsg::vec3(1.0f,.0f,.0f);
+                l.dir = vsg::vec3(0, .0, -1.0f);
                 _packedLights.push_back(l.getPacked());
             }
             if(!_lights)
@@ -491,17 +492,19 @@ int main(int argc, char** argv){
         //std::string closesthitPath = "shaders/simple_closesthit.rchit.spv";
         std::string raygenPath = "shaders/raygen.rgen.spv";
         std::string raymissPath = "shaders/miss.rmiss.spv";
+        std::string shadowMissPath = "shaders/shadow.rmiss.spv";
         std::string closesthitPath = "shaders/pbr_closesthit.rchit.spv";
 
         auto raygenShader = vsg::ShaderStage::read(VK_SHADER_STAGE_RAYGEN_BIT_KHR, "main", raygenPath);
         auto raymissShader = vsg::ShaderStage::read(VK_SHADER_STAGE_MISS_BIT_KHR, "main", raymissPath);
+        auto shadowMissShader = vsg::ShaderStage::read(VK_SHADER_STAGE_MISS_BIT_KHR, "main", shadowMissPath);
         auto closesthitShader = vsg::ShaderStage::read(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, "main", closesthitPath);
-        if(!raygenShader || !raymissShader || !closesthitShader){
+        if(!raygenShader || !raymissShader || !closesthitShader || !shadowMissShader){
             std::cout << "Shader creation failed" << std::endl;
             return 1;
         }
 
-        auto shaderStage = vsg::ShaderStages{raygenShader, raymissShader, closesthitShader};
+        auto shaderStage = vsg::ShaderStages{raygenShader, raymissShader, shadowMissShader, closesthitShader};
 
         auto raygenShaderGroup = vsg::RayTracingShaderGroup::create();
         raygenShaderGroup->type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
@@ -509,10 +512,14 @@ int main(int argc, char** argv){
         auto raymissShaderGroup = vsg::RayTracingShaderGroup::create();
         raymissShaderGroup->type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
         raymissShaderGroup->generalShader = 1;
+        raymissShaderGroup->groupCount = 2;
+        auto shadowMissShaderGroup = vsg::RayTracingShaderGroup::create();
+        shadowMissShaderGroup->type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
+        shadowMissShaderGroup->generalShader = 2;
         auto closesthitShaderGroup = vsg::RayTracingShaderGroup::create();
         closesthitShaderGroup->type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
-        closesthitShaderGroup->closestHitShader = 2;
-        auto shaderGroups = vsg::RayTracingShaderGroups{raygenShaderGroup, raymissShaderGroup, closesthitShaderGroup};
+        closesthitShaderGroup->closestHitShader = 3;
+        auto shaderGroups = vsg::RayTracingShaderGroups{raygenShaderGroup, raymissShaderGroup, shadowMissShaderGroup, closesthitShaderGroup};
 
         //creating camera things
         auto perspective = vsg::Perspective::create(60, static_cast<double>(windowTraits->width) / static_cast<double>(windowTraits->height), .1, 1000);

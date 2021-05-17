@@ -56,7 +56,10 @@ struct Light{
     vec4 v1Strength;
     vec4 v2Angle;
     vec4 dirAngle2;
-    vec4 colRadius;
+    vec4 colAmbient;
+    vec4 colDiffuse;
+    vec4 colSpecular;
+    vec4 strengths;
 };
 
 #ifdef VERTEXINFOAVAILABLE

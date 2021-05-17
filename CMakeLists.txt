@@ -30,6 +30,7 @@ file(GLOB SOURCES
 set(SHADERS
     pbr_closesthit.rchit
     miss.rmiss
+    shadow.rmiss
     raygen.rgen
     simple_closesthit.rchit
     simple_miss.rmiss

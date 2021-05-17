@@ -73,7 +73,7 @@ namespace vsg
         ref_ptr<PipelineLayout> _pipelineLayout;
         ShaderStages _shaderStages;
         RayTracingShaderGroups _rayTracingShaderGroups;
-        uint32_t _maxRecursionDepth = 1;
+        uint32_t _maxRecursionDepth = 2;
     };
     VSG_type_name(vsg::RayTracingPipeline);
 

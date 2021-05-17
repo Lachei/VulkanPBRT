@@ -33,6 +33,7 @@ namespace vsg
         uint32_t closestHitShader = VK_SHADER_UNUSED_KHR;
         uint32_t anyHitShader = VK_SHADER_UNUSED_KHR;
         uint32_t intersectionShader = VK_SHADER_UNUSED_KHR;
+        uint32_t groupCount = 1;
 
         BufferInfo bufferInfo;
 

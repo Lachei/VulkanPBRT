@@ -30,14 +30,15 @@ void TraceRays::record(CommandBuffer& commandBuffer) const
     {
         return (value + alignment - 1) & ~(alignment - 1);
     };
-    uint32_t handleSizeAligned = alignedSize(rayTracingProperties.shaderGroupHandleSize, rayTracingProperties.shaderGroupHandleAlignment);
+    //uint32_t handleSizeAligned = alignedSize(rayTracingProperties.shaderGroupHandleSize, rayTracingProperties.shaderGroupHandleAlignment);
+    uint32_t handleSizeAligned = alignedSize(rayTracingProperties.shaderGroupHandleSize, rayTracingProperties.shaderGroupBaseAlignment);
 
     auto stridedDeviceAddress = [&](auto& shaderGroup) {
         if(!shaderGroup) return VkStridedDeviceAddressRegionKHR{};
         VkBufferDeviceAddressInfo info{};
         info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
         info.buffer = shaderGroup->bufferInfo.buffer->vk(device->deviceID);
-        if (shaderGroup && shaderGroup->bufferInfo.buffer) return VkStridedDeviceAddressRegionKHR{extensions->vkGetBufferDeviceAddressKHR(device->getDevice(),&info), handleSizeAligned, shaderGroup->bufferInfo.range};
+        if (shaderGroup && shaderGroup->bufferInfo.buffer) return VkStridedDeviceAddressRegionKHR{extensions->vkGetBufferDeviceAddressKHR(device->getDevice(),&info) + shaderGroup->bufferInfo.offset, handleSizeAligned, shaderGroup->bufferInfo.range};
         return VkStridedDeviceAddressRegionKHR{};
     };
 

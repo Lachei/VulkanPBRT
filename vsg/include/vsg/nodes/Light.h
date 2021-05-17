@@ -33,6 +33,7 @@ namespace vsg
             vec4 colorDiffuse;
             vec4 colorSpecular;
             vec3 strengths; //Attenuation factors, x is constant, y is linear, and z is quadratic.(d is distance) Att = 1/( x + y * d + z * d*d)
+            float padding;
         };
         Light(){};
         Light(vsg::ref_ptr<vsg::Light>& other){

@@ -19,12 +19,13 @@ layout(binding = 10) uniform sampler2D emissiveMap[];
 layout(binding = 11) uniform sampler2D specularMap[];
 #define VERTEXINFOAVAILABLE
 #include "general.glsl"
-layout(binding = 12) buffer Lights{int len; int padding[3];Light l[]; } lights;
+layout(binding = 12) buffer Lights{Light l[]; } lights;
 layout(binding = 13) buffer Materials{WaveFrontMaterialPacked m[]; } materials;
 layout(binding = 14) buffer Instances{ObjectInstance i[]; } instances;
 
 
 layout(location = 0) rayPayloadInEXT RayPayload rayPayload;
+layout(location = 2) rayPayloadInEXT bool shadowed;
 hitAttributeEXT vec2 attribs;
 
 void main()
@@ -63,7 +64,19 @@ void main()
   position = (instance.objectMat * vec4(position, 1)).xyz;
   vec2 texCoord = v0.uv * bar.x + v1.uv * bar.y + v2.uv * bar.z;
   vec3 albedo = texture(diffuseMap[nonuniformEXT(objId)], texCoord).xyz;
-  rayPayload.color = normal;
+
+  //lighting calculations
+  // Trace shadow ray and offset indices to match shadow hit/mis shader group indices
+  vec3 origin = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
+  vec3 lightVector = -lights.l[0].dirAngle2.xyz;
+  float tmin = 0.001;
+	float tmax = 1000.0;
+	shadowed = true;
+  traceRayEXT(tlas, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xFF, 0, 0, 1, origin, tmin, lightVector, tmax, 2);
+
+  if(shadowed)
+    albedo *= .5f;
+  rayPayload.color = albedo;
   rayPayload.normal = normal;
   rayPayload.distance = gl_RayTmaxEXT;
   rayPayload.reflector = 1;
