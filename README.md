@@ -9,6 +9,11 @@ For faster and easier development the [VulkanSceneGraph](https://github.com/vsg-
 The todos, in progress and done tasks can be found in the [Projects tab](https://github.com/Lachei/VulkanPBRT/projects/1).
 
 A list of supported features and screenshots (Top is most recent feature):
+![sponza texture shadow](pictures/textured_shadow.png)
+
+- [x] Shadow test via shadow rays works
+- [x] Textures now supported for arbitrary scenes (All textures for physically based rendering already included)
+    - TODO: better material detection for automatic texture loading, more testing on other scenes, cleanup of code
 
 - [x] Changed NV_Raytracing completeley to KHR_Raytracing
 
