@@ -3,7 +3,7 @@
 #extension GL_EXT_nonuniform_qualifier : enable
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT tlas;
-layout(binding = 1, set = 0) uniform UBO{
+layout(binding = 15, set = 0) uniform UBO{
   mat4 inverseViewMatrix;
 	mat4 inverseProjectionMatrix;
 }ubo;

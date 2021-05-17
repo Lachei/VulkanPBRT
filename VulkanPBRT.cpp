@@ -1,4 +1,5 @@
  #include <iostream>
+ #include <set>
  #include <vsg/all.h>
  #include <vsgXchange/models.h>
  #include <vsgXchange/images.h>
@@ -38,7 +39,21 @@ public:
 class CreateRayTracingDescriptorTraversal : public vsg::Visitor
 {
 public:
-    CreateRayTracingDescriptorTraversal(){};
+    CreateRayTracingDescriptorTraversal()
+    {
+        vsg::ubvec4 w{255,255,255,255};
+        auto white = vsg::ubvec4Array2D::create(1,1,&w, vsg::Data::Layout{VK_FORMAT_R8G8B8A8_UNORM});
+
+        vsg::SamplerImage image;
+        image.data = white;
+        image.sampler = vsg::Sampler::create();
+        image.sampler->addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        image.sampler->addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        image.sampler->addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        image.sampler->anisotropyEnable = VK_FALSE;
+        image.sampler->maxLod = 1;
+        _defaultTexture = vsg::DescriptorImage::create(image);
+    };
     CreateRayTracingDescriptorTraversal(vsg::ref_ptr<vsg::PipelineLayout> pipelineLayout): pipelineLayout(pipelineLayout){};
 
     //default visiting for standard nodes, simply forward to children
@@ -85,12 +100,17 @@ public:
     //traversing the states and the group
     void apply(vsg::StateGroup& sg)
     {
-        vsg::StateGroup::StateCommands& sc = sg.getStateCommands();
-        for(auto& state: sc)
+        if(firstStageGroup)     //skip default state grop(the first in the tree) TODO::change to detect default state
+            firstStageGroup = false;
+        else
         {
-            auto bds = state.cast<vsg::BindDescriptorSet>();
-            if(bds){
-                apply(*bds);
+            vsg::StateGroup::StateCommands& sc = sg.getStateCommands();
+            for(auto& state: sc)
+            {
+                auto bds = state.cast<vsg::BindDescriptorSet>();
+                if(bds){
+                    apply(*bds);
+                }
             }
         }
         sg.traverse(*this);
@@ -98,8 +118,26 @@ public:
 
     //getting the texture samplers of the descriptor sets
     void apply(vsg::BindDescriptorSet &bds){
+        // TODO: every material that is not set should get a default material assigned
+        std::set<int> setTextures;
         for(const auto& descriptor: bds.descriptorSet->descriptors)
         {
+            if(descriptor->descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) //pbr material
+            {
+                vsg::ref_ptr<vsg::DescriptorBuffer> d = descriptor.cast<vsg::DescriptorBuffer>();
+                VsgPbrMaterial vsgMat;
+                std::memcpy(&vsgMat, d->bufferInfoList[0].data->dataPointer(), sizeof(VsgPbrMaterial));
+                WaveFrontMaterialPacked mat;
+                std::memcpy(&mat.ambientShininess, &vsgMat.baseColorFactor, sizeof(vsg::vec3));
+                std::memcpy(&mat.specularDissolve, &vsgMat.specularFactor, sizeof(vsg::vec3));
+                std::memcpy(&mat.diffuseIor, &vsgMat.diffuseFactor, sizeof(vsg::vec3));
+                mat.ambientShininess.w = vsgMat.roughnessFactor;
+                mat.diffuseIor.w = 1;
+                mat.specularDissolve.w = vsgMat.alphaMask;
+                _materialArray.push_back(mat);
+                continue;
+            }
+
             if(descriptor->descriptorType != VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER) continue;
 
             vsg::ref_ptr<vsg::DescriptorImage> d = descriptor.cast<vsg::DescriptorImage>();  //cast to descriptor image
@@ -108,28 +146,67 @@ public:
             case 0: //diffuse map
                 texture = vsg::DescriptorImage::create(d->imageInfoList, 6, _diffuse.size());
                 _diffuse.push_back(texture);
+                setTextures.insert(6);
                 break;
             case 1: //metall roughness map
                 texture = vsg::DescriptorImage::create(d->imageInfoList, 7, _mr.size());
                 _mr.push_back(texture);
+                setTextures.insert(7);
                 break;
             case 2: //normal map
                 texture = vsg::DescriptorImage::create(d->imageInfoList, 8, _normal.size());
                 _normal.push_back(texture);
+                setTextures.insert(8);
                 break;
             case 3: //light map
                 texture = vsg::DescriptorImage::create(d->imageInfoList, 9, _ao.size());
                 _ao.push_back(texture);
+                setTextures.insert(9);
                 break;
             case 4: //emissive map
                 texture = vsg::DescriptorImage::create(d->imageInfoList, 10, _emissive.size());
                 _emissive.push_back(texture);
+                setTextures.insert(10);
                 break;
             case 5: //specular map
                 texture = vsg::DescriptorImage::create(d->imageInfoList, 11, _specular.size());
                 _specular.push_back(texture);
+                setTextures.insert(11);
             default:
-                std::cout << "Missing texture, should enter default texture" << std::endl;
+                std::cout << "Unkown texture binding. Could not properly detect material" << std::endl;
+            }
+        }
+
+        //setting the default texture for not set textures
+        for(int i = 6; i < 12; ++i){
+            if(setTextures.find(i) == setTextures.end()){
+                vsg::ref_ptr<vsg::DescriptorImage> texture;
+                switch(i){
+                case 6:
+                    texture = vsg::DescriptorImage::create(_defaultTexture->imageInfoList, i, _diffuse.size());
+                    _diffuse.push_back(texture);
+                    break;
+                case 7:
+                    texture = vsg::DescriptorImage::create(_defaultTexture->imageInfoList, i, _mr.size());
+                    _mr.push_back(texture);
+                    break;
+                case 8:
+                    texture = vsg::DescriptorImage::create(_defaultTexture->imageInfoList, i, _normal.size());
+                    _normal.push_back(texture);
+                    break;
+                case 9:
+                    texture = vsg::DescriptorImage::create(_defaultTexture->imageInfoList, i, _ao.size());
+                    _ao.push_back(texture);
+                    break;
+                case 10:
+                    texture = vsg::DescriptorImage::create(_defaultTexture->imageInfoList, i, _emissive.size());
+                    _emissive.push_back(texture);
+                    break;
+                case 11:
+                    texture = vsg::DescriptorImage::create(_defaultTexture->imageInfoList, i, _specular.size());
+                    _specular.push_back(texture);
+                    break;
+                }
             }
         }
     }
@@ -174,7 +251,7 @@ public:
             }
             vsg::DescriptorSetLayoutBindings descriptorBindings{
                 {0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+                {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr},
                 {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(_positions.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
                 {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(_normals.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
                 {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(_indices.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
@@ -187,7 +264,8 @@ public:
                 {11, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_specular.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
                 {12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
                 {13, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {14, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr}
+                {14, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
+                {15, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr}
                 };
             //adding all descriptors
             vsg::Descriptors descList;
@@ -242,6 +320,17 @@ protected:
         int meshId;         //index of the corresponding textuers etc.
         int pad[3];
     };
+    struct VsgPbrMaterial
+    {
+        vsg::vec4 baseColorFactor{1.0, 1.0, 1.0, 1.0};
+        vsg::vec4 emissiveFactor{0.0, 0.0, 0.0, 1.0};
+        vsg::vec4 diffuseFactor{1.0, 1.0, 1.0, 1.0};
+        vsg::vec4 specularFactor{0.0, 0.0, 0.0, 1.0};
+        float metallicFactor{1.0f};
+        float roughnessFactor{1.0f};
+        float alphaMask{1.0f};
+        float alphaMaskCutoff{0.5f};
+    };
     struct WaveFrontMaterialPacked
     {
         vsg::vec4  ambientShininess;
@@ -274,6 +363,9 @@ protected:
 
     std::map<vsg::VertexIndexDraw*, int> _vertexIndexDrawMap;
     vsg::MatrixStack _transformStack;
+
+    vsg::ref_ptr<vsg::DescriptorImage> _defaultTexture;   //the default image is used for each texture that is not available
+    bool firstStageGroup = true;                        //the first state group contains the default state which should be skipped
 };
 
 int main(int argc, char** argv){
@@ -382,9 +474,12 @@ int main(int argc, char** argv){
         const uint32_t shaderIndexRaygen = 0;
         const uint32_t shaderIndexMiss = 1;
         const uint32_t shaderIndexClosestHit = 2;
-        std::string raygenPath = "shaders/simple_raygen.rgen.spv";
-        std::string raymissPath = "shaders/simple_miss.rmiss.spv";
-        std::string closesthitPath = "shaders/simple_closesthit.rchit.spv";
+        //std::string raygenPath = "shaders/simple_raygen.rgen.spv";
+        //std::string raymissPath = "shaders/simple_miss.rmiss.spv";
+        //std::string closesthitPath = "shaders/simple_closesthit.rchit.spv";
+        std::string raygenPath = "shaders/raygen.rgen.spv";
+        std::string raymissPath = "shaders/miss.rmiss.spv";
+        std::string closesthitPath = "shaders/pbr_closesthit.rchit.spv";
 
         auto raygenShader = vsg::ShaderStage::read(VK_SHADER_STAGE_RAYGEN_BIT_KHR, "main", raygenPath);
         auto raymissShader = vsg::ShaderStage::read(VK_SHADER_STAGE_MISS_BIT_KHR, "main", raymissPath);
@@ -499,11 +594,15 @@ int main(int argc, char** argv){
 
         auto accelDescriptor = vsg::DescriptorAccelerationStructure::create(vsg::AccelerationStructures{tlas}, 0, 0);
         auto storageImageDescriptor = vsg::DescriptorImage::create(storageImageInfo,1, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-        auto raytracingUniformDescriptor = vsg::DescriptorBuffer::create(raytracingUniform, 2, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        rayTracingBinder->descriptorSet->descriptors.push_back(storageImageDescriptor);
+        //auto raytracingUniformDescriptor = vsg::DescriptorBuffer::create(raytracingUniform, 2, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        auto raytracingUniformDescriptor = vsg::DescriptorBuffer::create(raytracingUniform, 15, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        rayTracingBinder->descriptorSet->descriptors.push_back(raytracingUniformDescriptor);
         raytracingUniformDescriptor->copyDataListToBuffers();
 
         auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, vsg::PushConstantRanges{});
-        auto raytracingPipeline = vsg::RayTracingPipeline::create(pipelineLayout, shaderStage, shaderGroups);
+        //auto raytracingPipeline = vsg::RayTracingPipeline::create(pipelineLayout, shaderStage, shaderGroups);
+        auto raytracingPipeline = vsg::RayTracingPipeline::create(rayTracingPipelineLayout, shaderStage, shaderGroups);
         auto bindRayTracingPipeline = vsg::BindRayTracingPipeline::create(raytracingPipeline);
 
         auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{accelDescriptor, storageImageDescriptor, raytracingUniformDescriptor});
@@ -512,7 +611,8 @@ int main(int argc, char** argv){
         //state group to bind the pipeline and descriptorset
         auto scenegraph = vsg::Commands::create();
         scenegraph->addChild(bindRayTracingPipeline);
-        scenegraph->addChild(bindDescriptorSets);
+        //scenegraph->addChild(bindDescriptorSets);
+        scenegraph->addChild(rayTracingBinder);
 
         //ray trace setup
         auto traceRays = vsg::TraceRays::create();
