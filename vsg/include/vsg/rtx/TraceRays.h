@@ -14,6 +14,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 #include <vsg/commands/Command.h>
 #include <vsg/rtx/RayTracingShaderGroup.h>
+#include <vsg/rtx/RayTracingShaderBindingTable.h>
 
 namespace vsg
 {
@@ -25,10 +26,7 @@ namespace vsg
 
         void record(CommandBuffer& commandBuffer) const override;
 
-        ref_ptr<RayTracingShaderGroup> raygen;
-        ref_ptr<RayTracingShaderGroup> missShader;
-        ref_ptr<RayTracingShaderGroup> hitShader;
-        ref_ptr<RayTracingShaderGroup> callableShader;
+        ref_ptr<RayTracingShaderBindingTable> bindingTable;
 
         uint32_t width = 0;
         uint32_t height = 0;

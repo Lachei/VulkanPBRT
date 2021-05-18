@@ -28,10 +28,12 @@ RayTracingPipeline::RayTracingPipeline()
 {
 }
 
-RayTracingPipeline::RayTracingPipeline(PipelineLayout* pipelineLayout, const ShaderStages& shaderStages, const RayTracingShaderGroups& shaderGroups) :
+RayTracingPipeline::RayTracingPipeline(PipelineLayout* pipelineLayout, const ShaderStages& shaderStages, const RayTracingShaderGroups& shaderGroups, ref_ptr<RayTracingShaderBindingTable> bindingTable, int maxRecursionDepth) :
     _pipelineLayout(pipelineLayout),
+    _bindingTable(bindingTable),
     _shaderStages(shaderStages),
-    _rayTracingShaderGroups(shaderGroups)
+    _rayTracingShaderGroups(shaderGroups),
+    _maxRecursionDepth(maxRecursionDepth)
 {
 }
 
@@ -152,36 +154,8 @@ RayTracingPipeline::Implementation::Implementation(Context& context, RayTracingP
     VkResult result = extensions->vkCreateRayTracingPipelinesKHR(*_device, VK_NULL_HANDLE, VK_NULL_HANDLE, 1, &pipelineInfo, _device->getAllocationCallbacks(), &_pipeline);
     if (result == VK_SUCCESS)
     {
-        auto rayTracingProperties = _device->getPhysicalDevice()->getProperties<VkPhysicalDeviceRayTracingPipelinePropertiesKHR, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR>();
-        auto alignedSize = [](uint32_t value, uint32_t alignment)
-        {
-            return (value + alignment - 1) & ~(alignment - 1);
-        };
-        //const uint32_t handleSizeAligned = alignedSize(rayTracingProperties.shaderGroupHandleSize, rayTracingProperties.shaderGroupHandleAlignment);
-        const uint32_t handleSizeAligned = alignedSize(rayTracingProperties.shaderGroupHandleSize, rayTracingProperties.shaderGroupBaseAlignment);
-        const uint32_t sbtSize = handleSizeAligned * pipelineInfo.groupCount;
-
-        //BufferInfo bindingTableBufferInfo = context.stagingMemoryBufferPools->reserveBuffer(sbtSize, 4, VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_SHARING_MODE_EXCLUSIVE, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        //auto bindingTableBuffer = bindingTableBufferInfo.buffer;
-        //auto bindingTableMemory = bindingTableBuffer->getDeviceMemory(context.deviceID);
-        ref_ptr<Buffer> bindingTableBuffer = createBufferAndMemory(_device, sbtSize, VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_SHARING_MODE_EXCLUSIVE, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-        std::vector<uint8_t> shaderHandleStorage(sbtSize);
-        extensions->vkGetRayTracingShaderGroupHandlesKHR(*_device, _pipeline, 0, static_cast<uint32_t>(rayTracingShaderGroups.size()), sbtSize, shaderHandleStorage.data());
-
-        auto memory = bindingTableBuffer->getDeviceMemory(context.deviceID);
-        void* d;
-        memory->map(bindingTableBuffer->getMemoryOffset(_device->deviceID), handleSizeAligned, 0, &d);
-        uint8_t* data = reinterpret_cast<uint8_t*>(d);
-        for (size_t i = 0; i < rayTracingShaderGroups.size(); ++i)
-        {
-            memcpy(data, shaderHandleStorage.data() + i * rayTracingProperties.shaderGroupHandleSize, handleSizeAligned);
-            rayTracingShaderGroups[i]->bufferInfo.buffer = bindingTableBuffer;
-            rayTracingShaderGroups[i]->bufferInfo.offset = handleSizeAligned * i;
-            rayTracingShaderGroups[i]->bufferInfo.range = rayTracingShaderGroups[i]->groupCount * handleSizeAligned;
-            data += handleSizeAligned;
-        }
-        memory->unmap();
+        rayTracingPipeline->_bindingTable->pipeline = _pipeline;
+        rayTracingPipeline->_bindingTable->compile(context);
     }
     else
     {

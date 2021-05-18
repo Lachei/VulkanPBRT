@@ -12,6 +12,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
+#include <vsg/rtx/RayTracingShaderBindingTable.h>
 #include <vsg/rtx/RayTracingShaderGroup.h>
 #include <vsg/state/PipelineLayout.h>
 #include <vsg/state/ShaderStage.h>
@@ -19,13 +20,14 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 namespace vsg
 {
-
+    //forward declaration of RayTracingShaderGroup
+    class RayTracingShaderBindingTable;
     class VSG_DECLSPEC RayTracingPipeline : public Inherit<Object, RayTracingPipeline>
     {
     public:
         RayTracingPipeline();
 
-        RayTracingPipeline(PipelineLayout* pipelineLayout, const ShaderStages& shaderStages, const RayTracingShaderGroups& shaderGroups);
+        RayTracingPipeline(PipelineLayout* pipelineLayout, const ShaderStages& shaderStages, const RayTracingShaderGroups& shaderGroups, ref_ptr<RayTracingShaderBindingTable> bindingTable, int maxRecursionDepth = 1);
 
         void read(Input& input) override;
         void write(Output& output) const override;
@@ -71,9 +73,10 @@ namespace vsg
         vk_buffer<ref_ptr<Implementation>> _implementation;
 
         ref_ptr<PipelineLayout> _pipelineLayout;
+        ref_ptr<RayTracingShaderBindingTable> _bindingTable;
         ShaderStages _shaderStages;
         RayTracingShaderGroups _rayTracingShaderGroups;
-        uint32_t _maxRecursionDepth = 2;
+        uint32_t _maxRecursionDepth;
     };
     VSG_type_name(vsg::RayTracingPipeline);
 

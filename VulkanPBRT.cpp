@@ -512,7 +512,6 @@ int main(int argc, char** argv){
         auto raymissShaderGroup = vsg::RayTracingShaderGroup::create();
         raymissShaderGroup->type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
         raymissShaderGroup->generalShader = 1;
-        raymissShaderGroup->groupCount = 2;
         auto shadowMissShaderGroup = vsg::RayTracingShaderGroup::create();
         shadowMissShaderGroup->type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
         shadowMissShaderGroup->generalShader = 2;
@@ -520,6 +519,12 @@ int main(int argc, char** argv){
         closesthitShaderGroup->type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
         closesthitShaderGroup->closestHitShader = 3;
         auto shaderGroups = vsg::RayTracingShaderGroups{raygenShaderGroup, raymissShaderGroup, shadowMissShaderGroup, closesthitShaderGroup};
+
+        auto shaderBindingTable = vsg::RayTracingShaderBindingTable::create();
+        shaderBindingTable->shaderGroups = shaderGroups;
+        shaderBindingTable->bindingTableEntries.raygenGroups = {raygenShaderGroup};
+        shaderBindingTable->bindingTableEntries.raymissGroups = {raymissShaderGroup, shadowMissShaderGroup};
+        shaderBindingTable->bindingTableEntries.hitGroups = {closesthitShaderGroup};
 
         //creating camera things
         auto perspective = vsg::Perspective::create(60, static_cast<double>(windowTraits->width) / static_cast<double>(windowTraits->height), .1, 1000);
@@ -623,7 +628,7 @@ int main(int argc, char** argv){
 
         auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, vsg::PushConstantRanges{});
         //auto raytracingPipeline = vsg::RayTracingPipeline::create(pipelineLayout, shaderStage, shaderGroups);
-        auto raytracingPipeline = vsg::RayTracingPipeline::create(rayTracingPipelineLayout, shaderStage, shaderGroups);
+        auto raytracingPipeline = vsg::RayTracingPipeline::create(rayTracingPipelineLayout, shaderStage, shaderGroups, shaderBindingTable, 2);
         auto bindRayTracingPipeline = vsg::BindRayTracingPipeline::create(raytracingPipeline);
 
         auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{accelDescriptor, storageImageDescriptor, raytracingUniformDescriptor});
@@ -637,9 +642,7 @@ int main(int argc, char** argv){
 
         //ray trace setup
         auto traceRays = vsg::TraceRays::create();
-        traceRays->raygen = raygenShaderGroup;
-        traceRays->missShader = raymissShaderGroup;
-        traceRays->hitShader = closesthitShaderGroup;
+        traceRays->bindingTable = shaderBindingTable;
         traceRays->width = windowTraits->width;
         traceRays->height = windowTraits->height;
         traceRays->depth = 1;
