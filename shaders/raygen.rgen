@@ -18,7 +18,7 @@ void main()
 {
 	const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
 	const vec2 normalisedPixelCoord = pixelCenter/vec2(gl_LaunchSizeEXT.xy);
-	vec2 clipSpaceCoord = normalisedPixelCoord * 2.0 - 1.0;
+	vec2 clipSpaceCoord = normalisedPixelCoord * 2.0 - 1.0;;
 
 	vec4 worldSpacePos = camParams.inverseViewMatrix * vec4(0,0,0,1);
 	vec4 viewSpaceDir = camParams.inverseProjectionMatrix * vec4(clipSpaceCoord.x, clipSpaceCoord.y, 1, 1) ;

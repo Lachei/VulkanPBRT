@@ -18,6 +18,7 @@ layout(binding = 9) uniform sampler2D aoMap[];
 layout(binding = 10) uniform sampler2D emissiveMap[];
 layout(binding = 11) uniform sampler2D specularMap[];
 #define VERTEXINFOAVAILABLE
+#define TEXTURESAVAILABLE
 #include "general.glsl"
 layout(binding = 12) buffer Lights{Light l[]; } lights;
 layout(binding = 13) buffer Materials{WaveFrontMaterialPacked m[]; } materials;
@@ -60,9 +61,13 @@ void main()
 
   const vec3 bar = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
   vec3 normal = normalize(v0.normal * bar.x + v1.normal * bar.y + v2.normal * bar.z);
+  vec3 T = getTangent(v0.pos, v1.pos, v2.pos, v0.uv, v1.uv, v2.uv);
+  vec3 B = getBitangent(v0.pos, v1.pos, v2.pos, v0.uv, v1.uv, v2.uv);
+  mat3 TBN = gramSchmidt(T, B, normal);
   vec3 position = v0.pos * bar.x + v1.pos * bar.y + v2.pos * bar.z;
   position = (instance.objectMat * vec4(position, 1)).xyz;
   vec2 texCoord = v0.uv * bar.x + v1.uv * bar.y + v2.uv * bar.z;
+  normal = getNormal(TBN, normalMap[nonuniformEXT(objId)], texCoord);
   vec3 albedo = texture(diffuseMap[nonuniformEXT(objId)], texCoord).xyz;
 
   //lighting calculations
@@ -72,11 +77,11 @@ void main()
   float tmin = 0.001;
 	float tmax = 1000.0;
 	shadowed = true;
-  traceRayEXT(tlas, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xFF, 0, 0, 1, origin, tmin, lightVector, tmax, 2);
+  //traceRayEXT(tlas, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xFF, 0, 0, 1, origin, tmin, lightVector, tmax, 2);
 
   if(shadowed)
     albedo *= .5f;
-  rayPayload.color = albedo;
+  rayPayload.color = normal;
   rayPayload.normal = normal;
   rayPayload.distance = gl_RayTmaxEXT;
   rayPayload.reflector = 1;
