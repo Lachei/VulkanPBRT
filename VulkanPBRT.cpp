@@ -384,9 +384,11 @@ int main(int argc, char** argv){
 
         auto windowTraits = vsg::WindowTraits::create();
         windowTraits->windowTitle = "VulkanPBRT";
+        windowTraits->width = 1800;
+        //windowTraits->height = 1080;
         windowTraits->debugLayer = true;//arguments.read({"--debug", "-d"});
         windowTraits->apiDumpLayer = arguments.read({"--api", "-a"});
-        if(arguments.read({"--fullscreen", "--fs"})) windowTraits->fullscreen = true;
+        if(arguments.read({"--fullscreen", "-fs"})) windowTraits->fullscreen = true;
         if(arguments.read({"--window", "-w"}, windowTraits->width, windowTraits->height)) windowTraits->fullscreen = false;
         arguments.read("--screen", windowTraits->screenNum);
 
@@ -534,6 +536,9 @@ int main(int argc, char** argv){
         vsg::ref_ptr<vsg::BindDescriptorSet> rayTracingBinder;
         vsg::ref_ptr<vsg::PipelineLayout> rayTracingPipelineLayout;
         auto guiValues = Gui::Values::create();
+        guiValues->raysPerPixel = 2;
+        guiValues->width = windowTraits->width;
+        guiValues->height = windowTraits->height;
         if(filename.empty()){
             //no extern geometry
             //acceleration structures

@@ -16,6 +16,9 @@ public:
         float testColor[4];
         char testTextInput[200];
         int triangleCount;
+        int raysPerPixel;
+        int width;
+        int height;
     };
     Gui(vsg::ref_ptr<Values> values): _values(values), _state({true}){}
 
@@ -31,6 +34,7 @@ public:
         ImGui::ColorEdit4("testColor", _values->testColor);
         ImGui::InputText("testTextInput", _values->testTextInput, 200);
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS) for %d triangles", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate, _values->triangleCount);
+        ImGui::Text("Render size is %d by %d with %d rays/pixel resulting in %.3f mRays/second", _values->width, _values->height, _values->raysPerPixel, ImGui::GetIO().Framerate * _values->raysPerPixel * _values->width * _values->height / 1.0e6);
 
         ImGui::End();
         return _state.active;
