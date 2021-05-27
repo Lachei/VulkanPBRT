@@ -235,7 +235,7 @@ public:
                 l.colorDiffuse = col;
                 l.colorSpecular = col;
                 l.strengths = vsg::vec3(1.0f,.0f,.0f);
-                l.dir = vsg::vec3(0, .0, -1.0f);
+                l.dir = vsg::vec3(.2f, .2f, -1.0f);
                 _packedLights.push_back(l.getPacked());
             }
             if(!_lights)
@@ -588,7 +588,6 @@ int main(int argc, char** argv){
         }
 
         vsg::CompileTraversal compile(window);
-        //tlas->compile(compile.context);
 
         auto storageImage = vsg::Image::create();
         storageImage->imageType = VK_IMAGE_TYPE_2D;

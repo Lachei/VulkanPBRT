@@ -68,7 +68,12 @@ void main()
   position = (instance.objectMat * vec4(position, 1)).xyz;
   vec2 texCoord = v0.uv * bar.x + v1.uv * bar.y + v2.uv * bar.z;
   normal = getNormal(TBN, normalMap[nonuniformEXT(objId)], texCoord);
-  vec3 albedo = texture(diffuseMap[nonuniformEXT(objId)], texCoord).xyz;
+  vec3 albedo = vec3(1);
+  if(textureSize(diffuseMap[nonuniformEXT(objId)],0) != ivec2(1,1))
+    albedo = texture(diffuseMap[nonuniformEXT(objId)], texCoord).xyz;
+
+  WaveFrontMaterial mat = unpack(materials.m[objId]);
+  
 
   //lighting calculations
   // Trace shadow ray and offset indices to match shadow hit/mis shader group indices
@@ -77,11 +82,11 @@ void main()
   float tmin = 0.001;
 	float tmax = 1000.0;
 	shadowed = true;
-  //traceRayEXT(tlas, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xFF, 0, 0, 1, origin, tmin, lightVector, tmax, 2);
+  traceRayEXT(tlas, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xFF, 0, 0, 1, origin, tmin, lightVector, tmax, 2);
 
   if(shadowed)
     albedo *= .5f;
-  rayPayload.color = normal;
+  rayPayload.color = albedo;
   rayPayload.normal = normal;
   rayPayload.distance = gl_RayTmaxEXT;
   rayPayload.reflector = 1;

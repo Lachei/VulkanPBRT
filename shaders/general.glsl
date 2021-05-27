@@ -281,7 +281,7 @@ float microfacetDistribution(PBRInfo pbrInputs)
     return roughnessSq / (PI * f * f);
 }
 
-vec3 BRDF(vec3 v, vec3 n, vec3 l, vec3 h, float perceptualRoughness, float metallic, vec3 specularEnvironmentR0, vec3 specularEnvironmentR90, float alphaRoughness, vec3 diffuseColor, vec3 specularColor, float ao)
+vec3 BRDF(vec3 v, vec3 n, vec3 l, vec3 h, float perceptualRoughness, float metallic, vec3 specularEnvironmentR0, vec3 specularEnvironmentR90, float alphaRoughness, vec3 diffuseColor, vec3 specularColor, float ao, sampler2D emissiveMap, vec2 uv, WaveFrontMaterial m)
 {
     vec3 reflection = -normalize(reflect(v, n));
     reflection.y *= -1.0f;
@@ -322,12 +322,11 @@ vec3 BRDF(vec3 v, vec3 n, vec3 l, vec3 h, float perceptualRoughness, float metal
 
     color *= ao;
 
-#ifdef VSG_EMISSIVE_MAP
-    vec3 emissive = SRGBtoLINEAR(texture(emissiveMap, texCoord0)).rgb * pbr.emissiveFactor.rgb;
-#else
-    //vec3 emissive = pbr.emissiveFactor.rgb;
     vec3 emissive = vec3(0);
-#endif
+    //vec3 emissive = pbr.emissiveFactor.rgb;
+    if(textureSize(emissiveMap, 0) == ivec2(1,1))
+        vec3 emissive = SRGBtoLINEAR(texture(emissiveMap, uv)).rgb * m.emission;
+
     color += emissive;
 
     return color;
