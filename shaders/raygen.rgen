@@ -4,7 +4,7 @@
 layout(binding = 0, set = 0) uniform accelerationStructureEXT tlas;
 layout(binding = 1, set = 0, rgba8) uniform image2D outputImage;
 
-layout(binding = 15, set = 0) uniform CameraParams 
+layout(push_constant) uniform PushConstants 
 {
 	mat4 inverseViewMatrix;
 	mat4 inverseProjectionMatrix;

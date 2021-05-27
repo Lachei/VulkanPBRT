@@ -6,14 +6,14 @@
  
  #include "gui.hpp"
 
- struct RayTracingUniform{
+ struct RayTracingPushConstants{
      vsg::mat4 viewInverse;
      vsg::mat4 projInverse;
  };
 
-class RayTracingUniformValue : public vsg::Inherit<vsg::Value<RayTracingUniform>, RayTracingUniformValue>{
+class RayTracingPushConstantsValue : public vsg::Inherit<vsg::Value<RayTracingPushConstants>, RayTracingPushConstantsValue>{
     public:
-    RayTracingUniformValue(){}
+    RayTracingPushConstantsValue(){}
 };
 
 class CountTrianglesVisitor : public vsg::Visitor
@@ -271,8 +271,7 @@ public:
                 {11, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_specular.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
                 {12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
                 {13, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {14, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {15, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr}
+                {14, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr}
                 };
             //adding all descriptors
             vsg::Descriptors descList;
@@ -313,7 +312,7 @@ public:
             _descriptorSet = vsg::DescriptorSet::create(_descriptorSetLayout, descList);
             if(!pipelineLayout)
             {
-                pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{_descriptorSetLayout}, vsg::PushConstantRanges{});
+                pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{_descriptorSetLayout}, vsg::PushConstantRanges{{VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(RayTracingPushConstants)}});
             }
             _bindDescriptor = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipelineLayout, 0, _descriptorSet);
         }
@@ -523,7 +522,6 @@ int main(int argc, char** argv){
         auto shaderGroups = vsg::RayTracingShaderGroups{raygenShaderGroup, raymissShaderGroup, shadowMissShaderGroup, closesthitShaderGroup};
 
         auto shaderBindingTable = vsg::RayTracingShaderBindingTable::create();
-        shaderBindingTable->shaderGroups = shaderGroups;
         shaderBindingTable->bindingTableEntries.raygenGroups = {raygenShaderGroup};
         shaderBindingTable->bindingTableEntries.raymissGroups = {raymissShaderGroup, shadowMissShaderGroup};
         shaderBindingTable->bindingTableEntries.hitGroups = {closesthitShaderGroup};
@@ -608,10 +606,10 @@ int main(int argc, char** argv){
         storageImage->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         vsg::ImageInfo storageImageInfo{nullptr, vsg::createImageView(compile.context, storageImage, VK_IMAGE_ASPECT_COLOR_BIT), VK_IMAGE_LAYOUT_GENERAL};
         
-        auto raytracingUniformValues = new RayTracingUniformValue();
-        perspective->get_inverse(raytracingUniformValues->value().projInverse);
-        lookAt->get_inverse(raytracingUniformValues->value().viewInverse);
-        vsg::ref_ptr<RayTracingUniformValue> raytracingUniform(raytracingUniformValues);
+        auto rayTracingPushConstantsValue = RayTracingPushConstantsValue::create();
+        perspective->get_inverse(rayTracingPushConstantsValue->value().projInverse);
+        lookAt->get_inverse(rayTracingPushConstantsValue->value().viewInverse);
+        auto pushConstants = vsg::PushConstants::create(VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, rayTracingPushConstantsValue);
 
         //set up graphics pipeline
         vsg::DescriptorSetLayoutBindings descriptorBindings{
@@ -627,21 +625,23 @@ int main(int argc, char** argv){
         auto storageImageDescriptor = vsg::DescriptorImage::create(storageImageInfo,1, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
         rayTracingBinder->descriptorSet->descriptors.push_back(storageImageDescriptor);
         //auto raytracingUniformDescriptor = vsg::DescriptorBuffer::create(raytracingUniform, 2, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        auto raytracingUniformDescriptor = vsg::DescriptorBuffer::create(raytracingUniform, 15, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        rayTracingBinder->descriptorSet->descriptors.push_back(raytracingUniformDescriptor);
-        raytracingUniformDescriptor->copyDataListToBuffers();
+        //auto raytracingUniformDescriptor = vsg::DescriptorBuffer::create(raytracingUniform, 15, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        //rayTracingBinder->descriptorSet->descriptors.push_back(raytracingUniformDescriptor);
+        //raytracingUniformDescriptor->copyDataListToBuffers();
 
         auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, vsg::PushConstantRanges{});
         //auto raytracingPipeline = vsg::RayTracingPipeline::create(pipelineLayout, shaderStage, shaderGroups);
         auto raytracingPipeline = vsg::RayTracingPipeline::create(rayTracingPipelineLayout, shaderStage, shaderGroups, shaderBindingTable, 2);
         auto bindRayTracingPipeline = vsg::BindRayTracingPipeline::create(raytracingPipeline);
 
-        auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{accelDescriptor, storageImageDescriptor, raytracingUniformDescriptor});
-        auto bindDescriptorSets = vsg::BindDescriptorSets::create(VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, raytracingPipeline->getPipelineLayout(), 0, vsg::DescriptorSets{descriptorSet});
+        //auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{accelDescriptor, storageImageDescriptor, raytracingUniformDescriptor});
+        //auto bindDescriptorSets = vsg::BindDescriptorSets::create(VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, raytracingPipeline->getPipelineLayout(), 0, vsg::DescriptorSets{descriptorSet});
+
 
         //state group to bind the pipeline and descriptorset
         auto scenegraph = vsg::Commands::create();
         scenegraph->addChild(bindRayTracingPipeline);
+        scenegraph->addChild(pushConstants);
         //scenegraph->addChild(bindDescriptorSets);
         scenegraph->addChild(rayTracingBinder);
 
@@ -677,8 +677,8 @@ int main(int argc, char** argv){
         while(viewer->advanceToNextFrame() && (numFrames < 0 || (numFrames--) > 0)){
             viewer->handleEvents();
             //update camera matrix
-            lookAt->get_inverse(raytracingUniformValues->value().viewInverse);
-            raytracingUniformDescriptor->copyDataListToBuffers();
+            lookAt->get_inverse(rayTracingPushConstantsValue->value().viewInverse);
+            //raytracingUniformDescriptor->copyDataListToBuffers();
 
             viewer->update();
             viewer->recordAndSubmit();

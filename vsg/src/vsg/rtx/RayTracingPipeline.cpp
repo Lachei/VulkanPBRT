@@ -155,6 +155,7 @@ RayTracingPipeline::Implementation::Implementation(Context& context, RayTracingP
     if (result == VK_SUCCESS)
     {
         rayTracingPipeline->_bindingTable->pipeline = _pipeline;
+        rayTracingPipeline->_bindingTable->shaderGroups = rayTracingShaderGroups;
         rayTracingPipeline->_bindingTable->compile(context);
     }
     else
