@@ -7,8 +7,8 @@ layout(location = 0) rayPayloadInEXT RayPayload rayPayload;
 
 void main()
 {
-    rayPayload.color = vec3(0,0,.2f);
+    rayPayload.color = vec4(0,0,.2f,1);
     rayPayload.distance = 1.0/0; //inf
-    rayPayload.normal = rayPayload.color;
+    rayPayload.normal = vec3(0,0,1);
     rayPayload.reflector = 0;
 }

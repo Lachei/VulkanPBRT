@@ -130,6 +130,7 @@ public:
         {
             if(descriptor->descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) //pbr material
             {
+                //TODO change to automatically detect pbr and normal vsg mat via data stride
                 vsg::ref_ptr<vsg::DescriptorBuffer> d = descriptor.cast<vsg::DescriptorBuffer>();
                 VsgPbrMaterial vsgMat;
                 std::memcpy(&vsgMat, d->bufferInfoList[0].data->dataPointer(), sizeof(VsgPbrMaterial));
@@ -140,6 +141,7 @@ public:
                 mat.ambientShininess.w = vsgMat.roughnessFactor;
                 mat.diffuseIor.w = 1;
                 mat.specularDissolve.w = vsgMat.alphaMask;
+                mat.emissionTextureId.w = vsgMat.alphaMaskCutoff;
                 _materialArray.push_back(mat);
                 continue;
             }

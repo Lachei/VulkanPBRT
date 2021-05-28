@@ -14,7 +14,7 @@ struct Vertex{
 };
 
 struct RayPayload {
-	vec3 color;
+	vec4 color;
 	float distance;
 	vec3 normal;
 	float reflector;
@@ -52,7 +52,7 @@ struct WaveFrontMaterial
   float ior;       // index of refraction
   float dissolve;  // 1 == opaque; 0 == fully transparent
   int   illum;     // illumination model (see http://www.fileformat.info/format/material/)
-  int   textureId;
+  float alphaCutoff;
 };
 
 // a light is generally defined as a plane with 3 verts, a light type, a direction, strength, angle and radius
@@ -118,7 +118,7 @@ WaveFrontMaterial unpack(WaveFrontMaterialPacked p){
     m.ior = p.diffuseIor.w;
     m.dissolve = p.specularDissolve.w;
     m.illum = int(p.transmittanceIllum.w);
-    m.textureId = int(p.emissionTextureId.w);
+    m.alphaCutoff = p.emissionTextureId.w;
     return m;
 };
 
@@ -281,7 +281,7 @@ float microfacetDistribution(PBRInfo pbrInputs)
     return roughnessSq / (PI * f * f);
 }
 
-vec3 BRDF(vec3 v, vec3 n, vec3 l, vec3 h, float perceptualRoughness, float metallic, vec3 specularEnvironmentR0, vec3 specularEnvironmentR90, float alphaRoughness, vec3 diffuseColor, vec3 specularColor, float ao, sampler2D emissiveMap, vec2 uv, WaveFrontMaterial m)
+vec3 BRDF(vec3 v, vec3 n, vec3 l, vec3 h, float perceptualRoughness, float metallic, vec3 specularEnvironmentR0, vec3 specularEnvironmentR90, float alphaRoughness, vec3 diffuseColor, vec3 specularColor, float ao, vec3 emissive)
 {
     vec3 reflection = -normalize(reflect(v, n));
     reflection.y *= -1.0f;
@@ -321,11 +321,6 @@ vec3 BRDF(vec3 v, vec3 n, vec3 l, vec3 h, float perceptualRoughness, float metal
     vec3 color = NdotL * u_LightColor * (diffuseContrib + specContrib);
 
     color *= ao;
-
-    vec3 emissive = vec3(0);
-    //vec3 emissive = pbr.emissiveFactor.rgb;
-    if(textureSize(emissiveMap, 0) == ivec2(1,1))
-        vec3 emissive = SRGBtoLINEAR(texture(emissiveMap, uv)).rgb * m.emission;
 
     color += emissive;
 
