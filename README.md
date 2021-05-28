@@ -9,6 +9,10 @@ For faster and easier development the [VulkanSceneGraph](https://github.com/vsg-
 The todos, in progress and done tasks can be found in the [Projects tab](https://github.com/Lachei/VulkanPBRT/projects/1).
 
 A list of supported features and screenshots (Top is most recent feature):
+![sponza texture pbr lighting](pictures/lighting_no_bounces.png)
+
+- [x] Physically based lighting computation implemented.
+
 ![sponza texture shadow](pictures/textured_shadow.png)
 
 - [x] Shadow test via shadow rays works
