@@ -123,9 +123,10 @@ void main()
       vec3 emissive = SRGBtoLINEAR(texture(emissiveMap[nonuniformEXT(objId)], texCoord)).rgb * mat.emission;
 
 
-  rayPayload.color.rgb = BRDF(v, normal, l, h, perceptualRoughness, metallic, specularEnvironmentR0, specularEnvironmentR90, alphaRoughness, diffuseColor, specularColor, ambientOcclusion, emissive);
-  rayPayload.color = LINEARtoSRGB(vec4(rayPayload.color.rgb, baseColor.a));
-  rayPayload.color = diffuse;
+  vec3 color = BRDF(v, normal, l, h, perceptualRoughness, metallic, specularEnvironmentR0, specularEnvironmentR90, alphaRoughness, diffuseColor, specularColor, ambientOcclusion, emissive);
+  //adding a bit ambient light
+  color.rgb += diffuseColor * vec3(.2f);
+  color = LINEARtoSRGB(vec4(color, baseColor.a)).xyz;
 
   //lighting calculations
   // Trace shadow ray and offset indices to match shadow hit/mis shader group indices
@@ -134,8 +135,9 @@ void main()
 	float tmax = 1000.0;
 	shadowed = true;
   traceRayEXT(tlas, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xFF, 0, 0, 1, origin, tmin, l, tmax, 2);
-
-  if(shadowed)
+  bool tmp = shadowed;
+  rayPayload.color = vec4(color, baseColor.a);
+  if(tmp)
     rayPayload.color *= .5f;
   //rayPayload.color = albedo;
   rayPayload.normal = normal;
