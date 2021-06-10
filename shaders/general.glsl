@@ -15,8 +15,9 @@ struct Vertex{
 
 struct RayPayload {
 	vec4 color;
-	float distance;
+    vec4 albedo;
 	vec3 normal;
+	float distance;
 	float reflector;
 };
 

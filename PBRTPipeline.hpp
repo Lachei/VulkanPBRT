@@ -80,6 +80,9 @@ public:
     vsg::ref_ptr<vsg::PushConstants> pushConstants;
     vsg::ref_ptr<vsg::TraceRays> traceRays;
 
+    //shader binding table for trace rays
+    vsg::ref_ptr<vsg::RayTracingShaderBindingTable> shaderBindingTable;
+
 protected:
     bool useExternalGBuffer;
 
@@ -117,7 +120,7 @@ protected:
         closesthitShaderGroup->type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
         closesthitShaderGroup->closestHitShader = 3;
         auto shaderGroups = vsg::RayTracingShaderGroups{raygenShaderGroup, raymissShaderGroup, shadowMissShaderGroup, closesthitShaderGroup};
-        auto shaderBindingTable = vsg::RayTracingShaderBindingTable::create();
+        shaderBindingTable = vsg::RayTracingShaderBindingTable::create();
         shaderBindingTable->bindingTableEntries.raygenGroups = {raygenShaderGroup};
         shaderBindingTable->bindingTableEntries.raymissGroups = {raymissShaderGroup, shadowMissShaderGroup};
         shaderBindingTable->bindingTableEntries.hitGroups = {closesthitShaderGroup};
@@ -125,9 +128,6 @@ protected:
         bindRayTracingPipeline = vsg::BindRayTracingPipeline::create(pipeline);
 
         //adding gbuffer bindings to the descriptor
-        bindRayTracingDescriptorSet->descriptorSet->descriptors.push_back(gBuffer->depth);
-        bindRayTracingDescriptorSet->descriptorSet->descriptors.push_back(gBuffer->normal);
-        bindRayTracingDescriptorSet->descriptorSet->descriptors.push_back(gBuffer->material);
-        bindRayTracingDescriptorSet->descriptorSet->descriptors.push_back(gBuffer->albedo);
+        gBuffer->updateDescriptor(bindRayTracingDescriptorSet);
     }
 };

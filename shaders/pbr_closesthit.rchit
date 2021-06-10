@@ -74,7 +74,6 @@ void main()
   WaveFrontMaterial mat = unpack(materials.m[objId]);
   float perceptualRoughness = 0;
   float metallic;
-  vec3 diffuseColor;
   vec4 diffuse = texture(diffuseMap[nonuniformEXT(objId)], texCoord);
   vec4 baseColor = SRGBtoLINEAR(diffuse) * vec4(mat.ambient, 1);
 
@@ -104,7 +103,7 @@ void main()
   vec3 baseColorSpecularPart = specular.rgb - (vec3(c_MinRoughness) * (1 - metallic) * (1 / max(metallic, epsilon))) * mat.specular.rgb;
   baseColor = vec4(mix(baseColorDiffusePart, baseColorSpecularPart, metallic * metallic), diffuse.a);
 
-  diffuseColor = baseColor.rgb * (vec3(1.0) - f0);
+  vec3 diffuseColor = baseColor.rgb * (vec3(1.0) - f0);
   diffuseColor *= 1.0 - metallic;
 
   float alphaRoughness = perceptualRoughness * perceptualRoughness;
@@ -141,6 +140,7 @@ void main()
     rayPayload.color *= .5f;
   //rayPayload.color = albedo;
   rayPayload.normal = normal;
+  rayPayload.albedo = diffuse;
   rayPayload.distance = gl_RayTmaxEXT;
   rayPayload.reflector = 1;
 }

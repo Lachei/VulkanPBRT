@@ -10,9 +10,20 @@ public:
     GBuffer(uint width, uint height): width(width), height(height){setupImages();}
 
     // these are the bindings the gbuffers are bound to
-    const static uint depthBinding = 0, normalBinding = 1, materialBinding = 2, albedoBinding = 3;
+    const uint depthBinding = 15, normalBinding = 16, materialBinding = 17, albedoBinding = 18;
     uint width, height;
     vsg::ref_ptr<vsg::DescriptorImage> depth, normal, material, albedo;
+
+    void updateDescriptor(vsg::BindDescriptorSet* descSet){
+        descSet->descriptorSet->descriptors.push_back(depth);
+        descSet->descriptorSet->descriptors.push_back(normal);
+        descSet->descriptorSet->descriptors.push_back(material);
+        descSet->descriptorSet->descriptors.push_back(albedo);
+        descSet->descriptorSet->setLayout->bindings.push_back(VkDescriptorSetLayoutBinding{depthBinding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr});
+        descSet->descriptorSet->setLayout->bindings.push_back(VkDescriptorSetLayoutBinding{normalBinding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr});
+        descSet->descriptorSet->setLayout->bindings.push_back(VkDescriptorSetLayoutBinding{materialBinding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr});
+        descSet->descriptorSet->setLayout->bindings.push_back(VkDescriptorSetLayoutBinding{albedoBinding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr});
+    }
 
     void compile(vsg::Context& context){
         depth->compile(context);

@@ -86,7 +86,7 @@ int main(int argc, char** argv){
             std::cout << e.message << " Vk Result = " << e.result << std::endl;
             return 0;
         }
-        //setting a custom render pass
+        //setting a custom render pass for imgui non clear rendering
         vsg::AttachmentDescription  colorAttachment = vsg::defaultColorAttachment(window->surfaceFormat().format);
         colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -141,55 +141,12 @@ int main(int argc, char** argv){
         //window->clearColor() = {};
         viewer->addWindow(window);
 
-        //shader creation
-        const uint32_t shaderIndexRaygen = 0;
-        const uint32_t shaderIndexMiss = 1;
-        const uint32_t shaderIndexClosestHit = 2;
-        //std::string raygenPath = "shaders/simple_raygen.rgen.spv";
-        //std::string raymissPath = "shaders/simple_miss.rmiss.spv";
-        //std::string closesthitPath = "shaders/simple_closesthit.rchit.spv";
-        std::string raygenPath = "shaders/raygen.rgen.spv";
-        std::string raymissPath = "shaders/miss.rmiss.spv";
-        std::string shadowMissPath = "shaders/shadow.rmiss.spv";
-        std::string closesthitPath = "shaders/pbr_closesthit.rchit.spv";
-
-        auto raygenShader = vsg::ShaderStage::read(VK_SHADER_STAGE_RAYGEN_BIT_KHR, "main", raygenPath);
-        auto raymissShader = vsg::ShaderStage::read(VK_SHADER_STAGE_MISS_BIT_KHR, "main", raymissPath);
-        auto shadowMissShader = vsg::ShaderStage::read(VK_SHADER_STAGE_MISS_BIT_KHR, "main", shadowMissPath);
-        auto closesthitShader = vsg::ShaderStage::read(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, "main", closesthitPath);
-        if(!raygenShader || !raymissShader || !closesthitShader || !shadowMissShader){
-            std::cout << "Shader creation failed" << std::endl;
-            return 1;
-        }
-
-        auto shaderStage = vsg::ShaderStages{raygenShader, raymissShader, shadowMissShader, closesthitShader};
-
-        auto raygenShaderGroup = vsg::RayTracingShaderGroup::create();
-        raygenShaderGroup->type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-        raygenShaderGroup->generalShader = 0;
-        auto raymissShaderGroup = vsg::RayTracingShaderGroup::create();
-        raymissShaderGroup->type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-        raymissShaderGroup->generalShader = 1;
-        auto shadowMissShaderGroup = vsg::RayTracingShaderGroup::create();
-        shadowMissShaderGroup->type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
-        shadowMissShaderGroup->generalShader = 2;
-        auto closesthitShaderGroup = vsg::RayTracingShaderGroup::create();
-        closesthitShaderGroup->type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
-        closesthitShaderGroup->closestHitShader = 3;
-        auto shaderGroups = vsg::RayTracingShaderGroups{raygenShaderGroup, raymissShaderGroup, shadowMissShaderGroup, closesthitShaderGroup};
-
-        auto shaderBindingTable = vsg::RayTracingShaderBindingTable::create();
-        shaderBindingTable->bindingTableEntries.raygenGroups = {raygenShaderGroup};
-        shaderBindingTable->bindingTableEntries.raymissGroups = {raymissShaderGroup, shadowMissShaderGroup};
-        shaderBindingTable->bindingTableEntries.hitGroups = {closesthitShaderGroup};
-
         //creating camera things
         auto perspective = vsg::Perspective::create(60, static_cast<double>(windowTraits->width) / static_cast<double>(windowTraits->height), .1, 1000);
         vsg::ref_ptr<vsg::LookAt> lookAt;
 
         vsg::ref_ptr<vsg::TopLevelAccelerationStructure> tlas;
-        vsg::ref_ptr<vsg::BindDescriptorSet> rayTracingBinder;
-        vsg::ref_ptr<vsg::PipelineLayout> rayTracingPipelineLayout;
+        vsg::ref_ptr<vsg::Node> loaded_scene;
         auto guiValues = Gui::Values::create();
         guiValues->raysPerPixel = 2;
         guiValues->width = windowTraits->width;
@@ -224,86 +181,39 @@ int main(int argc, char** argv){
         }
         else{
             auto options = vsg::Options::create(vsgXchange::assimp::create(), vsgXchange::dds::create(), vsgXchange::stbi::create()); //using the assimp loader
-            auto loaded_scene = vsg::read_cast<vsg::Node>(filename, options);
+            loaded_scene = vsg::read_cast<vsg::Node>(filename, options);
             if(!loaded_scene){
                 std::cout << "Scene not found: " << filename << std::endl;
                 return 1;
             }
-            vsg::BuildAccelerationStructureTraversal buildAccelStruct(device);
-            loaded_scene->accept(buildAccelStruct);
-            tlas = buildAccelStruct.tlas;
-
-            CreateRayTracingDescriptorTraversal buildDescriptorBinding;
-            loaded_scene->accept(buildDescriptorBinding);
-            rayTracingBinder = buildDescriptorBinding.getBindDescriptorSet();
-            rayTracingPipelineLayout = buildDescriptorBinding.pipelineLayout;
-
-            lookAt = vsg::LookAt::create(vsg::dvec3(0.0, 1.0, -5.0), vsg::dvec3(0.0, 0.5, 0.0), vsg::dvec3(0.0, 1.0, 0.0));
+            lookAt = vsg::LookAt::create(vsg::dvec3(0.0, 1.0, -5.0), vsg::dvec3(0.0, 0.5, 0.0), vsg::dvec3(0.0, 0.0, 1.0));
             CountTrianglesVisitor counter;
             loaded_scene->accept(counter);
             guiValues->triangleCount = counter.triangleCount;
         }
-
-        vsg::CompileTraversal compile(window);
-
-        auto storageImage = vsg::Image::create();
-        storageImage->imageType = VK_IMAGE_TYPE_2D;
-        storageImage->format = VK_FORMAT_B8G8R8A8_UNORM;
-        storageImage->extent.width = windowTraits->width;
-        storageImage->extent.height = windowTraits->height;
-        storageImage->extent.depth = 1;
-        storageImage->mipLevels = 1;
-        storageImage->arrayLayers = 1;
-        storageImage->samples = VK_SAMPLE_COUNT_1_BIT;
-        storageImage->tiling = VK_IMAGE_TILING_OPTIMAL;
-        storageImage->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
-        storageImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        storageImage->flags = 0;
-        storageImage->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        vsg::ImageInfo storageImageInfo{nullptr, vsg::createImageView(compile.context, storageImage, VK_IMAGE_ASPECT_COLOR_BIT), VK_IMAGE_LAYOUT_GENERAL};
         
         auto rayTracingPushConstantsValue = RayTracingPushConstantsValue::create();
         perspective->get_inverse(rayTracingPushConstantsValue->value().projInverse);
         lookAt->get_inverse(rayTracingPushConstantsValue->value().viewInverse);
         auto pushConstants = vsg::PushConstants::create(VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, rayTracingPushConstantsValue);
 
-        //set up graphics pipeline
-        vsg::DescriptorSetLayoutBindings descriptorBindings{
-            {0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr}, //acceleration structure
-            {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr},              //output image
-            {2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr},             //camear matrices
-            {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, }
-        };
-        auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
-
-        auto accelDescriptor = vsg::DescriptorAccelerationStructure::create(vsg::AccelerationStructures{tlas}, 0, 0);
-        rayTracingBinder->descriptorSet->descriptors.push_back(accelDescriptor);
-        auto storageImageDescriptor = vsg::DescriptorImage::create(storageImageInfo,1, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-        rayTracingBinder->descriptorSet->descriptors.push_back(storageImageDescriptor);
-        //auto raytracingUniformDescriptor = vsg::DescriptorBuffer::create(raytracingUniform, 2, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        //auto raytracingUniformDescriptor = vsg::DescriptorBuffer::create(raytracingUniform, 15, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        //rayTracingBinder->descriptorSet->descriptors.push_back(raytracingUniformDescriptor);
-        //raytracingUniformDescriptor->copyDataListToBuffers();
-
-        auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, vsg::PushConstantRanges{});
-        //auto raytracingPipeline = vsg::RayTracingPipeline::create(pipelineLayout, shaderStage, shaderGroups);
-        auto raytracingPipeline = vsg::RayTracingPipeline::create(rayTracingPipelineLayout, shaderStage, shaderGroups, shaderBindingTable, 2);
-        auto bindRayTracingPipeline = vsg::BindRayTracingPipeline::create(raytracingPipeline);
-
-        //auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{accelDescriptor, storageImageDescriptor, raytracingUniformDescriptor});
-        //auto bindDescriptorSets = vsg::BindDescriptorSets::create(VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, raytracingPipeline->getPipelineLayout(), 0, vsg::DescriptorSets{descriptorSet});
-
+        // raytracing pipelin setup
+        uint maxRecursionDepth = 2;
+        auto pbrtPipeline = PBRTPipeline::create(windowTraits->width, windowTraits->height, maxRecursionDepth, loaded_scene);
+        auto gBuffer = pbrtPipeline->gBuffer;
+        auto illuminationBuffer = IlluminationBufferFinal::create(windowTraits->width, windowTraits->height);
+        pbrtPipeline->setIlluminationBuffer(illuminationBuffer);
 
         //state group to bind the pipeline and descriptorset
         auto scenegraph = vsg::Commands::create();
-        scenegraph->addChild(bindRayTracingPipeline);
+        scenegraph->addChild(pbrtPipeline->bindRayTracingPipeline);
         scenegraph->addChild(pushConstants);
         //scenegraph->addChild(bindDescriptorSets);
-        scenegraph->addChild(rayTracingBinder);
+        scenegraph->addChild(pbrtPipeline->bindRayTracingDescriptorSet);
 
         //ray trace setup
         auto traceRays = vsg::TraceRays::create();
-        traceRays->bindingTable = shaderBindingTable;
+        traceRays->bindingTable = pbrtPipeline->shaderBindingTable;
         traceRays->width = windowTraits->width;
         traceRays->height = windowTraits->height;
         traceRays->depth = 1;
@@ -316,7 +226,7 @@ int main(int argc, char** argv){
         auto commandGraph = vsg::CommandGraph::create(window);
         auto renderGraph = vsg::createRenderGraphForView(window, camera, vsgImGui::RenderImGui::create(window, Gui(guiValues)));//vsg::RenderGraph::create(window); // render graph for gui rendering
         renderGraph->clearValues.clear();   //removing clear values to avoid clearing the raytraced image
-        auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(storageImageInfo.imageView, window);
+        auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(illuminationBuffer->illuminationImages[0]->imageInfoList[0].imageView, window);
 
         commandGraph->addChild(scenegraph);
         commandGraph->addChild(copyImageViewToWindow);

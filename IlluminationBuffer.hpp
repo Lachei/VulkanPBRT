@@ -16,17 +16,19 @@ public:
     void updateDescriptor(vsg::BindDescriptorSet* descSet){
         for(int i = 0; i < illuminationBindings.size(); ++i){
             descSet->descriptorSet->descriptors.push_back(illuminationImages[i]);
+            descSet->descriptorSet->setLayout->bindings.push_back(VkDescriptorSetLayoutBinding{illuminationBindings[i], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr});
         }
     }
 
     //virtual void fillImages() = 0;
 };
 
-class IlluminationBufferFinal: public IlluminationBuffer{
+class IlluminationBufferFinal: public vsg::Inherit<IlluminationBuffer, IlluminationBufferFinal>{
+public:
     IlluminationBufferFinal(uint width, uint height){
         this->width = width;
         this->height = height;
-        illuminationBindings.push_back(0);  //TODO change to appropriate value
+        illuminationBindings.push_back(1);  //TODO change to appropriate value
         fillImages();
     };
 
@@ -46,7 +48,7 @@ class IlluminationBufferFinal: public IlluminationBuffer{
         image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
         vsg::ImageInfo imageInfo{nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
-        illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, illuminationBindings[illuminationImages.size()], 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
+        illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, illuminationBindings[0], 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
     }
 };
 
@@ -77,7 +79,7 @@ public:
         image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
         vsg::ImageInfo imageInfo{nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
-        illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, illuminationBindings[illuminationImages.size()], 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
+        illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, illuminationBindings[0], 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
     
         image = vsg::Image::create();
         image->imageType = VK_IMAGE_TYPE_2D;
@@ -94,7 +96,7 @@ public:
         image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
         imageInfo = {nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
-        illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, illuminationBindings[illuminationImages.size()], 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
+        illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, illuminationBindings[1], 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
 
         image = vsg::Image::create();
         image->imageType = VK_IMAGE_TYPE_2D;
@@ -111,7 +113,7 @@ public:
         image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
         imageInfo = {nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
-        illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, illuminationBindings[illuminationImages.size()], 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
+        illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, illuminationBindings[2], 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
     }
 };
 
@@ -141,7 +143,7 @@ public:
         image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
         vsg::ImageInfo imageInfo{nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
-        illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, illuminationBindings[illuminationImages.size()], 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
+        illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, illuminationBindings[0], 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
     
         image = vsg::Image::create();
         image->imageType = VK_IMAGE_TYPE_2D;
@@ -158,6 +160,6 @@ public:
         image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
         imageInfo = {nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
-        illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, illuminationBindings[illuminationImages.size()], 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
+        illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, illuminationBindings[1], 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
     }
 };
