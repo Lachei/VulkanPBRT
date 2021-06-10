@@ -87,7 +87,7 @@ protected:
 
         image = vsg::Image::create();
         image->imageType = VK_IMAGE_TYPE_2D;
-        image->format = VK_FORMAT_R8G8B8_UNORM;
+        image->format = VK_FORMAT_R8G8B8A8_UNORM;
         image->extent.width = width;
         image->extent.height = height;
         image->extent.depth = 1;

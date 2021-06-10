@@ -186,6 +186,10 @@ int main(int argc, char** argv){
                 std::cout << "Scene not found: " << filename << std::endl;
                 return 1;
             }
+            vsg::BuildAccelerationStructureTraversal buildAccelStruct(device);
+            loaded_scene->accept(buildAccelStruct);
+            tlas = buildAccelStruct.tlas;
+
             lookAt = vsg::LookAt::create(vsg::dvec3(0.0, 1.0, -5.0), vsg::dvec3(0.0, 0.5, 0.0), vsg::dvec3(0.0, 0.0, 1.0));
             CountTrianglesVisitor counter;
             loaded_scene->accept(counter);
@@ -203,6 +207,7 @@ int main(int argc, char** argv){
         auto gBuffer = pbrtPipeline->gBuffer;
         auto illuminationBuffer = IlluminationBufferFinal::create(windowTraits->width, windowTraits->height);
         pbrtPipeline->setIlluminationBuffer(illuminationBuffer);
+        pbrtPipeline->setTlas(tlas);
 
         //state group to bind the pipeline and descriptorset
         auto scenegraph = vsg::Commands::create();
