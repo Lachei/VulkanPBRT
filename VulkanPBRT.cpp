@@ -205,9 +205,16 @@ int main(int argc, char** argv){
         uint maxRecursionDepth = 2;
         auto pbrtPipeline = PBRTPipeline::create(windowTraits->width, windowTraits->height, maxRecursionDepth, loaded_scene);
         auto gBuffer = pbrtPipeline->gBuffer;
+        vsg::CompileTraversal imageLayoutCompile(window);
         auto illuminationBuffer = IlluminationBufferFinal::create(windowTraits->width, windowTraits->height);
         pbrtPipeline->setIlluminationBuffer(illuminationBuffer);
         pbrtPipeline->setTlas(tlas);
+
+        gBuffer->compile(imageLayoutCompile.context);
+        gBuffer->updateImageLayouts(imageLayoutCompile.context);
+        illuminationBuffer->compile(imageLayoutCompile.context);
+        illuminationBuffer->updateImageLayouts(imageLayoutCompile.context);
+        imageLayoutCompile.context.record();
 
         //state group to bind the pipeline and descriptorset
         auto scenegraph = vsg::Commands::create();
@@ -244,6 +251,9 @@ int main(int argc, char** argv){
         viewer->addEventHandler(vsg::Trackball::create(camera));
         viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph});
         viewer->compile();
+
+        //waiting for image layout transitions
+        imageLayoutCompile.context.waitForCompletion();
 
         while(viewer->advanceToNextFrame() && (numFrames < 0 || (numFrames--) > 0)){
             viewer->handleEvents();

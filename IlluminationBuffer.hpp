@@ -20,7 +20,15 @@ public:
         }
     }
 
-    //virtual void fillImages() = 0;
+    void updateImageLayouts(vsg::Context& context){
+        VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0 , 1, 0, 1};
+        auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_DEPENDENCY_BY_REGION_BIT);
+        for(auto& image: illuminationImages){
+            auto imageBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, 0, 0, image->imageInfoList[0].imageView->image, resourceRange);
+            pipelineBarrier->imageMemoryBarriers.push_back(imageBarrier);
+        }
+        context.commands.push_back(pipelineBarrier);
+    }
 };
 
 class IlluminationBufferFinal: public vsg::Inherit<IlluminationBuffer, IlluminationBufferFinal>{
