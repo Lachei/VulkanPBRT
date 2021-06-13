@@ -16,7 +16,7 @@ layout(push_constant) uniform PushConstants
 
 #include "general.glsl"
 
-layout(location = 0) rayPayloadEXT RayPayload rayPayload;
+layout(location = 1) rayPayloadEXT RayPayload rayPayload;
 
 void main() 
 {
@@ -33,7 +33,7 @@ void main()
 	float tmin = 0.001;
 	float tmax = 10000.0;
 
-	traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, worldSpacePos.xyz, tmin, worldSpaceDir.xyz, tmax, 0);
+	traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, worldSpacePos.xyz, tmin, worldSpaceDir.xyz, tmax, 1);
 
 	imageStore(outputImage, ivec2(gl_LaunchIDEXT.xy), rayPayload.color);
 	imageStore(depthImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.distance));

@@ -220,7 +220,6 @@ int main(int argc, char** argv){
         auto scenegraph = vsg::Commands::create();
         scenegraph->addChild(pbrtPipeline->bindRayTracingPipeline);
         scenegraph->addChild(pushConstants);
-        //scenegraph->addChild(bindDescriptorSets);
         scenegraph->addChild(pbrtPipeline->bindRayTracingDescriptorSet);
 
         //ray trace setup

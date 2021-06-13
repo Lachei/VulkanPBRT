@@ -1,12 +1,9 @@
 #version 460
+#extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_ray_tracing : enable
 #extension GL_EXT_nonuniform_qualifier : enable
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT tlas;
-layout(binding = 15, set = 0) uniform UBO{
-  mat4 inverseViewMatrix;
-	mat4 inverseProjectionMatrix;
-}ubo;
 layout(binding = 2, set = 0) buffer Pos {float p[]; }     pos[];  //non interleaved positions, normals and texture arrays
 layout(binding = 3, set = 0) buffer Normals {float n[]; } nor[];
 layout(binding = 4, set = 0) buffer Tex {float t[]; }     tex[];
@@ -25,8 +22,8 @@ layout(binding = 13) buffer Materials{WaveFrontMaterialPacked m[]; } materials;
 layout(binding = 14) buffer Instances{ObjectInstance i[]; } instances;
 
 
-layout(location = 0) rayPayloadInEXT RayPayload rayPayload;
-layout(location = 2) rayPayloadInEXT bool shadowed;
+layout(location = 0) rayPayloadEXT bool shadowed;
+layout(location = 1) rayPayloadInEXT RayPayload rayPayload;
 hitAttributeEXT vec2 attribs;
 
 void main()
@@ -133,12 +130,10 @@ void main()
   float tmin = 0.001;
 	float tmax = 1000.0;
 	shadowed = true;
-  traceRayEXT(tlas, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xFF, 0, 0, 1, origin, tmin, l, tmax, 2);
-  bool tmp = shadowed;
+  traceRayEXT(tlas, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xFF, 0, 0, 1, origin, tmin, l, tmax, 0);
   rayPayload.color = vec4(color, baseColor.a);
-  if(tmp)
+  if(shadowed)
     rayPayload.color *= .5f;
-  //rayPayload.color = albedo;
   rayPayload.normal = normal;
   rayPayload.albedo = diffuse;
   rayPayload.distance = gl_RayTmaxEXT;
