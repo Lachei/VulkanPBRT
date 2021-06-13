@@ -12,6 +12,7 @@ layout(push_constant) uniform PushConstants
 {
 	mat4 inverseViewMatrix;
 	mat4 inverseProjectionMatrix;
+	uint frameNumber;
 } camParams;
 
 #include "general.glsl"
@@ -27,6 +28,8 @@ void main()
 	vec4 worldSpacePos = camParams.inverseViewMatrix * vec4(0,0,0,1);
 	vec4 viewSpaceDir = camParams.inverseProjectionMatrix * vec4(clipSpaceCoord.x, clipSpaceCoord.y, 1, 1) ;
 	vec4 worldSpaceDir = camParams.inverseViewMatrix * vec4(normalize(viewSpaceDir.xyz), 0) ;
+
+	rayPayload.re = rEInit(gl_LaunchIDEXT.xy, camParams.frameNumber);
 
 	uint rayFlags = gl_RayFlagsOpaqueEXT;
 	uint cullMask = 0xff;

@@ -20,11 +20,119 @@ layout(binding = 11) uniform sampler2D specularMap[];
 layout(binding = 12) buffer Lights{Light l[]; } lights;
 layout(binding = 13) buffer Materials{WaveFrontMaterialPacked m[]; } materials;
 layout(binding = 14) buffer Instances{ObjectInstance i[]; } instances;
+layout(binging = 19) uniform Infos{
+  uint lightCount;
+}infos;
 
 
 layout(location = 0) rayPayloadEXT bool shadowed;
 layout(location = 1) rayPayloadInEXT RayPayload rayPayload;
 hitAttributeEXT vec2 attribs;
+
+//return light color
+//only light which can contribute are considered, priority sampling over light strength
+vec3 sampleLight(vec3 pos, vec3 n, out vec3 l, out vec3 wiTangent, out float pdf)
+{
+  pdf = 1.0f;
+  float strengthSum = 0; //holds the summed up light contributions
+  for(int i = 0; i < infos.lightCount; ++i){
+    float lightPower = dot(lights.l[i].colAmbient + lights.l[i].colDiffuse + lights.l[i].colSpecular, vec4(1));
+    switch(int(lights.l[i].v0Type.w)):{
+      case LightSourceType::Directional:
+        float d = distance(pos, lights.l[i].v0Type.xyz);
+        float attenuation = 1.0f / (lights.l[i].strength.x + lights.l[i].strength.y * d + lights.l[i].strength.z * d * d);
+        strengthSum += dot(n, lights.l[i].dirAngle2.xyz) * lightPower * attenuation;
+        break;
+      case LightSourceType::Point:
+        float d = distance(pos, lights.l[i].v0Type.xyz);
+        float attenuation = 1.0f / (lights.l[i].strength.x + lights.l[i].strength.y * d + lights.l[i].strength.z * d * d);
+        strengthSum += dot(n, normalize(lights.l[i].v0Type.xyz - pos)) * lightPower * attenuation;
+        break;
+      case LightSourceType::Spot:
+
+        break;
+      case LightSourceType::Ambient:
+
+        break;
+      case LightSourceType::Area:
+        //sample triangle position
+        vec2 barycentrics = sampleTriangle(randomVec2(rayPayload.re));
+        vec3 p1 = lights.l[i].v0Type.xyz;
+        vec3 p2 = lights.l[i].v1Strength.xyz;
+        vec3 p3 = lights.l[i].v2Angle.xyz;
+        vec3 lightP = blerp(barycentrics, p1, p2, p3);
+        vec3 lightDir = lightP - pos;
+        vec3 lightNormal = cross(p2 - p1, p3 - p1);
+        float triangleArea = .5f * length(lightNormal);
+        lightNormal = normalize(lightNormal);
+        float d = length(lightDir);
+        lightDir /= d;
+        float attenuation = 1.0f / (lights.l[i].strength.x + lights.l[i].strength.y * d + lights.l[i].strength.z * d * d);
+        strenghtSum += dot(n, lightDir) * abs(dot(lightDir, lightNormal)) * lightPower * attenuation * triangleArea;
+
+        break;
+    }
+  }
+
+  if(strenghtSum == 0){   //surface is not directly lit
+    pdf = 0;
+    lightColor = vec3(0);
+    return vec3(0);
+  }
+
+  float lightVal = randomFloat(rayPayload.re) * strenghtSum;
+  float curStrength = 0;
+  
+  for(int i = 0; i < infos.lightCount; ++i){
+    float lightPower = dot(lights.l[i].colAmbient + lights.l[i].colDiffuse + lights.l[i].colSpecular, vec4(1));
+    float strength = 0;
+    vec3 lightStrength = lights.l[i].colAmbient + lights.l[i].colDiffuse + lights.l[i].colSpecular;
+    switch(int(lights.l[i].v0Type.w)):{
+      case LightSourceType::Directional:
+        float d = distance(pos, lights.l[i].v0Type.xyz);
+        float attenuation = 1.0f / (lights.l[i].strength.x + lights.l[i].strength.y * d + lights.l[i].strength.z * d * d);
+        strength = dot(n, lights.l[i].dirAngle2.xyz) * lightPower * attenuation;
+        lightStrength *= dot(n, lights.l[i].dirAngle2.xyz) * attenuation;
+        l = normalize(-lights.l[i].dirAngle2.xyz);
+        break;
+      case LightSourceType::Point:
+        float d = distance(pos, lights.l[i].v0Type.xyz);
+        float attenuation = 1.0f / (lights.l[i].strength.x + lights.l[i].strength.y * d + lights.l[i].strength.z * d * d);
+        strength = dot(n, normalize(lights.l[i].v0Type.xyz - pos)) * lightPower * attenuation;
+        lightStrength *= dot(n, normalize(lights.l[i].v0Type.xyz - pos)) * attenuation;
+        l = normalize(lights.l[i].v0Type.xyz - pos);
+        break;
+      case LightSourceType::Spot:
+
+        break;
+      case LightSourceType::Ambient:
+
+        break;
+      case LightSourceType::Area:
+        //sample triangle position
+        vec2 barycentrics = sampleTriangle(randomVec2(rayPayload.re));
+        vec3 p1 = lights.l[i].v0Type.xyz;
+        vec3 p2 = lights.l[i].v1Strength.xyz;
+        vec3 p3 = lights.l[i].v2Angle.xyz;
+        vec3 lightP = blerp(barycentrics, p1, p2, p3);
+        vec3 lightDir = lightP - pos;
+        vec3 lightNormal = cross(p2 - p1, p3 - p1);
+        float triangleArea = .5f * length(lightNormal);
+        lightNormal = normalize(lightNormal);
+        float d = length(lightDir);
+        lightDir /= d;
+        float attenuation = 1.0f / (lights.l[i].strength.x + lights.l[i].strength.y * d + lights.l[i].strength.z * d * d);
+        strength = dot(n, lightDir) * abs(dot(lightDir, lightNormal)) * lightPower * attenuation * triangleArea;
+        lightStrength = dot(n, lightDir) * abs(dot(lightDir, lightNormal)) * attenuation * triangleArea;
+        l = lightDir;
+        break;
+    }
+    if(curStrength + strength >= lightVal){
+      pdf = strength / strenghtSum;
+      return lightStrength;
+    }
+  }
+}
 
 void main()
 {
@@ -112,13 +220,17 @@ void main()
   vec3 specularEnvironmentR0 = specularColor.rgb;
   vec3 specularEnvironmentR90 = vec3(1) * reflectance90;
   vec3 v = normalize(-gl_WorldRayDirectionEXT);
-  vec3 l = normalize(-lights.l[0].dirAngle2.xyz);
   vec3 h = normalize(l + v);
   vec3 emissive = vec3(0);
   if(textureSize(emissiveMap[nonuniformEXT(objId)], 0) != ivec2(1,1))
       vec3 emissive = SRGBtoLINEAR(texture(emissiveMap[nonuniformEXT(objId)], texCoord)).rgb * mat.emission;
 
 
+  //sample lights
+  vec3 l = normalize(-lights.l[0].dirAngle2.xyz);
+
+
+  //direct illumination
   vec3 color = BRDF(v, normal, l, h, perceptualRoughness, metallic, specularEnvironmentR0, specularEnvironmentR90, alphaRoughness, diffuseColor, specularColor, ambientOcclusion, emissive);
   //adding a bit ambient light
   color.rgb += diffuseColor * vec3(.2f);
