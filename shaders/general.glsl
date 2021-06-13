@@ -13,13 +13,6 @@ struct Vertex{
     vec2 uv;
 };
 
-struct RayPayload {
-	vec3 color;
-	float distance;
-	vec3 normal;
-	float reflector;
-};
-
 struct WaveFrontMaterialPacked
 {
   vec4  ambientShininess;
@@ -52,7 +45,7 @@ struct WaveFrontMaterial
   float ior;       // index of refraction
   float dissolve;  // 1 == opaque; 0 == fully transparent
   int   illum;     // illumination model (see http://www.fileformat.info/format/material/)
-  int   textureId;
+  float alphaCutoff;
 };
 
 // a light is generally defined as a plane with 3 verts, a light type, a direction, strength, angle and radius
@@ -66,6 +59,16 @@ struct Light{
     vec4 colDiffuse;
     vec4 colSpecular;
     vec4 strengths;
+};
+
+enum LightSourceType
+{
+    Undefined,
+    Directional,
+    Point,
+    Spot,
+    Ambient,
+    Area
 };
 
 // Encapsulate the various inputs used by the various functions in the shading equation
@@ -118,7 +121,7 @@ WaveFrontMaterial unpack(WaveFrontMaterialPacked p){
     m.ior = p.diffuseIor.w;
     m.dissolve = p.specularDissolve.w;
     m.illum = int(p.transmittanceIllum.w);
-    m.textureId = int(p.emissionTextureId.w);
+    m.alphaCutoff = p.emissionTextureId.w;
     return m;
 };
 
@@ -281,7 +284,7 @@ float microfacetDistribution(PBRInfo pbrInputs)
     return roughnessSq / (PI * f * f);
 }
 
-vec3 BRDF(vec3 v, vec3 n, vec3 l, vec3 h, float perceptualRoughness, float metallic, vec3 specularEnvironmentR0, vec3 specularEnvironmentR90, float alphaRoughness, vec3 diffuseColor, vec3 specularColor, float ao)
+vec3 BRDF(vec3 v, vec3 n, vec3 l, vec3 h, float perceptualRoughness, float metallic, vec3 specularEnvironmentR0, vec3 specularEnvironmentR90, float alphaRoughness, vec3 diffuseColor, vec3 specularColor, float ao, vec3 emissive)
 {
     vec3 reflection = -normalize(reflect(v, n));
     reflection.y *= -1.0f;
@@ -322,12 +325,6 @@ vec3 BRDF(vec3 v, vec3 n, vec3 l, vec3 h, float perceptualRoughness, float metal
 
     color *= ao;
 
-#ifdef VSG_EMISSIVE_MAP
-    vec3 emissive = SRGBtoLINEAR(texture(emissiveMap, texCoord0)).rgb * pbr.emissiveFactor.rgb;
-#else
-    //vec3 emissive = pbr.emissiveFactor.rgb;
-    vec3 emissive = vec3(0);
-#endif
     color += emissive;
 
     return color;
@@ -350,5 +347,87 @@ float convertMetallic(vec3 diffuse, vec3 specular, float maxSpecular)
     return clamp((-b + sqrt(D)) / (2.0 * a), 0.0, 1.0);
 }
 #endif
+
+struct RandomEngine{
+    uvec2 state;
+}
+
+uint rotl(uint x, uint k){
+    return (x << k) | (x >> (32 - k));
+}
+
+// Xoroshiro64* RNG
+uint randomNumber(inout RandomEngine e){
+    uint result = e.state.x * 0x9e3779bb;
+
+    e.state.y ^= e.state.x;
+    e.state.x = rotl(e.state.x, 26) ^ e.state.y ^ (e.satte.y << 9);
+    e.state.y = rotl(e.state.y, 13);
+
+    return result;
+}
+
+float randomFloat(inout RandomEngine e){
+    uint u = 0x3f800000 | (randomNumber(e) >> 9);
+    return uintBitsToFloat(u) - 1.0;
+}
+
+float randomFloat(float m, inout RandomEngine e){
+    return randomFloat(e) * m;
+}
+
+uint randomUInt(inout RandomEngine e, uint nmax){
+    float f = randomFloat(e);
+    return uint(floor(f * nmax));
+}
+
+vec2 randomVec2(inout RandomEngine e){
+    return vec2(randomFloat(e), randomFloat(e));
+}
+
+vec3 randomVec3(inout RandomEngine e){
+    return vec3(randomFloat(e), randomFloat(e), randomFloat(e));
+}
+
+vec2 sampleTriangle(vec2 u){
+    float uxsqrt = sqrt(u.x);
+    return vec2(1.0f - uxsqrt, u.y * uxsqrt);
+}
+
+// Thomas Wang 32-bit hash.
+uint wangHash(uint seed){
+    seed = (seed ^ 61) ^ (sed >> 16);
+    seed *= 9;
+    seed = seed ^ (seed >> 4);
+    seed *= 0x27d4eb2d;
+    seed = seed ^ (seed >> 15);
+    return seed;
+}
+
+//init random engine
+RandomEngine rEInit(uvec2 id, uint frameIndex){
+    uint s0 = (id.x << 16) | id.y;
+    uint s1 = frameIndex;
+
+    RandomEngine re;
+    re.state.x = wangHash(s0);
+    re.state.y = wangHash(s1);
+    return re;
+}
+
+struct RayPayload {
+	vec4 colorDirect;
+    vec3 colorIndirect;
+    vec4 albedo;
+	vec3 normal;
+    RandomEngine re;
+	float distance;
+	float reflector;
+};
+
+vec2 blerp(vec2 b, vec2 p1, vec2 p2, vec2 p3)
+{
+    return (1.0 - b.x - b.y) * p1 + b.x * p2 + b.y * p3;
+}
 
 #endif

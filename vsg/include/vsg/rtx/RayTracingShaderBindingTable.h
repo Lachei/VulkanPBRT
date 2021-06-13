@@ -24,9 +24,9 @@ namespace vsg
         
         void compile(Context& context);             //called by the ray tracing pipeline it is attached to
 
-        RayTracingShaderGroups shaderGroups;
+        RayTracingShaderGroups shaderGroups;        //set automatically by the ray tracing pipeline the sbt is attached to
         ShaderBindingTableEntries bindingTableEntries;
-        VkPipeline pipeline;        //set automatically by the ray tracing pipeline the binding table is assigned to
+        VkPipeline pipeline;                        //set automatically by the ray tracing pipeline the binding table is assigned to
         BufferInfoList bindingTable;
     };
     VSG_type_name(vsg::RayTracingShaderBindingTable);

@@ -1,12 +1,9 @@
 #version 460
+#extension GL_GOOGLE_include_directive : require
 #extension GL_EXT_ray_tracing : enable
 #extension GL_EXT_nonuniform_qualifier : enable
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT tlas;
-layout(binding = 15, set = 0) uniform UBO{
-  mat4 inverseViewMatrix;
-	mat4 inverseProjectionMatrix;
-}ubo;
 layout(binding = 2, set = 0) buffer Pos {float p[]; }     pos[];  //non interleaved positions, normals and texture arrays
 layout(binding = 3, set = 0) buffer Normals {float n[]; } nor[];
 layout(binding = 4, set = 0) buffer Tex {float t[]; }     tex[];
@@ -23,25 +20,134 @@ layout(binding = 11) uniform sampler2D specularMap[];
 layout(binding = 12) buffer Lights{Light l[]; } lights;
 layout(binding = 13) buffer Materials{WaveFrontMaterialPacked m[]; } materials;
 layout(binding = 14) buffer Instances{ObjectInstance i[]; } instances;
+layout(binging = 19) uniform Infos{
+  uint lightCount;
+}infos;
 
 
-layout(location = 0) rayPayloadInEXT RayPayload rayPayload;
-layout(location = 2) rayPayloadInEXT bool shadowed;
+layout(location = 0) rayPayloadEXT bool shadowed;
+layout(location = 1) rayPayloadInEXT RayPayload rayPayload;
 hitAttributeEXT vec2 attribs;
+
+//return light color
+//only light which can contribute are considered, priority sampling over light strength
+vec3 sampleLight(vec3 pos, vec3 n, out vec3 l, out vec3 wiTangent, out float pdf)
+{
+  pdf = 1.0f;
+  float strengthSum = 0; //holds the summed up light contributions
+  for(int i = 0; i < infos.lightCount; ++i){
+    float lightPower = dot(lights.l[i].colAmbient + lights.l[i].colDiffuse + lights.l[i].colSpecular, vec4(1));
+    switch(int(lights.l[i].v0Type.w)):{
+      case LightSourceType::Directional:
+        float d = distance(pos, lights.l[i].v0Type.xyz);
+        float attenuation = 1.0f / (lights.l[i].strength.x + lights.l[i].strength.y * d + lights.l[i].strength.z * d * d);
+        strengthSum += dot(n, lights.l[i].dirAngle2.xyz) * lightPower * attenuation;
+        break;
+      case LightSourceType::Point:
+        float d = distance(pos, lights.l[i].v0Type.xyz);
+        float attenuation = 1.0f / (lights.l[i].strength.x + lights.l[i].strength.y * d + lights.l[i].strength.z * d * d);
+        strengthSum += dot(n, normalize(lights.l[i].v0Type.xyz - pos)) * lightPower * attenuation;
+        break;
+      case LightSourceType::Spot:
+
+        break;
+      case LightSourceType::Ambient:
+
+        break;
+      case LightSourceType::Area:
+        //sample triangle position
+        vec2 barycentrics = sampleTriangle(randomVec2(rayPayload.re));
+        vec3 p1 = lights.l[i].v0Type.xyz;
+        vec3 p2 = lights.l[i].v1Strength.xyz;
+        vec3 p3 = lights.l[i].v2Angle.xyz;
+        vec3 lightP = blerp(barycentrics, p1, p2, p3);
+        vec3 lightDir = lightP - pos;
+        vec3 lightNormal = cross(p2 - p1, p3 - p1);
+        float triangleArea = .5f * length(lightNormal);
+        lightNormal = normalize(lightNormal);
+        float d = length(lightDir);
+        lightDir /= d;
+        float attenuation = 1.0f / (lights.l[i].strength.x + lights.l[i].strength.y * d + lights.l[i].strength.z * d * d);
+        strenghtSum += dot(n, lightDir) * abs(dot(lightDir, lightNormal)) * lightPower * attenuation * triangleArea;
+
+        break;
+    }
+  }
+
+  if(strenghtSum == 0){   //surface is not directly lit
+    pdf = 0;
+    lightColor = vec3(0);
+    return vec3(0);
+  }
+
+  float lightVal = randomFloat(rayPayload.re) * strenghtSum;
+  float curStrength = 0;
+  
+  for(int i = 0; i < infos.lightCount; ++i){
+    float lightPower = dot(lights.l[i].colAmbient + lights.l[i].colDiffuse + lights.l[i].colSpecular, vec4(1));
+    float strength = 0;
+    vec3 lightStrength = lights.l[i].colAmbient + lights.l[i].colDiffuse + lights.l[i].colSpecular;
+    switch(int(lights.l[i].v0Type.w)):{
+      case LightSourceType::Directional:
+        float d = distance(pos, lights.l[i].v0Type.xyz);
+        float attenuation = 1.0f / (lights.l[i].strength.x + lights.l[i].strength.y * d + lights.l[i].strength.z * d * d);
+        strength = dot(n, lights.l[i].dirAngle2.xyz) * lightPower * attenuation;
+        lightStrength *= dot(n, lights.l[i].dirAngle2.xyz) * attenuation;
+        l = normalize(-lights.l[i].dirAngle2.xyz);
+        break;
+      case LightSourceType::Point:
+        float d = distance(pos, lights.l[i].v0Type.xyz);
+        float attenuation = 1.0f / (lights.l[i].strength.x + lights.l[i].strength.y * d + lights.l[i].strength.z * d * d);
+        strength = dot(n, normalize(lights.l[i].v0Type.xyz - pos)) * lightPower * attenuation;
+        lightStrength *= dot(n, normalize(lights.l[i].v0Type.xyz - pos)) * attenuation;
+        l = normalize(lights.l[i].v0Type.xyz - pos);
+        break;
+      case LightSourceType::Spot:
+
+        break;
+      case LightSourceType::Ambient:
+
+        break;
+      case LightSourceType::Area:
+        //sample triangle position
+        vec2 barycentrics = sampleTriangle(randomVec2(rayPayload.re));
+        vec3 p1 = lights.l[i].v0Type.xyz;
+        vec3 p2 = lights.l[i].v1Strength.xyz;
+        vec3 p3 = lights.l[i].v2Angle.xyz;
+        vec3 lightP = blerp(barycentrics, p1, p2, p3);
+        vec3 lightDir = lightP - pos;
+        vec3 lightNormal = cross(p2 - p1, p3 - p1);
+        float triangleArea = .5f * length(lightNormal);
+        lightNormal = normalize(lightNormal);
+        float d = length(lightDir);
+        lightDir /= d;
+        float attenuation = 1.0f / (lights.l[i].strength.x + lights.l[i].strength.y * d + lights.l[i].strength.z * d * d);
+        strength = dot(n, lightDir) * abs(dot(lightDir, lightNormal)) * lightPower * attenuation * triangleArea;
+        lightStrength = dot(n, lightDir) * abs(dot(lightDir, lightNormal)) * attenuation * triangleArea;
+        l = lightDir;
+        break;
+    }
+    if(curStrength + strength >= lightVal){
+      pdf = strength / strenghtSum;
+      return lightStrength;
+    }
+  }
+}
 
 void main()
 {
+  const float epsilon = 1e-6;
   ObjectInstance instance = instances.i[gl_InstanceCustomIndexEXT];
   uint objId = int(instance.meshId);
   uint indexStride = int(instances.i[gl_InstanceCustomIndexEXT].indexStride);
   uvec3 index;
   if(indexStride == 4)  //full uints are in the indexbuffer
     index = ivec3(ind[nonuniformEXT(objId)].i[3 * gl_PrimitiveID], ind[nonuniformEXT(objId)].i[3 * gl_PrimitiveID + 1], ind[nonuniformEXT(objId)].i[3 * gl_PrimitiveID + 2]);
-  else                  //only shorts are in the indexbuffer
+  else                  //only ushorts are in the indexbuffer
   {
     int full = 3 * gl_PrimitiveID;
     uint p = uint(full * .5f);
-    if(bool(full & 1)){   //not dividable by 2, second half of p + bot places of p + 1
+    if(bool(full & 1)){   //not dividable by 2, second half of p + both places of p + 1
       index.x = ind[nonuniformEXT(objId)].i[p] >> 16;
       uint t = ind[nonuniformEXT(objId)].i[p + 1];
       index.z = t >> 16;
@@ -68,21 +174,80 @@ void main()
   position = (instance.objectMat * vec4(position, 1)).xyz;
   vec2 texCoord = v0.uv * bar.x + v1.uv * bar.y + v2.uv * bar.z;
   normal = getNormal(TBN, normalMap[nonuniformEXT(objId)], texCoord);
-  vec3 albedo = texture(diffuseMap[nonuniformEXT(objId)], texCoord).xyz;
+  normal.y *= -1;
+
+  WaveFrontMaterial mat = unpack(materials.m[objId]);
+  float perceptualRoughness = 0;
+  float metallic;
+  vec4 diffuse = texture(diffuseMap[nonuniformEXT(objId)], texCoord);
+  vec4 baseColor = SRGBtoLINEAR(diffuse) * vec4(mat.ambient, 1);
+
+  float ambientOcclusion = texture(aoMap[nonuniformEXT(objId)], texCoord).r;
+  vec3 f0 = vec3(.04);
+
+  if(mat.dissolve == 1.0f){
+    if(baseColor.a < mat.alphaCutoff){
+      //todo:: trace ray ot retrieve second hit
+      rayPayload.color = vec4(0);
+      return;
+    }
+  }
+
+  vec4 specular;
+  if(textureSize(specularMap[nonuniformEXT(objId)], 0) == ivec2(1,1))
+    specular = vec4(0,0,0,1);
+  else
+    SRGBtoLINEAR(texture(specularMap[nonuniformEXT(objId)], texCoord));
+  perceptualRoughness = 1.0 - specular.a;
+
+  float maxSpecular = max(max(specular.r, specular.g), specular.b);
+
+  metallic = convertMetallic(diffuse.rgb, specular.rgb, maxSpecular);
+
+  vec3 baseColorDiffusePart = diffuse.rgb * ((1.0 - maxSpecular) / (1 - c_MinRoughness) / max(1 - metallic, epsilon)) * mat.diffuse.rgb;
+  vec3 baseColorSpecularPart = specular.rgb - (vec3(c_MinRoughness) * (1 - metallic) * (1 / max(metallic, epsilon))) * mat.specular.rgb;
+  baseColor = vec4(mix(baseColorDiffusePart, baseColorSpecularPart, metallic * metallic), diffuse.a);
+
+  vec3 diffuseColor = baseColor.rgb * (vec3(1.0) - f0);
+  diffuseColor *= 1.0 - metallic;
+
+  float alphaRoughness = perceptualRoughness * perceptualRoughness;
+  vec3 specularColor = mix(f0, baseColor.rgb, metallic);
+
+  float reflectance = max(max(specularColor.r, specularColor.g), specularColor.b);
+
+  float reflectance90 = clamp(reflectance * 25, 0, 1);
+  vec3 specularEnvironmentR0 = specularColor.rgb;
+  vec3 specularEnvironmentR90 = vec3(1) * reflectance90;
+  vec3 v = normalize(-gl_WorldRayDirectionEXT);
+  vec3 h = normalize(l + v);
+  vec3 emissive = vec3(0);
+  if(textureSize(emissiveMap[nonuniformEXT(objId)], 0) != ivec2(1,1))
+      vec3 emissive = SRGBtoLINEAR(texture(emissiveMap[nonuniformEXT(objId)], texCoord)).rgb * mat.emission;
+
+
+  //sample lights
+  vec3 l = normalize(-lights.l[0].dirAngle2.xyz);
+
+
+  //direct illumination
+  vec3 color = BRDF(v, normal, l, h, perceptualRoughness, metallic, specularEnvironmentR0, specularEnvironmentR90, alphaRoughness, diffuseColor, specularColor, ambientOcclusion, emissive);
+  //adding a bit ambient light
+  color.rgb += diffuseColor * vec3(.2f);
+  color = LINEARtoSRGB(vec4(color, baseColor.a)).xyz;
 
   //lighting calculations
   // Trace shadow ray and offset indices to match shadow hit/mis shader group indices
   vec3 origin = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
-  vec3 lightVector = -lights.l[0].dirAngle2.xyz;
   float tmin = 0.001;
 	float tmax = 1000.0;
 	shadowed = true;
-  //traceRayEXT(tlas, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xFF, 0, 0, 1, origin, tmin, lightVector, tmax, 2);
-
+  traceRayEXT(tlas, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xFF, 0, 0, 1, origin, tmin, l, tmax, 0);
+  rayPayload.color = vec4(color, baseColor.a);
   if(shadowed)
-    albedo *= .5f;
-  rayPayload.color = normal;
+    rayPayload.color *= .5f;
   rayPayload.normal = normal;
+  rayPayload.albedo = diffuse;
   rayPayload.distance = gl_RayTmaxEXT;
   rayPayload.reflector = 1;
 }
