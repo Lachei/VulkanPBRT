@@ -76,6 +76,7 @@ void main()
 	vec3 finalColor = rayPayload.color;
 	SurfaceInfo sI;
 	for(int i = 0; i < infos.maxRecursionDepth; ++i){
+		if(rayPayload.position == vec3(1/0)) break;		//stop if missed shader was called
 		vec3 v = normalize(worldSpacePos.xyz - rayPayload.position);
 		worldSpacePos = vec4(rayPayload.position, 1);
 		finalColor += indirectLighting(worldSpacePos.xyz, v, sI, i);
