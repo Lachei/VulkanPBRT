@@ -20,8 +20,9 @@ layout(binding = 11) uniform sampler2D specularMap[];
 layout(binding = 12) buffer Lights{Light l[]; } lights;
 layout(binding = 13) buffer Materials{WaveFrontMaterialPacked m[]; } materials;
 layout(binding = 14) buffer Instances{ObjectInstance i[]; } instances;
-layout(binging = 19) uniform Infos{
+layout(binding = 19) uniform Infos{
   uint lightCount;
+  uint maxRecursionDepth;
 }infos;
 
 
@@ -29,32 +30,34 @@ layout(location = 0) rayPayloadEXT bool shadowed;
 layout(location = 1) rayPayloadInEXT RayPayload rayPayload;
 hitAttributeEXT vec2 attribs;
 
-//return light color
+//return light color(area foreshortening already included)
 //only light which can contribute are considered, priority sampling over light strength
-vec3 sampleLight(vec3 pos, vec3 n, out vec3 l, out vec3 wiTangent, out float pdf)
+vec3 sampleLight(vec3 pos, vec3 n, out vec3 l, out float pdf)
 {
   pdf = 1.0f;
   float strengthSum = 0; //holds the summed up light contributions
+  //summing up all light strengths
   for(int i = 0; i < infos.lightCount; ++i){
-    float lightPower = dot(lights.l[i].colAmbient + lights.l[i].colDiffuse + lights.l[i].colSpecular, vec4(1));
-    switch(int(lights.l[i].v0Type.w)):{
-      case LightSourceType::Directional:
-        float d = distance(pos, lights.l[i].v0Type.xyz);
-        float attenuation = 1.0f / (lights.l[i].strength.x + lights.l[i].strength.y * d + lights.l[i].strength.z * d * d);
+    float lightPower = dot(lights.l[i].colAmbient.xyz + lights.l[i].colDiffuse.xyz + lights.l[i].colSpecular.xyz, vec3(1));
+    float d = 0, attenuation = 0;
+    switch(int(lights.l[i].v0Type.w)){
+      case lst_directional:
+        d = distance(pos, lights.l[i].v0Type.xyz);
+        attenuation = 1.0f / (lights.l[i].strengths.x + lights.l[i].strengths.y * d + lights.l[i].strengths.z * d * d);
         strengthSum += dot(n, lights.l[i].dirAngle2.xyz) * lightPower * attenuation;
         break;
-      case LightSourceType::Point:
-        float d = distance(pos, lights.l[i].v0Type.xyz);
-        float attenuation = 1.0f / (lights.l[i].strength.x + lights.l[i].strength.y * d + lights.l[i].strength.z * d * d);
+      case lst_point:
+        d = distance(pos, lights.l[i].v0Type.xyz);
+        attenuation = 1.0f / (lights.l[i].strengths.x + lights.l[i].strengths.y * d + lights.l[i].strengths.z * d * d);
         strengthSum += dot(n, normalize(lights.l[i].v0Type.xyz - pos)) * lightPower * attenuation;
         break;
-      case LightSourceType::Spot:
+      case lst_spot:
 
         break;
-      case LightSourceType::Ambient:
+      case lst_ambient:
 
         break;
-      case LightSourceType::Area:
+      case lst_area:
         //sample triangle position
         vec2 barycentrics = sampleTriangle(randomVec2(rayPayload.re));
         vec3 p1 = lights.l[i].v0Type.xyz;
@@ -65,50 +68,53 @@ vec3 sampleLight(vec3 pos, vec3 n, out vec3 l, out vec3 wiTangent, out float pdf
         vec3 lightNormal = cross(p2 - p1, p3 - p1);
         float triangleArea = .5f * length(lightNormal);
         lightNormal = normalize(lightNormal);
-        float d = length(lightDir);
+        d = length(lightDir);
         lightDir /= d;
-        float attenuation = 1.0f / (lights.l[i].strength.x + lights.l[i].strength.y * d + lights.l[i].strength.z * d * d);
-        strenghtSum += dot(n, lightDir) * abs(dot(lightDir, lightNormal)) * lightPower * attenuation * triangleArea;
+        attenuation = 1.0f / (lights.l[i].strengths.x + lights.l[i].strengths.y * d + lights.l[i].strengths.z * d * d);
+        strengthSum += dot(n, lightDir) * abs(dot(lightDir, lightNormal)) * lightPower * attenuation * triangleArea;
 
         break;
     }
   }
 
-  if(strenghtSum == 0){   //surface is not directly lit
+  if(strengthSum == 0){   //surface is not directly lit
     pdf = 0;
-    lightColor = vec3(0);
+    l = vec3(0);
     return vec3(0);
   }
 
-  float lightVal = randomFloat(rayPayload.re) * strenghtSum;
+  //sampling in the light strengths
+  float lightVal = randomFloat(rayPayload.re) * strengthSum;
   float curStrength = 0;
   
+  //getting the light to the sampled light strength
   for(int i = 0; i < infos.lightCount; ++i){
     float lightPower = dot(lights.l[i].colAmbient + lights.l[i].colDiffuse + lights.l[i].colSpecular, vec4(1));
     float strength = 0;
-    vec3 lightStrength = lights.l[i].colAmbient + lights.l[i].colDiffuse + lights.l[i].colSpecular;
-    switch(int(lights.l[i].v0Type.w)):{
-      case LightSourceType::Directional:
-        float d = distance(pos, lights.l[i].v0Type.xyz);
-        float attenuation = 1.0f / (lights.l[i].strength.x + lights.l[i].strength.y * d + lights.l[i].strength.z * d * d);
+    vec3 lightStrength = lights.l[i].colAmbient.xyz + lights.l[i].colDiffuse.xyz + lights.l[i].colSpecular.xyz;
+    float d = 0, attenuation = 0;
+    switch(uint(lights.l[i].v0Type.w)){
+      case lst_directional:
+        d = distance(pos, lights.l[i].v0Type.xyz);
+        attenuation = 1.0f / (lights.l[i].strengths.x + lights.l[i].strengths.y * d + lights.l[i].strengths.z * d * d);
         strength = dot(n, lights.l[i].dirAngle2.xyz) * lightPower * attenuation;
         lightStrength *= dot(n, lights.l[i].dirAngle2.xyz) * attenuation;
         l = normalize(-lights.l[i].dirAngle2.xyz);
         break;
-      case LightSourceType::Point:
-        float d = distance(pos, lights.l[i].v0Type.xyz);
-        float attenuation = 1.0f / (lights.l[i].strength.x + lights.l[i].strength.y * d + lights.l[i].strength.z * d * d);
+      case lst_point:
+        d = distance(pos, lights.l[i].v0Type.xyz);
+        attenuation = 1.0f / (lights.l[i].strengths.x + lights.l[i].strengths.y * d + lights.l[i].strengths.z * d * d);
         strength = dot(n, normalize(lights.l[i].v0Type.xyz - pos)) * lightPower * attenuation;
         lightStrength *= dot(n, normalize(lights.l[i].v0Type.xyz - pos)) * attenuation;
         l = normalize(lights.l[i].v0Type.xyz - pos);
         break;
-      case LightSourceType::Spot:
+      case lst_spot:
 
         break;
-      case LightSourceType::Ambient:
+      case lst_ambient:
 
         break;
-      case LightSourceType::Area:
+      case lst_area:
         //sample triangle position
         vec2 barycentrics = sampleTriangle(randomVec2(rayPayload.re));
         vec3 p1 = lights.l[i].v0Type.xyz;
@@ -119,19 +125,41 @@ vec3 sampleLight(vec3 pos, vec3 n, out vec3 l, out vec3 wiTangent, out float pdf
         vec3 lightNormal = cross(p2 - p1, p3 - p1);
         float triangleArea = .5f * length(lightNormal);
         lightNormal = normalize(lightNormal);
-        float d = length(lightDir);
+        d = length(lightDir);
         lightDir /= d;
-        float attenuation = 1.0f / (lights.l[i].strength.x + lights.l[i].strength.y * d + lights.l[i].strength.z * d * d);
+        attenuation = 1.0f / (lights.l[i].strengths.x + lights.l[i].strengths.y * d + lights.l[i].strengths.z * d * d);
         strength = dot(n, lightDir) * abs(dot(lightDir, lightNormal)) * lightPower * attenuation * triangleArea;
-        lightStrength = dot(n, lightDir) * abs(dot(lightDir, lightNormal)) * attenuation * triangleArea;
+        lightStrength *= dot(n, lightDir) * abs(dot(lightDir, lightNormal)) * attenuation * triangleArea;
         l = lightDir;
         break;
     }
-    if(curStrength + strength >= lightVal){
-      pdf = strength / strenghtSum;
-      return lightStrength;
+    if(curStrength + strength >= lightVal){   //correct light found
+      pdf = strength / strengthSum;
+      shadowed = true;
+      vec3 origin = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
+      float tmin = 0.001;
+	    float tmax = 1000.0;
+      traceRayEXT(tlas, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xFF, 0, 0, 1, origin, tmin, l, tmax, 0);
+      return lightStrength * float(!shadowed);
     }
   }
+}
+
+//calculates direct lighting on the surface point at pos
+vec3 nextEventEsitmation(vec3 pos, vec3 o, SurfaceInfo s){
+  vec3 light  = vec3(0);
+
+  vec3 l;
+  float lightPdf;
+  vec3 lightCol = sampleLight(pos, s.normal, l, lightPdf);
+  if(lightCol == vec3(0)) return lightCol;
+  vec3 lh = normalize(l + o);
+  float cosTheta = dot(l, s.normal);
+  vec3 brdf = BRDF(o, l, lh, s);
+  float brdfPdf = pdfBRDF(s, o, l, lh);
+  float weight = powerHeuristics(lightPdf, brdfPdf);
+  light += lightCol * brdf * weight / lightPdf;   //no multiplication with cosTheta as it is already done in sampleLight()
+  return min(rayPayload.throughput * light, vec3(c_MaxRadiance));
 }
 
 void main()
@@ -188,7 +216,7 @@ void main()
   if(mat.dissolve == 1.0f){
     if(baseColor.a < mat.alphaCutoff){
       //todo:: trace ray ot retrieve second hit
-      rayPayload.color = vec4(0);
+      rayPayload.color = vec3(0);
       return;
     }
   }
@@ -220,34 +248,17 @@ void main()
   vec3 specularEnvironmentR0 = specularColor.rgb;
   vec3 specularEnvironmentR90 = vec3(1) * reflectance90;
   vec3 v = normalize(-gl_WorldRayDirectionEXT);
-  vec3 h = normalize(l + v);
   vec3 emissive = vec3(0);
   if(textureSize(emissiveMap[nonuniformEXT(objId)], 0) != ivec2(1,1))
       vec3 emissive = SRGBtoLINEAR(texture(emissiveMap[nonuniformEXT(objId)], texCoord)).rgb * mat.emission;
 
-
-  //sample lights
-  vec3 l = normalize(-lights.l[0].dirAngle2.xyz);
-
+  SurfaceInfo si = SurfaceInfo(perceptualRoughness, metallic, specularEnvironmentR0, specularEnvironmentR90, alphaRoughness, diffuseColor, specularColor, emissive, normal, mat3(TBN[0], TBN[2], TBN[1]));
 
   //direct illumination
-  vec3 color = BRDF(v, normal, l, h, perceptualRoughness, metallic, specularEnvironmentR0, specularEnvironmentR90, alphaRoughness, diffuseColor, specularColor, ambientOcclusion, emissive);
-  //adding a bit ambient light
-  color.rgb += diffuseColor * vec3(.2f);
-  color = LINEARtoSRGB(vec4(color, baseColor.a)).xyz;
+  vec3 color = nextEventEsitmation(position, v, si);
 
-  //lighting calculations
-  // Trace shadow ray and offset indices to match shadow hit/mis shader group indices
-  vec3 origin = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
-  float tmin = 0.001;
-	float tmax = 1000.0;
-	shadowed = true;
-  traceRayEXT(tlas, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xFF, 0, 0, 1, origin, tmin, l, tmax, 0);
-  rayPayload.color = vec4(color, baseColor.a);
-  if(shadowed)
-    rayPayload.color *= .5f;
   rayPayload.normal = normal;
   rayPayload.albedo = diffuse;
-  rayPayload.distance = gl_RayTmaxEXT;
+  rayPayload.position = position;
   rayPayload.reflector = 1;
 }

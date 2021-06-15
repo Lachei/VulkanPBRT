@@ -6,6 +6,12 @@ const float RECIPROCAL_PI = 0.31830988618;
 const float RECIPROCAL_PI2 = 0.15915494;
 const float EPSILON = 1e-6;
 const float c_MinRoughness = 0.04;
+const float c_MaxRadiance = 1e5;
+const float c_MinTermination = 0.05;
+
+float pow2(float f){
+    return f * f;
+}
 
 struct Vertex{
     vec3 pos;
@@ -61,19 +67,35 @@ struct Light{
     vec4 strengths;
 };
 
-enum LightSourceType
-{
-    Undefined,
-    Directional,
-    Point,
-    Spot,
-    Ambient,
-    Area
+struct RandomEngine{
+    uvec2 state;
 };
+
+// Light source types(lst)
+const uint lst_undefined = 0;
+const uint lst_directional = 1;
+const uint lst_point = 2;
+const uint lst_spot = 3;
+const uint lst_ambient = 4;
+const uint lst_area = 5;
+
 
 // Encapsulate the various inputs used by the various functions in the shading equation
 // We store values in this struct to simplify the integration of alternative implementations
 // of the shading terms, outlined in the Readme.MD Appendix.
+struct SurfaceInfo{
+    float perceptualRoughness;    // roughness value, as authored by the model creator (input to shader)
+    float metalness;              // metallic value at the surface
+    vec3 reflectance0;            // full reflectance color (normal incidence angle)
+    vec3 reflectance90;           // reflectance color at grazing angle
+    float alphaRoughness;         // roughness mapped to a more linear change in the roughness (proposed by [2])
+    vec3 diffuseColor;            // color contribution from diffuse lighting
+    vec3 specularColor;           // color contribution from specular lighting
+    vec3 emission;
+    vec3 normal;
+    mat3 basis;                   // tnb matrix for converting form object to world space
+};
+
 struct PBRInfo
 {
     float NdotL;                  // cos angle between normal and light direction
@@ -82,18 +104,8 @@ struct PBRInfo
     float LdotH;                  // cos angle between light direction and half vector
     float VdotH;                  // cos angle between view direction and half vector
     float VdotL;                  // cos angle between view direction and light direction
-    float perceptualRoughness;    // roughness value, as authored by the model creator (input to shader)
-    float metalness;              // metallic value at the surface
-    vec3 reflectance0;            // full reflectance color (normal incidence angle)
-    vec3 reflectance90;           // reflectance color at grazing angle
-    float alphaRoughness;         // roughness mapped to a more linear change in the roughness (proposed by [2])
-    vec3 diffuseColor;            // color contribution from diffuse lighting
-    vec3 specularColor;           // color contribution from specular lighting
+    SurfaceInfo s;                // surface information
 };
-
-#ifdef PURERAYTRACE
-#endif
-
 #ifdef VERTEXINFOAVAILABLE
 Vertex unpack(uint index, uint objId){
     Vertex v;
@@ -124,6 +136,11 @@ WaveFrontMaterial unpack(WaveFrontMaterialPacked p){
     m.alphaCutoff = p.emissionTextureId.w;
     return m;
 };
+
+float luminance(vec3 color)
+{
+	return dot(color, vec3(0.2126, 0.7152, 0.0722));
+}
 
 //tangent bitangent calculation as in https://wiki.delphigl.com/index.php/TBN_Matrix
 vec3 getTangent(vec3 A, vec3 B, vec3 C,  vec2 Auv, vec2 Buv, vec2 Cuv)
@@ -185,36 +202,38 @@ vec3 getNormal(mat3 TBN, sampler2D normalMap, vec2 uv)
   return normalize(TBN * tangentNormal);
 }
 
+#endif
+
 // Basic Lambertian diffuse
 // Implementation from Lambert's Photometria https://archive.org/details/lambertsphotome00lambgoog
 // See also [1], Equation 1
 vec3 BRDF_Diffuse_Lambert(PBRInfo pbrInputs)
 {
-    return pbrInputs.diffuseColor * RECIPROCAL_PI;
+    return pbrInputs.s.diffuseColor * RECIPROCAL_PI;
 }
 
 vec3 BRDF_Diffuse_Custom_Lambert(PBRInfo pbrInputs)
 {
-    return pbrInputs.diffuseColor * RECIPROCAL_PI * pow(pbrInputs.NdotV, 0.5 + 0.3 * pbrInputs.perceptualRoughness);
+    return pbrInputs.s.diffuseColor * RECIPROCAL_PI * pow(pbrInputs.NdotV, 0.5 + 0.3 * pbrInputs.s.perceptualRoughness);
 }
 
 // [Gotanda 2012, "Beyond a Simple Physically Based Blinn-Phong Model in Real-Time"]
 vec3 BRDF_Diffuse_OrenNayar(PBRInfo pbrInputs)
 {
-    float a = pbrInputs.alphaRoughness;
+    float a = pbrInputs.s.alphaRoughness;
     float s = a;// / ( 1.29 + 0.5 * a );
     float s2 = s * s;
     float VoL = 2 * pbrInputs.VdotH * pbrInputs.VdotH - 1;		// double angle identity
     float Cosri = pbrInputs.VdotL - pbrInputs.NdotV * pbrInputs.NdotL;
     float C1 = 1 - 0.5 * s2 / (s2 + 0.33);
     float C2 = 0.45 * s2 / (s2 + 0.09) * Cosri * ( Cosri >= 0 ? 1.0 / max(pbrInputs.NdotL, pbrInputs.NdotV) : 1 );
-    return pbrInputs.diffuseColor / PI * ( C1 + C2 ) * ( 1 + pbrInputs.perceptualRoughness * 0.5 );
+    return pbrInputs.s.diffuseColor / PI * ( C1 + C2 ) * ( 1 + pbrInputs.s.perceptualRoughness * 0.5 );
 }
 
 // [Gotanda 2014, "Designing Reflectance Models for New Consoles"]
 vec3 BRDF_Diffuse_Gotanda(PBRInfo pbrInputs)
 {
-    float a = pbrInputs.alphaRoughness;
+    float a = pbrInputs.s.alphaRoughness;
     float a2 = a * a;
     float F0 = 0.04;
     float VoL = 2 * pbrInputs.VdotH * pbrInputs.VdotH - 1;		// double angle identity
@@ -226,29 +245,44 @@ vec3 BRDF_Diffuse_Gotanda(PBRInfo pbrInputs)
     float Vd = ( a2 / ( (a2 + 0.09) * (1.31072 + 0.995584 * pbrInputs.NdotV) ) ) * ( 1 - pow( 1 - pbrInputs.NdotL, ( 1 - 0.3726732 * pbrInputs.NdotV * pbrInputs.NdotV ) / ( 0.188566 + 0.38841 * pbrInputs.NdotV ) ) );
     float Bp = Cosri < 0 ? 1.4 * pbrInputs.NdotV * pbrInputs.NdotL * Cosri : Cosri;
     float Lr = (21.0 / 20.0) * (1 - F0) * ( Fr * Lm + Vd + Bp );
-    return pbrInputs.diffuseColor * RECIPROCAL_PI * Lr;
+    return pbrInputs.s.diffuseColor * RECIPROCAL_PI * Lr;
 }
 
 vec3 BRDF_Diffuse_Burley(PBRInfo pbrInputs)
 {
-    float energyBias = mix(pbrInputs.perceptualRoughness, 0.0, 0.5);
-    float energyFactor = mix(pbrInputs.perceptualRoughness, 1.0, 1.0 / 1.51);
-    float fd90 = energyBias + 2.0 * pbrInputs.VdotH * pbrInputs.VdotH * pbrInputs.perceptualRoughness;
+    float energyBias = mix(pbrInputs.s.perceptualRoughness, 0.0, 0.5);
+    float energyFactor = mix(pbrInputs.s.perceptualRoughness, 1.0, 1.0 / 1.51);
+    float fd90 = energyBias + 2.0 * pbrInputs.VdotH * pbrInputs.VdotH * pbrInputs.s.perceptualRoughness;
     float f0 = 1.0;
     float lightScatter = f0 + (fd90 - f0) * pow(1.0 - pbrInputs.NdotL, 5.0);
     float viewScatter = f0 + (fd90 - f0) * pow(1.0 - pbrInputs.NdotV, 5.0);
 
-    return pbrInputs.diffuseColor * lightScatter * viewScatter * energyFactor;
+    return pbrInputs.s.diffuseColor * lightScatter * viewScatter * energyFactor;
 }
 
 vec3 BRDF_Diffuse_Disney(PBRInfo pbrInputs)
 {
-	float Fd90 = 0.5 + 2.0 * pbrInputs.perceptualRoughness * pbrInputs.VdotH * pbrInputs.VdotH;
+	float Fd90 = 0.5 + 2.0 * pbrInputs.s.perceptualRoughness * pbrInputs.VdotH * pbrInputs.VdotH;
     vec3 f0 = vec3(0.1);
 	vec3 invF0 = vec3(1.0, 1.0, 1.0) - f0;
 	float dim = min(invF0.r, min(invF0.g, invF0.b));
 	float result = ((1.0 + (Fd90 - 1.0) * pow(1.0 - pbrInputs.NdotL, 5.0 )) * (1.0 + (Fd90 - 1.0) * pow(1.0 - pbrInputs.NdotV, 5.0 ))) * dim;
-	return pbrInputs.diffuseColor * result;
+	return pbrInputs.s.diffuseColor * result;
+}
+
+float specularSampleWeight(SurfaceInfo s){
+    float wD = mix(luminance(s.diffuseColor), 0, s.metalness);
+    float wS = luminance(s.specularColor);
+    return min(1, wS/(wD + wD));
+}
+
+float pdfBRDF(SurfaceInfo s, vec3 v, vec3 l, vec3 h){
+    float pdfDiffuse = RECIPROCAL_PI * dot(l, s.normal);        //analytical solution for diffuse lambert
+    float alpha2 = pow2(s.alphaRoughness);
+    float pdfSpecular = alpha2 / (PI * pow2(pow2(dot(h, s.normal)) * (alpha2 - 1.0f) + 1.0f));  //analytical pdf for GGX normal distribution
+    pdfSpecular *= dot(h, s.normal);
+    float specularSW = specularSampleWeight(s);
+    return mix(pdfDiffuse, pdfSpecular, specularSW);
 }
 
 // The following equation models the Fresnel reflectance term of the spec equation (aka F())
@@ -256,7 +290,7 @@ vec3 BRDF_Diffuse_Disney(PBRInfo pbrInputs)
 vec3 specularReflection(PBRInfo pbrInputs)
 {
     //return pbrInputs.reflectance0 + (pbrInputs.reflectance90 - pbrInputs.reflectance0) * pow(clamp(1.0 - pbrInputs.VdotH, 0.0, 1.0), 5.0);
-    return pbrInputs.reflectance0 + (pbrInputs.reflectance90 - pbrInputs.reflectance90*pbrInputs.reflectance0) * exp2((-5.55473 * pbrInputs.VdotH - 6.98316) * pbrInputs.VdotH);
+    return pbrInputs.s.reflectance0 + (pbrInputs.s.reflectance90 - pbrInputs.s.reflectance90*pbrInputs.s.reflectance0) * exp2((-5.55473 * pbrInputs.VdotH - 6.98316) * pbrInputs.VdotH);
 }
 
 // This calculates the specular geometric attenuation (aka G()),
@@ -267,7 +301,7 @@ float geometricOcclusion(PBRInfo pbrInputs)
 {
     float NdotL = pbrInputs.NdotL;
     float NdotV = pbrInputs.NdotV;
-    float r = pbrInputs.alphaRoughness * pbrInputs.alphaRoughness;
+    float r = pbrInputs.s.alphaRoughness * pbrInputs.s.alphaRoughness;
 
     float attenuationL = 2.0 * NdotL / (NdotL + sqrt(r + (1.0 - r) * (NdotL * NdotL)));
     float attenuationV = 2.0 * NdotV / (NdotV + sqrt(r + (1.0 - r) * (NdotV * NdotV)));
@@ -279,13 +313,14 @@ float geometricOcclusion(PBRInfo pbrInputs)
 // Follows the distribution function recommended in the SIGGRAPH 2013 course notes from EPIC Games [1], Equation 3.
 float microfacetDistribution(PBRInfo pbrInputs)
 {
-    float roughnessSq = pbrInputs.alphaRoughness * pbrInputs.alphaRoughness;
+    float roughnessSq = pbrInputs.s.alphaRoughness * pbrInputs.s.alphaRoughness;
     float f = (pbrInputs.NdotH * roughnessSq - pbrInputs.NdotH) * pbrInputs.NdotH + 1.0;
     return roughnessSq / (PI * f * f);
 }
 
-vec3 BRDF(vec3 v, vec3 n, vec3 l, vec3 h, float perceptualRoughness, float metallic, vec3 specularEnvironmentR0, vec3 specularEnvironmentR90, float alphaRoughness, vec3 diffuseColor, vec3 specularColor, float ao, vec3 emissive)
+vec3 BRDF(vec3 v, vec3 l, vec3 h, SurfaceInfo s)
 {
+    vec3 n = s.normal;
     vec3 reflection = -normalize(reflect(v, n));
     reflection.y *= -1.0f;
 
@@ -302,13 +337,7 @@ vec3 BRDF(vec3 v, vec3 n, vec3 l, vec3 h, float perceptualRoughness, float metal
                                 LdotH,
                                 VdotH,
                                 VdotL,
-                                perceptualRoughness,
-                                metallic,
-                                specularEnvironmentR0,
-                                specularEnvironmentR90,
-                                alphaRoughness,
-                                diffuseColor,
-                                specularColor);
+                                s);
 
     // Calculate the shading terms for the microfacet specular shading model
     vec3 F = specularReflection(pbrInputs);
@@ -321,35 +350,23 @@ vec3 BRDF(vec3 v, vec3 n, vec3 l, vec3 h, float perceptualRoughness, float metal
     vec3 diffuseContrib = (1.0 - F) * BRDF_Diffuse_Disney(pbrInputs);
     vec3 specContrib = F * G * D / (4.0 * NdotL * NdotV);
     // Obtain final intensity as reflectance (BRDF) scaled by the energy of the light (cosine law)
-    vec3 color = NdotL * u_LightColor * (diffuseContrib + specContrib);
-
-    color *= ao;
-
-    color += emissive;
+    vec3 color = diffuseContrib + specContrib;
 
     return color;
 }
 
-float convertMetallic(vec3 diffuse, vec3 specular, float maxSpecular)
-{
-    float perceivedDiffuse = sqrt(0.299 * diffuse.r * diffuse.r + 0.587 * diffuse.g * diffuse.g + 0.114 * diffuse.b * diffuse.b);
-    float perceivedSpecular = sqrt(0.299 * specular.r * specular.r + 0.587 * specular.g * specular.g + 0.114 * specular.b * specular.b);
-
-    if (perceivedSpecular < c_MinRoughness)
-    {
-        return 0.0;
-    }
-
-    float a = c_MinRoughness;
-    float b = perceivedDiffuse * (1.0 - maxSpecular) / (1.0 - c_MinRoughness) + perceivedSpecular - 2.0 * c_MinRoughness;
-    float c = c_MinRoughness - perceivedSpecular;
-    float D = max(b * b - 4.0 * a * c, 0.0);
-    return clamp((-b + sqrt(D)) / (2.0 * a), 0.0, 1.0);
+// sampling half-angle directions from GGX normal distribution
+vec3 sampleGGX(vec2 r, float alpha2){
+    float phi = 2 * PI * r.x;
+    float cosH = sqrt((1.0-r.y) / (1.0 + (alpha2 - 1.0f) * r.y));
+    float sinH = sqrt(1.0 - pow2(cosH));
+    return vec3(sinH * cos(phi), sinH * sin(phi), cosH);
 }
-#endif
 
-struct RandomEngine{
-    uvec2 state;
+vec3 sampleHemisphere(vec2 r){
+    float t = 2 * PI * r.y;
+    vec2 d = r.x * vec2(cos(t), sin(t));
+    return vec3(d, sqrt(1.0 - pow2(d.x) - pow2(d.y)));
 }
 
 uint rotl(uint x, uint k){
@@ -361,7 +378,7 @@ uint randomNumber(inout RandomEngine e){
     uint result = e.state.x * 0x9e3779bb;
 
     e.state.y ^= e.state.x;
-    e.state.x = rotl(e.state.x, 26) ^ e.state.y ^ (e.satte.y << 9);
+    e.state.x = rotl(e.state.x, 26) ^ e.state.y ^ (e.state.y << 9);
     e.state.y = rotl(e.state.y, 13);
 
     return result;
@@ -370,10 +387,6 @@ uint randomNumber(inout RandomEngine e){
 float randomFloat(inout RandomEngine e){
     uint u = 0x3f800000 | (randomNumber(e) >> 9);
     return uintBitsToFloat(u) - 1.0;
-}
-
-float randomFloat(float m, inout RandomEngine e){
-    return randomFloat(e) * m;
 }
 
 uint randomUInt(inout RandomEngine e, uint nmax){
@@ -396,7 +409,7 @@ vec2 sampleTriangle(vec2 u){
 
 // Thomas Wang 32-bit hash.
 uint wangHash(uint seed){
-    seed = (seed ^ 61) ^ (sed >> 16);
+    seed = (seed ^ 61) ^ (seed >> 16);
     seed *= 9;
     seed = seed ^ (seed >> 4);
     seed *= 0x27d4eb2d;
@@ -415,19 +428,62 @@ RandomEngine rEInit(uvec2 id, uint frameIndex){
     return re;
 }
 
+vec3 sampleBRDF(SurfaceInfo s, RandomEngine re, vec3 v,out vec3 l,out float pdf){
+    vec3 h;
+    vec3 u = randomVec3(re);
+    float specularSW = specularSampleWeight(s);
+
+    //sample specular or diffuse reflection based on sampling weight
+    if(u.z < specularSW){
+        h = sampleGGX(u.xy, pow2(s.alphaRoughness));
+        h = s.basis * h;
+        l = -reflect(v, h);
+    }
+    else{
+        l = sampleHemisphere(u.xy);
+        l = s.basis * l;
+        h = normalize(v + l);
+    }
+    pdf = pdfBRDF(s, v, l, h);
+    return BRDF(v, l, h, s);
+}
+
+float convertMetallic(vec3 diffuse, vec3 specular, float maxSpecular)
+{
+    float perceivedDiffuse = sqrt(0.299 * diffuse.r * diffuse.r + 0.587 * diffuse.g * diffuse.g + 0.114 * diffuse.b * diffuse.b);
+    float perceivedSpecular = sqrt(0.299 * specular.r * specular.r + 0.587 * specular.g * specular.g + 0.114 * specular.b * specular.b);
+
+    if (perceivedSpecular < c_MinRoughness)
+    {
+        return 0.0;
+    }
+
+    float a = c_MinRoughness;
+    float b = perceivedDiffuse * (1.0 - maxSpecular) / (1.0 - c_MinRoughness) + perceivedSpecular - 2.0 * c_MinRoughness;
+    float c = c_MinRoughness - perceivedSpecular;
+    float D = max(b * b - 4.0 * a * c, 0.0);
+    return clamp((-b + sqrt(D)) / (2.0 * a), 0.0, 1.0);
+}
+
 struct RayPayload {
-	vec4 colorDirect;
-    vec3 colorIndirect;
+	vec3 color;
     vec4 albedo;
 	vec3 normal;
+    vec3 throughput;
+	vec3 position;
     RandomEngine re;
-	float distance;
 	float reflector;
 };
 
-vec2 blerp(vec2 b, vec2 p1, vec2 p2, vec2 p3)
+vec3 blerp(vec2 b, vec3 p1, vec3 p2, vec3 p3)
 {
     return (1.0 - b.x - b.y) * p1 + b.x * p2 + b.y * p3;
+}
+
+float powerHeuristics(float a, float b){
+    float f = a * a;
+    float g = b * b;
+    return f / (f + g);
 }
 
 #endif

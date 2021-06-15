@@ -7,6 +7,11 @@ layout(binding = 15, set = 0, r32f) uniform image2D depthImage;
 layout(binding = 16, set = 0, rg32f) uniform image2D normalImage;
 layout(binding = 17, set = 0, rgba8) uniform image2D materialImage;
 layout(binding = 18, set = 0, rgba8) uniform image2D albedoImage;
+layout(binding = 19) uniform Infos{
+  uint lightCount;
+  uint minRecursionDepth;
+  uint maxRecursionDepth;
+}infos;
 
 layout(push_constant) uniform PushConstants 
 {
@@ -18,6 +23,34 @@ layout(push_constant) uniform PushConstants
 #include "general.glsl"
 
 layout(location = 1) rayPayloadEXT RayPayload rayPayload;
+
+uint rayFlags = gl_RayFlagsOpaqueEXT;
+uint cullMask = 0xff;
+float tmin = 0.001;
+float tmax = 10000.0;
+
+vec3 indirectLighting(vec3 pos, vec3 v, SurfaceInfo s, int recDepth){
+  vec3 l;
+  float pdf;
+  vec3 brdf = sampleBRDF(s, rayPayload.re, v, l, pdf);
+  if(brdf == vec3(0) || pdf < EPSILON){
+    return vec3(0);
+  }
+
+  float t = dot(l, s.normal);
+  vec3 pathThroughput = rayPayload.throughput * (brdf * dot(l, s.normal)) / pdf;
+  if(recDepth > infos.minRecursionDepth) {
+    float termination = max(c_MinTermination, 1.0 - max(max(pathThroughput.x, pathThroughput.y),pathThroughput.z));
+    if(randomFloat(rayPayload.re) < c_MinTermination){
+      return vec3(0);
+    }
+    pathThroughput /= 1.0 - c_MinTermination;
+  }
+
+  rayPayload.throughput = pathThroughput;
+  traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, pos, tmin, l, tmax, 1);
+  return min(rayPayload.color, vec3(c_MaxRadiance));
+}
 
 void main() 
 {
@@ -31,16 +64,24 @@ void main()
 
 	rayPayload.re = rEInit(gl_LaunchIDEXT.xy, camParams.frameNumber);
 
-	uint rayFlags = gl_RayFlagsOpaqueEXT;
-	uint cullMask = 0xff;
-	float tmin = 0.001;
-	float tmax = 10000.0;
-
+	//first hit infos
 	traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, worldSpacePos.xyz, tmin, worldSpaceDir.xyz, tmax, 1);
 
-	imageStore(outputImage, ivec2(gl_LaunchIDEXT.xy), rayPayload.color);
-	imageStore(depthImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.distance));
+	imageStore(depthImage, ivec2(gl_LaunchIDEXT.xy), vec4(distance(rayPayload.position, worldSpacePos.xyz)));
 	imageStore(normalImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.normal, 1));
 	imageStore(materialImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.reflector));
 	imageStore(albedoImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.albedo));
+	
+	//depth recursion
+	vec3 finalColor = rayPayload.color;
+	SurfaceInfo sI;
+	for(int i = 0; i < infos.maxRecursionDepth; ++i){
+		vec3 v = normalize(worldSpacePos.xyz - rayPayload.position);
+		worldSpacePos = vec4(rayPayload.position, 1);
+		finalColor += indirectLighting(worldSpacePos.xyz, v, sI, i);
+	}
+
+	finalColor = LINEARtoSRGB(vec4(finalColor, 1)).xyz;
+	
+	imageStore(outputImage, ivec2(gl_LaunchIDEXT.xy), vec4(finalColor,1));
 }
