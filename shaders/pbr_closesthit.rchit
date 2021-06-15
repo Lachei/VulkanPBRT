@@ -252,12 +252,11 @@ void main()
   if(textureSize(emissiveMap[nonuniformEXT(objId)], 0) != ivec2(1,1))
       vec3 emissive = SRGBtoLINEAR(texture(emissiveMap[nonuniformEXT(objId)], texCoord)).rgb * mat.emission;
 
-  SurfaceInfo si = SurfaceInfo(perceptualRoughness, metallic, specularEnvironmentR0, specularEnvironmentR90, alphaRoughness, diffuseColor, specularColor, emissive, normal, mat3(TBN[0], TBN[2], TBN[1]));
+  rayPayload.si = SurfaceInfo(perceptualRoughness, metallic, specularEnvironmentR0, specularEnvironmentR90, alphaRoughness, diffuseColor, specularColor, emissive, normal, mat3(TBN[0], TBN[2], TBN[1]));
 
   //direct illumination
-  vec3 color = nextEventEsitmation(position, v, si);
+  rayPayload.color = nextEventEsitmation(position, v, rayPayload.si);
 
-  rayPayload.normal = normal;
   rayPayload.albedo = diffuse;
   rayPayload.position = position;
   rayPayload.reflector = 1;

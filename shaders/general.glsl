@@ -468,11 +468,11 @@ float convertMetallic(vec3 diffuse, vec3 specular, float maxSpecular)
 struct RayPayload {
 	vec3 color;
     vec4 albedo;
-	vec3 normal;
     vec3 throughput;
 	vec3 position;
     RandomEngine re;
 	float reflector;
+    SurfaceInfo si;
 };
 
 vec3 blerp(vec2 b, vec3 p1, vec3 p2, vec3 p3)

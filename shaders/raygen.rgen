@@ -68,18 +68,17 @@ void main()
 	traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, worldSpacePos.xyz, tmin, worldSpaceDir.xyz, tmax, 1);
 
 	imageStore(depthImage, ivec2(gl_LaunchIDEXT.xy), vec4(distance(rayPayload.position, worldSpacePos.xyz)));
-	imageStore(normalImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.normal, 1));
+	imageStore(normalImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.si.normal, 1));
 	imageStore(materialImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.reflector));
 	imageStore(albedoImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.albedo));
 	
 	//depth recursion
 	vec3 finalColor = rayPayload.color;
-	SurfaceInfo sI;
 	for(int i = 0; i < infos.maxRecursionDepth; ++i){
 		if(rayPayload.position == vec3(1/0)) break;		//stop if missed shader was called
 		vec3 v = normalize(worldSpacePos.xyz - rayPayload.position);
 		worldSpacePos = vec4(rayPayload.position, 1);
-		finalColor += indirectLighting(worldSpacePos.xyz, v, sI, i);
+		finalColor += indirectLighting(worldSpacePos.xyz, v, rayPayload.si, i);
 	}
 
 	finalColor = LINEARtoSRGB(vec4(finalColor, 1)).xyz;
