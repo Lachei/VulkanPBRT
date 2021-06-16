@@ -19,6 +19,7 @@ public:
         int raysPerPixel;
         int width;
         int height;
+        uint steadyCamFrame;
     };
     Gui(vsg::ref_ptr<Values> values): _values(values), _state({true}){}
 
@@ -35,6 +36,7 @@ public:
         ImGui::InputText("testTextInput", _values->testTextInput, 200);
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS) for %d triangles", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate, _values->triangleCount);
         ImGui::Text("Render size is %d by %d with %d rays/pixel resulting in %.3f mRays/second", _values->width, _values->height, _values->raysPerPixel, ImGui::GetIO().Framerate * _values->raysPerPixel * _values->width * _values->height / 1.0e6);
+        ImGui::Text("Steady cam frame number is: %d", _values->steadyCamFrame);
 
         ImGui::End();
         return _state.active;

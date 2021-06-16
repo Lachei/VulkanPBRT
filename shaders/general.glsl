@@ -365,7 +365,7 @@ vec3 sampleGGX(vec2 r, float alpha2){
 
 vec3 sampleHemisphere(vec2 r){
     float t = 2 * PI * r.y;
-    vec2 d = r.x * vec2(cos(t), sin(t));
+    vec2 d = sqrt(r.x) * vec2(cos(t), sin(t));
     return vec3(d, sqrt(1.0 - pow2(d.x) - pow2(d.y)));
 }
 

@@ -22,6 +22,7 @@ layout(binding = 13) buffer Materials{WaveFrontMaterialPacked m[]; } materials;
 layout(binding = 14) buffer Instances{ObjectInstance i[]; } instances;
 layout(binding = 19) uniform Infos{
   uint lightCount;
+  uint minRecursionDepth;
   uint maxRecursionDepth;
 }infos;
 
@@ -44,12 +45,12 @@ vec3 sampleLight(vec3 pos, vec3 n, out vec3 l, out float pdf)
       case lst_directional:
         d = distance(pos, lights.l[i].v0Type.xyz);
         attenuation = 1.0f / (lights.l[i].strengths.x + lights.l[i].strengths.y * d + lights.l[i].strengths.z * d * d);
-        strengthSum += dot(n, lights.l[i].dirAngle2.xyz) * lightPower * attenuation;
+        strengthSum += max(dot(n, -lights.l[i].dirAngle2.xyz), 0) * lightPower * attenuation;
         break;
       case lst_point:
         d = distance(pos, lights.l[i].v0Type.xyz);
         attenuation = 1.0f / (lights.l[i].strengths.x + lights.l[i].strengths.y * d + lights.l[i].strengths.z * d * d);
-        strengthSum += dot(n, normalize(lights.l[i].v0Type.xyz - pos)) * lightPower * attenuation;
+        strengthSum += max(dot(n, normalize(lights.l[i].v0Type.xyz - pos)), 0) * lightPower * attenuation;
         break;
       case lst_spot:
 
@@ -71,7 +72,7 @@ vec3 sampleLight(vec3 pos, vec3 n, out vec3 l, out float pdf)
         d = length(lightDir);
         lightDir /= d;
         attenuation = 1.0f / (lights.l[i].strengths.x + lights.l[i].strengths.y * d + lights.l[i].strengths.z * d * d);
-        strengthSum += dot(n, lightDir) * abs(dot(lightDir, lightNormal)) * lightPower * attenuation * triangleArea;
+        strengthSum += max(dot(n, lightDir) * abs(dot(lightDir, lightNormal)), 0) * lightPower * attenuation * triangleArea;
 
         break;
     }
@@ -97,14 +98,14 @@ vec3 sampleLight(vec3 pos, vec3 n, out vec3 l, out float pdf)
       case lst_directional:
         d = distance(pos, lights.l[i].v0Type.xyz);
         attenuation = 1.0f / (lights.l[i].strengths.x + lights.l[i].strengths.y * d + lights.l[i].strengths.z * d * d);
-        strength = dot(n, lights.l[i].dirAngle2.xyz) * lightPower * attenuation;
-        lightStrength *= dot(n, lights.l[i].dirAngle2.xyz) * attenuation;
+        strength = max(dot(n, -lights.l[i].dirAngle2.xyz), 0) * lightPower * attenuation;
+        lightStrength *= dot(n, -lights.l[i].dirAngle2.xyz) * attenuation;
         l = normalize(-lights.l[i].dirAngle2.xyz);
         break;
       case lst_point:
         d = distance(pos, lights.l[i].v0Type.xyz);
         attenuation = 1.0f / (lights.l[i].strengths.x + lights.l[i].strengths.y * d + lights.l[i].strengths.z * d * d);
-        strength = dot(n, normalize(lights.l[i].v0Type.xyz - pos)) * lightPower * attenuation;
+        strength = max(dot(n, normalize(lights.l[i].v0Type.xyz - pos)), 0) * lightPower * attenuation;
         lightStrength *= dot(n, normalize(lights.l[i].v0Type.xyz - pos)) * attenuation;
         l = normalize(lights.l[i].v0Type.xyz - pos);
         break;
@@ -128,7 +129,7 @@ vec3 sampleLight(vec3 pos, vec3 n, out vec3 l, out float pdf)
         d = length(lightDir);
         lightDir /= d;
         attenuation = 1.0f / (lights.l[i].strengths.x + lights.l[i].strengths.y * d + lights.l[i].strengths.z * d * d);
-        strength = dot(n, lightDir) * abs(dot(lightDir, lightNormal)) * lightPower * attenuation * triangleArea;
+        strength = max(dot(n, lightDir) * abs(dot(lightDir, lightNormal)), 0) * lightPower * attenuation * triangleArea;
         lightStrength *= dot(n, lightDir) * abs(dot(lightDir, lightNormal)) * attenuation * triangleArea;
         l = lightDir;
         break;
@@ -142,6 +143,7 @@ vec3 sampleLight(vec3 pos, vec3 n, out vec3 l, out float pdf)
       traceRayEXT(tlas, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xFF, 0, 0, 1, origin, tmin, l, tmax, 0);
       return lightStrength * float(!shadowed);
     }
+    curStrength += strength;
   }
 }
 
@@ -194,9 +196,12 @@ void main()
 	Vertex v2 = unpack(index.z, objId);
 
   const vec3 bar = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
-  vec3 normal = normalize(v0.normal * bar.x + v1.normal * bar.y + v2.normal * bar.z);
-  vec3 T = getTangent(v0.pos, v1.pos, v2.pos, v0.uv, v1.uv, v2.uv);
-  vec3 B = getBitangent(v0.pos, v1.pos, v2.pos, v0.uv, v1.uv, v2.uv);
+  vec3 normal = normalize(v0.normal * bar.x + v1.normal * bar.y + v2.normal * bar.z).xzy;
+  //normal = normalize((instance.objectMat * vec4(normal, 0)).xyz);
+  vec3 T = getTangent(v0.pos, v1.pos, v2.pos, v0.uv, v1.uv, v2.uv).xzy;
+  //T = (instance.objectMat * vec4(T, 0)).xyz;
+  vec3 B = getBitangent(v0.pos, v1.pos, v2.pos, v0.uv, v1.uv, v2.uv).xzy;
+  //B = (instance.objectMat * vec4(B, 0)).xyz;
   mat3 TBN = gramSchmidt(T, B, normal);
   vec3 position = v0.pos * bar.x + v1.pos * bar.y + v2.pos * bar.z;
   position = (instance.objectMat * vec4(position, 1)).xyz;

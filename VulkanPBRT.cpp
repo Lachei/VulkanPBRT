@@ -148,7 +148,6 @@ int main(int argc, char** argv){
         vsg::ref_ptr<vsg::TopLevelAccelerationStructure> tlas;
         vsg::ref_ptr<vsg::Node> loaded_scene;
         auto guiValues = Gui::Values::create();
-        guiValues->raysPerPixel = 2;
         guiValues->width = windowTraits->width;
         guiValues->height = windowTraits->height;
         if(filename.empty()){
@@ -199,6 +198,8 @@ int main(int argc, char** argv){
         auto rayTracingPushConstantsValue = RayTracingPushConstantsValue::create();
         perspective->get_inverse(rayTracingPushConstantsValue->value().projInverse);
         lookAt->get_inverse(rayTracingPushConstantsValue->value().viewInverse);
+        rayTracingPushConstantsValue->value().frameNumber = 0;
+        rayTracingPushConstantsValue->value().steadyCamFrame = 0;
         auto pushConstants = vsg::PushConstants::create(VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, rayTracingPushConstantsValue);
 
         // raytracing pipelin setup
@@ -209,6 +210,8 @@ int main(int argc, char** argv){
         auto illuminationBuffer = IlluminationBufferFinal::create(windowTraits->width, windowTraits->height);
         pbrtPipeline->setIlluminationBuffer(illuminationBuffer);
         pbrtPipeline->setTlas(tlas);
+
+        guiValues->raysPerPixel = maxRecursionDepth * 2; //for each recursion one next event estimate is done
 
         gBuffer->compile(imageLayoutCompile.context);
         gBuffer->updateImageLayouts(imageLayoutCompile.context);
@@ -255,10 +258,15 @@ int main(int argc, char** argv){
         imageLayoutCompile.context.waitForCompletion();
 
         while(viewer->advanceToNextFrame() && (numFrames < 0 || (numFrames--) > 0)){
+            
             viewer->handleEvents();
-            //update camera matrix
+
+            //update push constants
             lookAt->get_inverse(rayTracingPushConstantsValue->value().viewInverse);
-            //raytracingUniformDescriptor->copyDataListToBuffers();
+            rayTracingPushConstantsValue->value().frameNumber++;
+            rayTracingPushConstantsValue->value().steadyCamFrame++;
+            if(viewer->getEvents().size() > 1) rayTracingPushConstantsValue->value().steadyCamFrame = 0;
+            guiValues->steadyCamFrame = rayTracingPushConstantsValue->value().steadyCamFrame;
 
             viewer->update();
             viewer->recordAndSubmit();

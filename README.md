@@ -11,6 +11,11 @@ The raytracer itself is intended to be easily customizable to be used for differ
 The todos, in progress and done tasks can be found in the [Projects tab](https://github.com/Lachei/VulkanPBRT/projects/1).
 
 A list of supported features and screenshots (Top is most recent feature):
+- [x] Importance sampling and ray recursion done(Small generalisation for normals still has to be done).
+
+![sponza texture pbr lighting](pictures/raytrace_multi_importance.png)
+![sponza texture pbr lighting](pictures/raytrace.png)
+
 ![sponza texture pbr lighting](pictures/lighting_no_bounces.png)
 
 - [x] Physically based lighting computation implemented.

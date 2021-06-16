@@ -9,6 +9,8 @@ public:
     struct RayTracingPushConstants{
         vsg::mat4 viewInverse;
         vsg::mat4 projInverse;
+        uint frameNumber;
+        uint steadyCamFrame;
     };
 
     CreateRayTracingDescriptorTraversal()
@@ -193,29 +195,29 @@ public:
 
     //getting the lights in the scene
     void apply(const vsg::Light& l){
-        _packedLights.push_back(l.getPacked());
+        packedLights.push_back(l.getPacked());
     }
 
     vsg::ref_ptr<vsg::BindDescriptorSet> getBindDescriptorSet(){
         if(!_bindDescriptor){
-            if(_packedLights.empty())
+            if(packedLights.empty())
             {
                 std::cout << "Adding default directional light for raytracing" << std::endl;
                 vsg::Light l;
                 l.radius = 0;
                 l.type = vsg::LightSourceType::Directional;
                 vsg::vec3 col{1.0f,1.0f,1.0f};
-                l.colorAmbient = col;
+                l.colorAmbient = {0,0,0};
                 l.colorDiffuse = col;
-                l.colorSpecular = col;
-                l.strengths = vsg::vec3(1.0f,.0f,.0f);
-                l.dir = vsg::vec3(.2f, .2f, -1.0f);
-                _packedLights.push_back(l.getPacked());
+                l.colorSpecular = {0,0,0};
+                l.strengths = vsg::vec3(.5f,.0f,.0f);
+                l.dir = vsg::vec3(-.2f, -.2f, -1.0f);
+                packedLights.push_back(l.getPacked());
             }
             if(!_lights)
             {
-                auto lights = vsg::Array<vsg::Light::PackedLight>::create(_packedLights.size());
-                std::copy(_packedLights.begin(), _packedLights.end(), lights->data());
+                auto lights = vsg::Array<vsg::Light::PackedLight>::create(packedLights.size());
+                std::copy(packedLights.begin(), packedLights.end(), lights->data());
                 _lights = vsg::DescriptorBuffer::create(lights, 12, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
             }
             if(!_materials)
@@ -295,6 +297,7 @@ public:
 
     //holds the binding command for the raytracing decriptor
     vsg::ref_ptr<vsg::PipelineLayout> pipelineLayout;
+    std::vector<vsg::Light::PackedLight> packedLights;
 protected:
     struct ObjectInstance{
         vsg::mat4 objectMat;
@@ -341,7 +344,6 @@ protected:
     vsg::ref_ptr<vsg::DescriptorBuffer> _materials;
     std::vector<WaveFrontMaterialPacked> _materialArray;
     vsg::ref_ptr<vsg::DescriptorBuffer> _lights;
-    std::vector<vsg::Light::PackedLight> _packedLights;
 
     std::map<vsg::VertexIndexDraw*, ObjectInstance> _vertexIndexDrawMap;
     vsg::MatrixStack _transformStack;

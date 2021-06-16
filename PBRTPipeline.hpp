@@ -7,6 +7,12 @@
 
 class PBRTPipeline: public vsg::Inherit<vsg::Object, PBRTPipeline>{
 public:
+    struct ConstantInfos{
+        uint lightCount;
+        uint minRecursionDepth;
+        uint maxRecursionDepth;
+    };
+
     PBRTPipeline(uint width, uint height, uint maxRecursionDepth, vsg::Node* scene): width(width), height(height), maxRecursionDepth(maxRecursionDepth){
         //GBuffer setup
         useExternalGBuffer = false;
@@ -84,6 +90,11 @@ public:
     vsg::ref_ptr<vsg::RayTracingShaderBindingTable> shaderBindingTable;
 
 protected:
+    class ConstantInfosValue : public vsg::Inherit<vsg::Value<ConstantInfos>, ConstantInfosValue>{
+        public:
+        ConstantInfosValue(){}
+    };
+
     bool useExternalGBuffer;
 
     void setupPipeline(vsg::Node* scene){
@@ -92,6 +103,15 @@ protected:
         scene->accept(buildDescriptorBinding);
         bindRayTracingDescriptorSet = buildDescriptorBinding.getBindDescriptorSet();
         auto rayTracingPipelineLayout = buildDescriptorBinding.pipelineLayout;
+
+        //creating the constant infos uniform buffer object
+        auto constantInfos = ConstantInfosValue::create();
+        constantInfos->value().lightCount = buildDescriptorBinding.packedLights.size();
+        constantInfos->value().maxRecursionDepth = maxRecursionDepth;
+        constantInfos->value().minRecursionDepth = maxRecursionDepth;
+        auto constantInfosDescriptor = vsg::DescriptorBuffer::create(constantInfos, 19, 0);
+        bindRayTracingDescriptorSet->descriptorSet->descriptors.push_back(constantInfosDescriptor);
+        rayTracingPipelineLayout->setLayouts[0]->bindings.push_back({19, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr});
 
         //creating the shader stages and shader binding table
         std::string raygenPath = "shaders/raygen.rgen.spv";     //default reaygen shader
@@ -124,7 +144,7 @@ protected:
         shaderBindingTable->bindingTableEntries.raygenGroups = {raygenShaderGroup};
         shaderBindingTable->bindingTableEntries.raymissGroups = {raymissShaderGroup, shadowMissShaderGroup};
         shaderBindingTable->bindingTableEntries.hitGroups = {closesthitShaderGroup};
-        auto pipeline = vsg::RayTracingPipeline::create(rayTracingPipelineLayout, shaderStage, shaderGroups, shaderBindingTable, maxRecursionDepth);
+        auto pipeline = vsg::RayTracingPipeline::create(rayTracingPipelineLayout, shaderStage, shaderGroups, shaderBindingTable, 2 * maxRecursionDepth);
         bindRayTracingPipeline = vsg::BindRayTracingPipeline::create(pipeline);
 
         //adding gbuffer bindings to the descriptor

@@ -18,6 +18,7 @@ layout(push_constant) uniform PushConstants
 	mat4 inverseViewMatrix;
 	mat4 inverseProjectionMatrix;
 	uint frameNumber;
+	uint steadyCamFrame;
 } camParams;
 
 #include "general.glsl"
@@ -54,15 +55,18 @@ vec3 indirectLighting(vec3 pos, vec3 v, SurfaceInfo s, int recDepth){
 
 void main() 
 {
+	rayPayload.re = rEInit(gl_LaunchIDEXT.xy, camParams.frameNumber);
+	rayPayload.throughput = vec3(1);
+	
 	const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(0.5);
 	const vec2 normalisedPixelCoord = pixelCenter/vec2(gl_LaunchSizeEXT.xy);
-	vec2 clipSpaceCoord = normalisedPixelCoord * 2.0 - 1.0;;
+	vec2 clipSpaceCoord = normalisedPixelCoord * 2.0 - 1.0;
+	clipSpaceCoord += randomVec2(rayPayload.re) * .001;
 
 	vec4 worldSpacePos = camParams.inverseViewMatrix * vec4(0,0,0,1);
 	vec4 viewSpaceDir = camParams.inverseProjectionMatrix * vec4(clipSpaceCoord.x, clipSpaceCoord.y, 1, 1) ;
 	vec4 worldSpaceDir = camParams.inverseViewMatrix * vec4(normalize(viewSpaceDir.xyz), 0) ;
 
-	rayPayload.re = rEInit(gl_LaunchIDEXT.xy, camParams.frameNumber);
 
 	//first hit infos
 	traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, worldSpacePos.xyz, tmin, worldSpaceDir.xyz, tmax, 1);
@@ -71,17 +75,31 @@ void main()
 	imageStore(normalImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.si.normal, 1));
 	imageStore(materialImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.reflector));
 	imageStore(albedoImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.albedo));
+
+	vec3 prevFrameColor = vec3(1.0/0);
+	if(camParams.steadyCamFrame > 0){
+		prevFrameColor = imageLoad(outputImage, ivec2(gl_LaunchIDEXT.xy)).xyz;
+	}
 	
 	//depth recursion
 	vec3 finalColor = rayPayload.color;
-	for(int i = 0; i < infos.maxRecursionDepth; ++i){
-		if(rayPayload.position == vec3(1/0)) break;		//stop if missed shader was called
-		vec3 v = normalize(worldSpacePos.xyz - rayPayload.position);
-		worldSpacePos = vec4(rayPayload.position, 1);
-		finalColor += indirectLighting(worldSpacePos.xyz, v, rayPayload.si, i);
+	if(rayPayload.position != vec3(1.0/0)){
+		for(int i = 0; i < infos.maxRecursionDepth; ++i){
+			vec3 v = normalize(worldSpacePos.xyz - rayPayload.position);
+			worldSpacePos = vec4(rayPayload.position, 1);
+			vec3 indir = indirectLighting(worldSpacePos.xyz, v, rayPayload.si, i);
+			if(rayPayload.position == vec3(1.0/0)) break;
+			finalColor += indir;
+		}
+	}
+
+	if(prevFrameColor != vec3(1.0/0)){
+		float alpha = 1.0 / (camParams.steadyCamFrame + 1);
+		finalColor = mix(SRGBtoLINEAR(vec4(prevFrameColor,1)).xyz, finalColor, alpha);
 	}
 
 	finalColor = LINEARtoSRGB(vec4(finalColor, 1)).xyz;
 	
 	imageStore(outputImage, ivec2(gl_LaunchIDEXT.xy), vec4(finalColor,1));
+	//imageStore(outputImage, ivec2(gl_LaunchIDEXT.xy), vec4(albedo));
 }
