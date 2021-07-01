@@ -1,0 +1,96 @@
+#version 460
+#extension GL_KHR_shader_subgroup_basic : enable
+#extension GL_KHR_shader_subgroup_arithmetic : enable
+#extension GL_KHR_shader_subgroup_vote : enable
+#extension GL_KHR_shader_subgroup_ballot : enable
+#extension GL_GOOGLE_include_directive : enable
+
+layout(binding  = 0) uniform sampler2D prev_frame_pixel;
+layout(binding = 1) uniform sampler2DArray prev_accs;
+layout(binding = 2, rgba32f) uniform image2DArray accs;		//accs have 4 image slots: [0 noisy acc] [1 data acc] [2 tone mapped] [3 taa]
+//Note: the resulting tone mapped colors for the current imamge are in accs while the samples of the previous frame are in prev_accs
+
+layout(binding = 3) uniform infos{
+    mat4 prev_cam_matrix;
+    mat4 cur_cam_matrix;
+	ivec4 pixel_offset;
+	uint frame_number;
+};
+
+layout (local_size_x = 16,local_size_y = 16,local_size_z=1) in;
+
+#define TAA_BLEND_ALPHA .4f
+
+vec3 RGB_to_YCoCg(vec3 rgb) {
+	return vec3 (
+		dot(rgb, vec3( 1.f, 2.f, 1.f )),
+			dot(rgb, vec3(2.f, 0.f, -2.f )),
+			dot(rgb, vec3(-1.f, 2.f, -1.f ))
+	);
+}
+
+vec3 YCoCg_to_RGB(vec3 YCoCg) {
+	return vec3(
+		dot(YCoCg, vec3(0.25f, 0.25f, -0.25f )),
+			dot(YCoCg, vec3(0.25f, 0.f, 0.25f)),
+			dot(YCoCg, vec3(0.25f, -0.25f, -0.25f))
+	);
+}
+
+void main(){
+	vec2 imSize = textureSize(prev_frame_pixel, 0);
+	if(gl_GlobalInvocationID.x >= imSize.x || gl_GlobalInvocationID.y >= imSize.y) return;
+
+	vec3 cur_albedo = imageLoad(accs, ivec3(gl_GlobalInvocationID.xy, 2)).xyz;
+
+	// Loads value wich tells where this pixel was in the previous frame.
+	vec2 prev_frame_pixel = texelFetch(prev_frame_pixel,ivec2(gl_GlobalInvocationID),0).xy;
+
+	if(frame_number == 0 || prev_frame_pixel.x < 0 || prev_frame_pixel.y < 0 || prev_frame_pixel.x > 1 || prev_frame_pixel.y > 1){
+		imageStore(accs, ivec3(gl_GlobalInvocationID.xy,3), vec4(cur_albedo ,1));
+		return;
+	}
+
+	vec3 minimum_box   = vec3(1/0);
+	vec3 minimum_cross = vec3(1/0);
+	vec3 maximum_box   = vec3(-(1/0));
+	vec3 maximum_cross = vec3(-(1/0));
+	for( int y = -1; y <= 1; ++y){
+		for(int x = -1; x <= 1; ++x){
+			ivec2 sample_location = ivec2(gl_GlobalInvocationID.xy) + ivec2(x,y);
+
+			if(sample_location.x >= 0 && sample_location.y >=0 && sample_location.x < imSize.x && sample_location.y < imSize.y){
+				
+				vec3 sample_color;
+				if(x==0 && y == 0) sample_color = cur_albedo;
+				else sample_color = imageLoad(accs, ivec3(sample_location,2)).xyz;			//getting the new tone mapped value
+
+				sample_color = RGB_to_YCoCg(sample_color);
+
+				if(x == 0 || y == 0){
+					minimum_cross = min(minimum_cross, sample_color);
+					maximum_cross = max(maximum_cross, sample_color);
+				}
+				minimum_box = min(minimum_box, sample_color);
+				maximum_box = max(maximum_box, sample_color);
+			}
+		}
+	}
+	// Bilinear sampling of previous frame.
+	vec3 prev_color = texture(prev_accs, vec3(prev_frame_pixel,3)).xyz;
+	
+	vec3 prev_color_ycocg = RGB_to_YCoCg(prev_color);
+
+	vec3 minimum = (minimum_box + minimum_cross) *.5f;
+	vec3 maximum = (maximum_box + maximum_cross) *.5f;
+	//vec3 prev_color_rgb = YCoCg_to_RGB(clamp(prev_color_ycocg, minimum, maximum));
+
+	bool inside = all(greaterThanEqual(prev_color_ycocg, minimum)) && all(lessThanEqual(prev_color_ycocg, maximum));
+	vec3 res;
+	if(inside)
+		res = TAA_BLEND_ALPHA * cur_albedo + (1 - TAA_BLEND_ALPHA) * prev_color;
+	else
+		res = cur_albedo;
+	//vec3 res = TAA_BLEND_ALPHA * cur_albedo + (1 - TAA_BLEND_ALPHA) * prev_color_rgb;
+	imageStore(accs, ivec3(gl_GlobalInvocationID.xy, 3), vec4(res,1));
+}

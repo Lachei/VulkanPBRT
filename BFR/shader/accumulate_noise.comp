@@ -1,0 +1,86 @@
+#version 460
+#extension GL_KHR_shader_subgroup_basic : enable
+#extension GL_KHR_shader_subgroup_arithmetic : enable
+#extension GL_KHR_shader_subgroup_vote : enable
+#extension GL_KHR_shader_subgroup_ballot : enable
+#extension GL_GOOGLE_include_directive : enable
+
+layout(binding  = 0, rg32f) uniform image2D prev_frame_pixel;
+layout(binding  = 1, r8ui) uniform uimage2D accept_bools;
+layout(binding  = 2, rgba32f) readonly uniform image2D current_normals;
+layout(binding  = 3, rgba32f) readonly uniform image2D current_positions;
+layout(binding  = 4, rgba32f) uniform image2D current_noisy;
+layout(binding  = 5, r8ui) uniform uimage2D current_spp;
+layout(binding  = 6, r16f) uniform image2DArray tmp_data;
+layout(binding  = 7) uniform sampler2D previous_normals;
+layout(binding  = 8) uniform sampler2D previous_positions;
+layout(binding  = 9) uniform sampler2D previous_noisy;
+layout(binding  = 10) uniform sampler2D previous_spp;
+
+layout(binding = 11) uniform Data{
+	mat4 prev_cam_matrix;
+	vec2 pixel_offset;
+	uint frame_number;
+};
+
+layout (local_size_x = 16,local_size_y = 16,local_size_z=1) in;
+
+#include "shader_util.h"
+
+void main(){
+	vec4 world_position = vec4(0.f, 0.f, 0.f, 1.f);
+	world_position.xyz = imageLoad(current_positions,ivec2(gl_GlobalInvocationID)).xyz;
+	vec3 normal = imageLoad(current_normals, ivec2(gl_GlobalInvocationID)).xyz;
+	vec3 current_color = imageLoad(current_noisy, ivec2(gl_GlobalInvocationID)).xyz;
+
+	bool store_accept = false;
+
+	float blend_alpha = 1.f;
+	vec3 previous_color = vec3(0.f, 0.f, 0.f);
+
+	float sample_spp = 1;
+	vec4 prev_frame_uv = prev_cam_matrix * world_position;
+	if(frame_number > 0){
+		prev_frame_uv /= prev_frame_uv.z;
+		prev_frame_uv.xy += 1;
+		prev_frame_uv.xy *= .5f;
+		vec3 prev_position = texture(previous_positions, prev_frame_uv.xy).xyz;
+		vec3 prev_normal = texture(previous_normals, prev_frame_uv.xy).xyz;
+		if(distance(prev_position, world_position.xyz) < POSITION_LIMIT && distance(prev_normal, normal) < NORMAL_LIMIT) {
+			store_accept = true;
+			sample_spp += texture(previous_spp, prev_frame_uv.xy).x;
+			previous_color += texture(previous_noisy, prev_frame_uv.xy).xyz;
+		}
+	}
+	blend_alpha = max(1.f / sample_spp, BLEND_ALPHA);
+	sample_spp = clamp(sample_spp,0,255);
+
+	imageStore(current_spp,ivec2(gl_GlobalInvocationID),uvec4(sample_spp));
+
+	vec3 new_color = blend_alpha * current_color + (1 - blend_alpha) * previous_color;
+
+	//feature buffer
+	float features[13] = float[13](
+		1,
+		world_position.x,
+		world_position.y,
+		world_position.z,
+		world_position.x * world_position.x,
+		world_position.y * world_position.y,
+		world_position.z * world_position.z,
+		normal.x,
+		normal.y,
+		normal.z,
+		new_color.x,
+		new_color.y,
+		new_color.z
+	);
+
+	for(int f = 0; f < 13; ++f){
+		imageStore(tmp_data,ivec3(gl_GlobalInvocationID.xy,f),vec4(features[f]));
+	}
+
+	imageStore(current_noisy, ivec2(gl_GlobalInvocationID), vec4(new_color,1));
+	imageStore(prev_frame_pixel, ivec2(gl_GlobalInvocationID), vec4(prev_frame_uv - (gl_GlobalInvocationID.xy / imageSize(current_noisy),0,0)));
+	imageStore(accept_bools, ivec2(gl_GlobalInvocationID), uvec4(store_accept));
+};

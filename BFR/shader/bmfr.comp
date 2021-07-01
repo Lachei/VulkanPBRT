@@ -1,0 +1,396 @@
+#version 450
+#extension GL_KHR_shader_subgroup_arithmetic: enable
+
+layout(binding = 0, r8ui) uniform uimage2D spp;
+layout(binding = 1, rgba32f) uniform image2DArray accs;     //accumulated data:[0] noisy_accumulated, [1] data_accumulated, [2] tone_mapped, [3] taa_accumulated
+layout(binding = 2, rg16f) uniform image2D prevUV;
+layout(binding = 3) uniform sampler2D cur_albedo;
+layout(binding = 4) uniform sampler2D cur_normal;
+layout(binding = 5) uniform sampler2D cur_depth;
+layout(binding = 6) uniform sampler2D cur_noisy;
+layout(binding = 7) uniform sampler2D prev_normal;
+layout(binding = 8) uniform sampler2D prev_depth;
+layout(binding = 9) uniform usampler2D prev_spp;
+layout(binding = 10) uniform sampler2DArray prev_accs;       //accumulated data:[0] noisy_accumulated, [1] data_accumulated, [2] tone_mapped, [3] taa_accumulated
+
+layout(binding = 11) uniform infos{
+    mat4 prev_cam_matrix;
+    mat4 cur_cam_matrix;
+	ivec4 pixel_offset;
+	uint frame_number;
+};
+
+//layout(binding = 11, std430)buffer Feat{
+//    float feat[];
+//};
+//if(gl_WorkGroupID.xy == vec2(2,2) && id < 10){
+//        feat[id * 10] = features[0];
+//        feat[id * 10 + 1] = features[1];
+//        feat[id * 10 + 2] = features[2];
+//        feat[id * 10 + 3] = features[3];
+//        feat[id * 10 + 4] = features[4];
+//        feat[id * 10 + 5] = features[5];
+//        feat[id * 10 + 6] = features[6];
+//        feat[id * 10 + 7] = features[7];
+//        feat[id * 10 + 8] = features[8];
+//        feat[id * 10 + 9] = features[9];
+//        }
+//        break;
+
+#define BLOCK_WIDTH 16
+#define BLOCK_HEIGHT 16
+
+layout (local_size_x = BLOCK_WIDTH,local_size_y = BLOCK_HEIGHT,local_size_z=1) in;
+
+#define PIXEL (BLOCK_WIDTH * BLOCK_HEIGHT)
+
+#define GRAPHICS_CARD_NVIDIA
+//#define GRAPHICS_CARD_AMD
+
+#ifdef GRAPHICS_CARD_NVIDIA
+#define WORK_SIZE 32
+#endif
+
+#define POSITION_LIMIT .0005f
+#define NORMAL_LIMIT .4f
+#define BLEND_ALPHA 0.2f
+#define AMT_OF_FEATURES 10
+#define ALPHA_SIZE (AMT_OF_FEATURES - 3)
+
+#define UINT_MAX   4294967295U
+#define NOISE_AMOUNT 1e-4
+#define BLEND_ALPHA 0.2f
+#define SECOND_BLEND_ALPHA 0.1f
+#define TAA_BLEND_ALPHA 0.1f
+
+#define LOCAL_SIZE gl_WorkGroupSize.x * gl_WorkGroupSize.y
+#define BLOCK_EDGE_LENGTH gl_WorkGroupSize.x
+#define ID (gl_LocalInvocationID.x * gl_WorkGroupSize.y + gl_LocalInvocationID.y)
+
+#define ALPHA .863f
+#define K .116f
+#define BETA1 .3f
+#define BETA2 .7314f
+#define EPS 1e-8
+#define GRADIENT_ITERATION_AMT 40
+#define ALPHA_L 1.1
+#define K_L .4
+#define BETA1_L .45f
+#define BETA2_L .75f
+#define SPP_THRESH 10
+#define GRADIENT_THRESH 0.00f
+
+shared vec3 gradient_left;
+shared vec3 alpha_vec[ALPHA_SIZE];
+shared vec3 reduction_vec[ALPHA_SIZE * LOCAL_SIZE / WORK_SIZE];
+shared int reduction_l1[LOCAL_SIZE / WORK_SIZE];
+shared float reduction[32];
+
+vec3 parallel_reduction_alpha(vec3 alpha_del[ALPHA_SIZE], inout vec3 m, inout vec3 v, int t, int l1){
+    for(int i = 0; i< ALPHA_SIZE; ++i){
+        alpha_del[i] = subgroupAdd(alpha_del[i]);
+    }
+    l1 = subgroupAdd(l1);
+    //if(subgroupElect()){
+    //    for(int i = 0; i < ALPHA_SIZE; ++i){
+    //        reduction_vec[i * LOCAL_SIZE / WORK_SIZE + gl_SubgroupID] = alpha_del[i];
+    //    }
+    //}
+    if(gl_SubgroupInvocationID < ALPHA_SIZE){
+        reduction_vec[gl_SubgroupInvocationID * LOCAL_SIZE / WORK_SIZE + gl_SubgroupID] = alpha_del[gl_SubgroupInvocationID];
+        reduction_l1[gl_SubgroupID] = l1;
+    }
+    
+    //memoryBarrierShared();
+    barrier();
+    uint id = ID;
+    vec3 abs_gradient_sum = vec3(0);
+    if(id < ALPHA_SIZE){
+        vec3 delta = reduction_vec[id * LOCAL_SIZE / WORK_SIZE];
+        l1 = reduction_l1[0];
+        for(int i = 1; i < LOCAL_SIZE / WORK_SIZE; ++i){
+            delta += reduction_vec[id * LOCAL_SIZE / WORK_SIZE + i];
+            l1 += reduction_l1[i];
+        }
+        // updating the alpha vector via adams optimizer and exponential learning rate decay
+        float l1_ratio = l1 * 1.0 / PIXEL;
+        float alpha = l1_ratio * ALPHA_L + (1 - l1_ratio) * ALPHA;
+        float beta1 = l1_ratio * BETA1_L + (1 - l1_ratio) * BETA1;
+        float beta2 = l1_ratio * BETA2_L + (1 - l1_ratio) * BETA2;
+        m = beta1 * m + (1 - BETA1) * delta;
+        v = beta2 * v + (1 - BETA2) * pow(abs(delta), ivec3(2));
+        //alpha_vec[id] += ALPHA * delta;
+        alpha_vec[id] += (alpha * exp(-K * t) * sqrt(1-pow(BETA2,t)) / (1 - pow(BETA1,t))) * (m/(sqrt(v)+EPS));
+
+        abs_gradient_sum = subgroupAdd(abs(delta));
+        if(id == 0) gradient_left = abs_gradient_sum;
+    }
+    //memoryBarrierShared();
+    barrier();
+    return gradient_left;
+}
+
+float parallel_reduction_min(float var) {
+	float t = subgroupMin(var);             //Min across the subgroup
+	if (subgroupElect()) {
+        reduction[gl_SubgroupID] = t;
+	}
+    barrier();
+	if (gl_LocalInvocationID == uvec3(0, 0, 0)) {
+        for (int i = 1; i < gl_NumSubgroups; ++i) {
+            t = min(reduction[i],t);
+        }
+        reduction[0] = t;
+	}
+    barrier();
+    return reduction[0];
+}
+
+float parallel_reduction_max(float var) {
+	float t = subgroupMax(var);             //Max across the subgroup
+	if (subgroupElect()) {
+        reduction[gl_SubgroupID] = t;
+	}
+    barrier();
+	if (gl_LocalInvocationID == uvec3(0, 0, 0)) {
+        for (int i = 1; i < gl_NumSubgroups; ++i) {
+            t = max(reduction[i], t);
+        }
+        reduction[0] = t;
+	}
+    barrier();
+    return reduction[0];
+}
+
+vec3 RGB_to_YCoCg(vec3 rgb) {
+	return vec3 (
+		dot(rgb, vec3( 1.f, 2.f, 1.f )),
+			dot(rgb, vec3(2.f, 0.f, -2.f )),
+			dot(rgb, vec3(-1.f, 2.f, -1.f ))
+	);
+}
+
+vec3 YCoCg_to_RGB(vec3 YCoCg) {
+	return vec3(
+		dot(YCoCg, vec3(0.25f, 0.25f, -0.25f )),
+			dot(YCoCg, vec3(0.25f, 0.f, 0.25f)),
+			dot(YCoCg, vec3(0.25f, -0.25f, -0.25f))
+	);
+}
+
+int mirror(int x, int s){
+    if(x < 0) return abs(x) - 1;
+    if(x >= s) return 2 * s - x - 1;
+    return x;
+}
+
+ivec2 mirror(ivec2 x, ivec2 s){
+    return ivec2(mirror(x.x, s.x), mirror(x.y,s.y));
+}
+
+void main(){
+    //--------------------------------------------------------------------------
+    // Local variables
+    //--------------------------------------------------------------------------
+    bool pixel_accept = false;
+    float pixel_spp = 0;
+    ivec2 im_Size = textureSize(cur_normal,0).xy;
+    ivec2 cur_absolut_pos = ivec2(gl_GlobalInvocationID.xy) + pixel_offset.xy;
+    ivec2 cur_image_pos = mirror(cur_absolut_pos, im_Size);
+    bool save = all(equal(cur_absolut_pos,cur_image_pos));
+    vec3 m = vec3(0);           // each worker is at most responsible for 1 alpha value in the alpha vector -> only one element of the m and v vector for adam optimizer is needed
+    vec3 v = vec3(0);
+    float features[ALPHA_SIZE];
+    vec3 alpha_del[ALPHA_SIZE];
+
+    //--------------------------------------------------------------------------
+    //  Noise accumulation
+    //--------------------------------------------------------------------------
+    vec4 cur_world_pos = vec4(vec2(cur_image_pos) / vec2(im_Size-vec2(1)),1,1);
+    cur_world_pos.z = texelFetch(cur_depth, cur_image_pos, 0).x;
+    float cur_screen_depth = cur_world_pos.z;
+    cur_world_pos *= 2;
+    cur_world_pos -= 1;
+    cur_world_pos = cur_cam_matrix * cur_world_pos;
+    cur_world_pos /= cur_world_pos.w;
+    vec2 normal_sph = texelFetch(cur_normal, cur_image_pos, 0).xy;     //still in sperical coordinates
+    vec3 normal;
+    normal.xy = normal_sph;
+    normal.z = sqrt(1 - clamp(dot(normal_sph, normal_sph),0,1));
+    vec3 cur_color = texelFetch(cur_noisy, cur_image_pos, 0).xyz;
+    
+    float blend_alpha = 1;
+    vec3 prev_color = vec3(0);
+    
+    vec4 prev_frame_uv = vec4(0);
+    if(bool(frame_number)){
+        prev_frame_uv = prev_cam_matrix * cur_world_pos;
+        prev_frame_uv /= prev_frame_uv.w;
+        prev_frame_uv += 1;
+        prev_frame_uv /= 2.f;
+        float prev_d = texture(prev_depth, prev_frame_uv.xy).x;
+        if(distance(prev_d, prev_frame_uv.z) < POSITION_LIMIT){
+            vec2 prev_normal_sph = texture(prev_normal, prev_frame_uv.xy).xy;
+            vec3 prev_normall;
+            prev_normall.xy = prev_normal_sph;
+            prev_normall.z = sqrt(1 - clamp(dot(prev_normal_sph, prev_normal_sph),0,1));
+            if(distance(prev_normall, normal)< NORMAL_LIMIT){
+                pixel_accept  = true;
+                pixel_spp += texture(prev_spp, prev_frame_uv.xy).x;
+                prev_color += texture(prev_accs, vec3(prev_frame_uv.xy, 0)).xyz;
+            }
+        }
+        if(pixel_accept){
+            blend_alpha = max(1.f / (pixel_spp + 1), BLEND_ALPHA);
+        }
+    }
+	pixel_spp = clamp(pixel_spp + 1,0,255);
+
+    if(save)
+        imageStore(spp, cur_image_pos,uvec4(pixel_spp));
+
+    vec3 new_color = max(blend_alpha * cur_color + (1 - blend_alpha) * prev_color, vec3(0));
+
+    if(save)
+        imageStore(accs, ivec3(cur_image_pos, 0), vec4(new_color,1));
+
+    //--------------------------------------------------------------------------
+    //  L1 Gradient descent
+    //--------------------------------------------------------------------------
+    uint id = gl_LocalInvocationID.x * gl_WorkGroupSize.y + gl_LocalInvocationID.y;
+    if(id < ALPHA_SIZE){
+        alpha_vec[id] = vec3(0);
+    }
+
+    // normalizing world depth
+    {
+        cur_screen_depth = 1/cur_screen_depth;
+        float min_val = parallel_reduction_min(cur_screen_depth);
+        float max_val = parallel_reduction_max(cur_screen_depth);
+        cur_screen_depth -= min_val;
+        cur_screen_depth /= max_val - min_val + EPS;
+        cur_screen_depth = cur_screen_depth * 2 - 1;
+    }
+    vec2 screen_pos = vec2(gl_LocalInvocationID.xy) / (vec2(BLOCK_WIDTH, BLOCK_HEIGHT) - vec2(1)) - 0.5;  //screen pos is in the local frame to have them auto normalized
+
+    features = float[ALPHA_SIZE](
+		1.f,
+		screen_pos.x,
+		screen_pos.y,
+		cur_screen_depth,
+		normal.x,
+		normal.y,
+		normal.z
+	);
+    
+    float gradient_rest = GRADIENT_THRESH;
+    for(int i = 0; gradient_rest >= GRADIENT_THRESH && i < GRADIENT_ITERATION_AMT ; ++i){
+        vec3 color_del = vec3(0);
+        for(int j = 0; j < ALPHA_SIZE; ++j){
+            color_del += features[j] * alpha_vec[j];
+        }
+        color_del = new_color - color_del;
+        //color_del = color_del / abs(color_del + vec3(EPS));        //normalizing by EPS
+        if(pixel_spp >= SPP_THRESH)
+            color_del = sign(color_del);        //normalizing by EPS
+        //if (color_del.x > 0) color_del.x *= 1.2;
+        //if (color_del.y > 0) color_del.y *= 1.2;
+        //if (color_del.z > 0) color_del.z *= 1.2;
+        for(int j = 0; j < ALPHA_SIZE; ++j){
+            alpha_del[j] = features[j] * color_del;
+        }
+
+        vec3 tmp = parallel_reduction_alpha(alpha_del, m, v, i + 1, int(pixel_spp >= SPP_THRESH));
+        gradient_rest = tmp.x + tmp.y + tmp.z;
+    }
+    //--------------------------------------------------------------------------
+    //  Weighted sum
+    //--------------------------------------------------------------------------
+    if(cur_absolut_pos != cur_image_pos){ return;}    //from now on the image is reconstructed, thus quitting for pixel outside the image rect
+
+    vec3 denoised_color = vec3(0);
+    for(int f = 0; f < AMT_OF_FEATURES - 3; ++f){
+        denoised_color += features[f] * alpha_vec[f];
+    }
+    
+    denoised_color = clamp(denoised_color, 0, 10);
+    //--------------------------------------------------------------------------
+    //  Data accumulation
+    //--------------------------------------------------------------------------
+    vec3 prev_acc_color = vec3(0);
+    blend_alpha = 1;
+    if( frame_number > 0 && pixel_accept){
+        prev_acc_color += texture(prev_accs, vec3(prev_frame_uv.xy, 1)).xyz;
+        blend_alpha = max(1.f / pixel_spp, SECOND_BLEND_ALPHA);
+    }
+
+    //averaging up with previoius color and storing the results (This is still only lighting without surface albedo color)
+    denoised_color = blend_alpha * denoised_color + (1 - blend_alpha) * prev_acc_color;
+
+    imageStore(accs, ivec3(cur_image_pos,1), vec4(denoised_color,1));
+
+    //remodulate albedo and tone map
+    vec3 albedo = texelFetch(cur_albedo, cur_image_pos, 0).xyz;
+    vec3 tone_mapped_color = clamp(pow(max(vec3(0),albedo * denoised_color),vec3(.454545f)),0,1);
+    imageStore(prevUV, cur_image_pos, vec4(prev_frame_uv.xy,0,0));
+    imageStore(accs, ivec3(cur_image_pos, 2), vec4(tone_mapped_color, 1));
+
+    //--------------------------------------------------------------------------
+    //  Temporal anti aliasing is done in an extra kernel as the whole tone mapped frame is needed
+    //--------------------------------------------------------------------------
+    // taa is only applied to the albedo color. So the resulting anti aliaising is caused by anti aliased albedo
+    // this has the advantage that everything can be done in a single shader and taa does not have to be performed in an extra pass
+    //if(true || pixel_accept == 0 || frame_number == 0 || prev_frame_uv.x < 0 || prev_frame_uv.y < 0 || prev_frame_uv.x > 1 || prev_frame_uv.y > 1){
+    //    imageStore(accs, ivec3(cur_image_pos,3), vec4(albedo, 1));
+	//	imageStore(accs, ivec3(cur_image_pos,2), vec4(tone_mapped_color,1));
+	//	return;
+	//}
+    //
+    //vec3 minimum_box   = vec3(1/0);
+	//vec3 minimum_cross = vec3(1/0);
+	//vec3 maximum_box   = vec3(-1/0);
+	//vec3 maximum_cross = vec3(-1/0);
+	//for( int y = -1; y <= 1; ++y){
+	//	for(int x = -1; x <= 1; ++x){
+	//		ivec2 sample_location = cur_image_pos + ivec2(x,y);
+    //
+	//		if(sample_location.x >= 0 && sample_location.y >=0 && sample_location.x < im_Size.x && sample_location.y < im_Size.y){
+	//			
+	//			vec3 sample_color;
+	//			if(x==0 && y == 0) sample_color = albedo;
+	//			else sample_color = texelFetch(cur_albedo, sample_location,0).xyz;
+    //
+	//			sample_color = RGB_to_YCoCg(sample_color);
+    //
+	//			if(x == 0 || y == 0){
+	//				minimum_cross = min(minimum_cross, sample_color);
+	//				maximum_cross = max(maximum_cross, sample_color);
+	//			}
+	//			minimum_box = min(minimum_box, sample_color);
+	//			maximum_box = max(maximum_box, sample_color);
+	//		}
+	//	}
+	//}
+    //
+    //// Bilinear sampling of previous frame.
+	//prev_color = vec3(0);
+    //for(int i = 0; i < 4; ++i){
+    //    //if((pixel_accept & (1 << i)) > 0){
+    //        ivec2 x_y = ivec2(floor(prev_frame_xy)) + ivec2(i&1, i>>1);
+    //        prev_color += weights[i] * texelFetch(prev_accs, ivec3(x_y,3), 0).xyz;
+    //    //}
+    //}
+    //
+    ////prev_color /= total_weight;
+	//
+	//prev_color = RGB_to_YCoCg(prev_color);
+    //
+	//vec3 minimum = (minimum_box + minimum_cross) *.5f;
+	//vec3 maximum = (maximum_box + maximum_cross) *.5f;
+	//vec3 prev_color_rgb = YCoCg_to_RGB(clamp(prev_color, minimum, maximum));
+    //
+	//vec3 res = TAA_BLEND_ALPHA * albedo + (1.0f - TAA_BLEND_ALPHA) * prev_color_rgb;
+    //imageStore(accs, ivec3(cur_image_pos,3), vec4(res, 1));
+    //res = clamp(pow(max(vec3(0),res * denoised_color),vec3(.454545f)),0,1);
+	//imageStore(accs, ivec3(cur_image_pos,2), vec4(res, 1));
+}
