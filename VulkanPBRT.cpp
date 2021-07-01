@@ -5,6 +5,8 @@
 #include <vsgXchange/images.h>
 #include "RayTracingVisitor.hpp"
 #include "PBRTPipeline.hpp"
+#include "BFR/bfr.hpp"
+#include "TAA/taa.hpp"
  
 #include "gui.hpp"
 

@@ -15,6 +15,8 @@ set(vsg_glslang_DIR ${CMAKE_SOURCE_DIR}/vsg)
 find_dependency(vsg_glslang)
 
 add_subdirectory(vsg)
+add_subdirectory(BFR)
+add_subdirectory(TAA)
 set(IMGUI_HEADER
     vsg/src/imgui/)
 include_directories(vsg/include ${glslang_INCLUDE_DIRS} ${IMGUI_HEADER})
@@ -37,7 +39,7 @@ set(SHADERS
     simple_raygen.rgen
 )
 
-add_executable(VulkanPBRT ${SOURCES} ${VSG_ALL})
+add_executable(VulkanPBRT ${SOURCES} ${VSG_ALL} ${BFR_SRC} ${TAA_SRC})
 
 target_link_libraries(VulkanPBRT Vulkan::Vulkan glslang::glslang Threads::Threads xcb assimp)
 
