@@ -7,10 +7,11 @@
 #include "PBRTPipeline.hpp"
 #include "BFR/bfr.hpp"
 #include "TAA/taa.hpp"
+#include "PipelineStructs.hpp"
  
 #include "gui.hpp"
 
-class RayTracingPushConstantsValue : public vsg::Inherit<vsg::Value<CreateRayTracingDescriptorTraversal::RayTracingPushConstants>, RayTracingPushConstantsValue>{
+class RayTracingPushConstantsValue : public vsg::Inherit<vsg::Value<RayTracingPushConstants>, RayTracingPushConstantsValue>{
     public:
     RayTracingPushConstantsValue(){}
 };
@@ -200,6 +201,7 @@ int main(int argc, char** argv){
         auto rayTracingPushConstantsValue = RayTracingPushConstantsValue::create();
         perspective->get_inverse(rayTracingPushConstantsValue->value().projInverse);
         lookAt->get_inverse(rayTracingPushConstantsValue->value().viewInverse);
+        rayTracingPushConstantsValue->value().prevViewProj = {};
         rayTracingPushConstantsValue->value().frameNumber = 0;
         rayTracingPushConstantsValue->value().steadyCamFrame = 0;
         auto pushConstants = vsg::PushConstants::create(VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, rayTracingPushConstantsValue);
@@ -212,6 +214,7 @@ int main(int argc, char** argv){
         auto illuminationBuffer = IlluminationBufferFinal::create(windowTraits->width, windowTraits->height);
         pbrtPipeline->setIlluminationBuffer(illuminationBuffer);
         pbrtPipeline->setTlas(tlas);
+        auto bfr = BFR::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer);
 
         guiValues->raysPerPixel = maxRecursionDepth * 2; //for each recursion one next event estimate is done
 
@@ -219,6 +222,8 @@ int main(int argc, char** argv){
         gBuffer->updateImageLayouts(imageLayoutCompile.context);
         illuminationBuffer->compile(imageLayoutCompile.context);
         illuminationBuffer->updateImageLayouts(imageLayoutCompile.context);
+        bfr->compile(imageLayoutCompile.context);
+        bfr->updateImageLayout(imageLayoutCompile.context);
         imageLayoutCompile.context.record();
 
         //state group to bind the pipeline and descriptorset
@@ -265,6 +270,7 @@ int main(int argc, char** argv){
 
             //update push constants
             lookAt->get_inverse(rayTracingPushConstantsValue->value().viewInverse);
+
             rayTracingPushConstantsValue->value().frameNumber++;
             rayTracingPushConstantsValue->value().steadyCamFrame++;
             if(viewer->getEvents().size() > 1) rayTracingPushConstantsValue->value().steadyCamFrame = 0;
@@ -273,6 +279,11 @@ int main(int argc, char** argv){
             viewer->update();
             viewer->recordAndSubmit();
             viewer->present();
+
+            vsg::mat4 proj, view;
+            perspective->get(proj);
+            lookAt->get(view);
+            rayTracingPushConstantsValue->value().prevViewProj = proj * view;
         }
     }
     catch (const vsg::Exception& e){

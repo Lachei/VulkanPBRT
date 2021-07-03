@@ -111,7 +111,7 @@ protected:
         constantInfos->value().minRecursionDepth = maxRecursionDepth;
         auto constantInfosDescriptor = vsg::DescriptorBuffer::create(constantInfos, 19, 0);
         bindRayTracingDescriptorSet->descriptorSet->descriptors.push_back(constantInfosDescriptor);
-        rayTracingPipelineLayout->setLayouts[0]->bindings.push_back({19, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr});
+        rayTracingPipelineLayout->setLayouts[0]->bindings.push_back({23, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr});
 
         //creating the shader stages and shader binding table
         std::string raygenPath = "shaders/raygen.rgen.spv";     //default reaygen shader

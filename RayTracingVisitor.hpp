@@ -2,17 +2,11 @@
 
 #include <vsg/all.h>
 #include <vector>
+#include "PipelineStructs.hpp"
 
 class CreateRayTracingDescriptorTraversal : public vsg::Visitor
 {
 public:
-    struct RayTracingPushConstants{
-        vsg::mat4 viewInverse;
-        vsg::mat4 projInverse;
-        uint frameNumber;
-        uint steadyCamFrame;
-    };
-
     CreateRayTracingDescriptorTraversal()
     {
         vsg::ubvec4 w{255,255,255,255};

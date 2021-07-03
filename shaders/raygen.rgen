@@ -7,7 +7,11 @@ layout(binding = 15, set = 0, r32f) uniform image2D depthImage;
 layout(binding = 16, set = 0, rg32f) uniform image2D normalImage;
 layout(binding = 17, set = 0, rgba8) uniform image2D materialImage;
 layout(binding = 18, set = 0, rgba8) uniform image2D albedoImage;
-layout(binding = 19) uniform Infos{
+layout(binding = 19, r32f) uniform image2D prevDepth;
+layout(binding = 20, rg32f) uniform image2D prvNormal;
+layout(binding = 21, r16f) uniform image2D motion;
+layout(binding = 22, r8ui) uniform uimage2D sampleCounts;
+layout(binding = 23) uniform Infos{
   uint lightCount;
   uint minRecursionDepth;
   uint maxRecursionDepth;
@@ -17,6 +21,7 @@ layout(push_constant) uniform PushConstants
 {
 	mat4 inverseViewMatrix;
 	mat4 inverseProjectionMatrix;
+	mat4 prevViewProj;
 	uint frameNumber;
 	uint steadyCamFrame;
 } camParams;

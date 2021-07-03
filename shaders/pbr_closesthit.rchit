@@ -20,7 +20,7 @@ layout(binding = 11) uniform sampler2D specularMap[];
 layout(binding = 12) buffer Lights{Light l[]; } lights;
 layout(binding = 13) buffer Materials{WaveFrontMaterialPacked m[]; } materials;
 layout(binding = 14) buffer Instances{ObjectInstance i[]; } instances;
-layout(binding = 19) uniform Infos{
+layout(binding = 23) uniform Infos{
   uint lightCount;
   uint minRecursionDepth;
   uint maxRecursionDepth;
