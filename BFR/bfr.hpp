@@ -8,15 +8,16 @@
 
 class BFR: public vsg::Inherit<vsg::Object, BFR>{
 public:
-    const uint depthBinding = 0, normalBinding = 1, materialBinding = 2, albedoBinding = 3, prevDepthBinding = -1, prevNormalBinding = -1, motionBinding = 6, sampleBinding = 7, denoisedIlluBinding = 8, finalBinding = 9;
+    uint depthBinding = 0, normalBinding = 1, materialBinding = 2, albedoBinding = 3, prevDepthBinding = -1, prevNormalBinding = -1, motionBinding = 4, sampleBinding = 5, denoisedIlluBinding = 6, finalBinding = 7, noisyBinding = 8;
     
-    BFR(uint width, uint height, uint workWidth, uint workHeight, vsg::ref_ptr<GBuffer> gBuffer):
+    BFR(uint width, uint height, uint workWidth, uint workHeight, vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<IlluminationBuffer> illumination):
     width(width),
     height(height),
     workWidth(workWidth),
     workHeight(workHeight),
     gBuffer(gBuffer)
     {
+        if(!illumination.cast<IlluminationBufferFinalDemodulated>()) return;        //demodulated illumination needed 
         std::string shaderPath = "shader/bfr.comp.spv";
         auto computeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", shaderPath);
         computeStage->specializationConstants = vsg::ShaderStage::SpecializationConstants{
@@ -58,7 +59,7 @@ public:
         image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
         imageInfo = {nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
-        finalIllumination = vsg::DescriptorImage::create(imageInfo, denoisedIlluBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        finalIllumination = vsg::DescriptorImage::create(imageInfo, finalBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
         // descriptor set layout
         vsg::DescriptorSetLayoutBindings descriptorBindings{{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}};
@@ -71,6 +72,7 @@ public:
             vsg::DescriptorImage::create(gBuffer->albedo->imageInfoList[0], albedoBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
             vsg::DescriptorImage::create(gBuffer->motion->imageInfoList[0], motionBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
             vsg::DescriptorImage::create(gBuffer->sample->imageInfoList[0], sampleBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
+            vsg::DescriptorImage::create(illumination->illuminationImages[1]->imageInfoList[0], noisyBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
             accumulatedIllumination,
             finalIllumination
         };

@@ -214,7 +214,7 @@ int main(int argc, char** argv){
         auto illuminationBuffer = IlluminationBufferFinal::create(windowTraits->width, windowTraits->height);
         pbrtPipeline->setIlluminationBuffer(illuminationBuffer);
         pbrtPipeline->setTlas(tlas);
-        auto bfr = BFR::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer);
+        auto bfr = BFR::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer, illuminationBuffer);
 
         guiValues->raysPerPixel = maxRecursionDepth * 2; //for each recursion one next event estimate is done
 

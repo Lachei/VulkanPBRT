@@ -37,7 +37,10 @@ set(SHADERS
     simple_closesthit.rchit
     simple_miss.rmiss
     simple_raygen.rgen
+    bfr.comp
+    taa.comp
 )
+message(${SHADERS})
 
 add_executable(VulkanPBRT ${SOURCES} ${VSG_ALL} ${BFR_SRC} ${TAA_SRC})
 

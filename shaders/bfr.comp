@@ -1,17 +1,17 @@
 #version 450
 #extension GL_KHR_shader_subgroup_arithmetic: enable
+#extension GL_ARB_gl_spirv: enable
 
-layout(binding = 0, r8ui) uniform uimage2D spp;
-layout(binding = 1, rgba32f) uniform image2DArray accs;     //accumulated data:[0] noisy_accumulated, [1] data_accumulated, [2] tone_mapped, [3] taa_accumulated
-layout(binding = 2, rg16f) uniform image2D prevUV;
-layout(binding = 3) uniform sampler2D cur_albedo;
-layout(binding = 4) uniform sampler2D cur_normal;
-layout(binding = 5) uniform sampler2D cur_depth;
-layout(binding = 6) uniform sampler2D cur_noisy;
-layout(binding = 7) uniform sampler2D prev_normal;
-layout(binding = 8) uniform sampler2D prev_depth;
-layout(binding = 9) uniform usampler2D prev_spp;
-layout(binding = 10) uniform sampler2DArray prev_accs;       //accumulated data:[0] noisy_accumulated, [1] data_accumulated, [2] tone_mapped, [3] taa_accumulated
+layout(binding = 0, r32f) uniform image2D depth;
+layout(binding = 1, rg32f) uniform image2D normal;
+layout(binding = 2, rgba8) uniform image2D material;
+layout(binding = 3, rgba8) uniform image2D albedo;
+layout(binding = 4, rg16f) uniform image2D motion;
+layout(binding = 5, r8ui) uniform uimage2D samples;
+layout(binding = 6) uniform sampler2DArray denoisedSampled; //one spot for current frame denoised illumination, one for previous
+layout(binding = 7, rgba16f) uniform image2D finalImage;
+layout(binding = 8, rgba32f) uniform image2D noisy;
+layout(binding = 9, rgba16) uniform image2DArray denoised;
 
 layout(binding = 11) uniform infos{
     mat4 prev_cam_matrix;
@@ -19,6 +19,11 @@ layout(binding = 11) uniform infos{
 	ivec4 pixel_offset;
 	uint frame_number;
 };
+
+layout(constant_id = 0) const int IMAGE_WIDTH = 1280;
+layout(constant_id = 1) const int IMAGE_HEIGHT = 720;
+layout(constant_id = 2) const int BLOCK_WIDTH = 16;
+layout(constant_id = 3) const int BLOCK_HEIGHT = 16;
 
 //layout(binding = 11, std430)buffer Feat{
 //    float feat[];
@@ -37,10 +42,10 @@ layout(binding = 11) uniform infos{
 //        }
 //        break;
 
-#define BLOCK_WIDTH 16
-#define BLOCK_HEIGHT 16
+//#define BLOCK_WIDTH 16
+//#define BLOCK_HEIGHT 16
 
-layout (local_size_x = BLOCK_WIDTH,local_size_y = BLOCK_HEIGHT,local_size_z=1) in;
+layout (local_size_x_id = 2,local_size_y_id = 3,local_size_z=1) in;
 
 #define PIXEL (BLOCK_WIDTH * BLOCK_HEIGHT)
 
@@ -194,7 +199,7 @@ void main(){
     //--------------------------------------------------------------------------
     bool pixel_accept = false;
     float pixel_spp = 0;
-    ivec2 im_Size = textureSize(cur_normal,0).xy;
+    ivec2 im_Size = ivec2(IMAGE_WIDTH, IMAGE_HEIGHT);
     ivec2 cur_absolut_pos = ivec2(gl_GlobalInvocationID.xy) + pixel_offset.xy;
     ivec2 cur_image_pos = mirror(cur_absolut_pos, im_Size);
     bool save = all(equal(cur_absolut_pos,cur_image_pos));
@@ -204,55 +209,18 @@ void main(){
     vec3 alpha_del[ALPHA_SIZE];
 
     //--------------------------------------------------------------------------
-    //  Noise accumulation
+    //  Noise accumulation done by raytracer, only reading out accumulated illumination
     //--------------------------------------------------------------------------
-    vec4 cur_world_pos = vec4(vec2(cur_image_pos) / vec2(im_Size-vec2(1)),1,1);
-    cur_world_pos.z = texelFetch(cur_depth, cur_image_pos, 0).x;
-    float cur_screen_depth = cur_world_pos.z;
-    cur_world_pos *= 2;
-    cur_world_pos -= 1;
-    cur_world_pos = cur_cam_matrix * cur_world_pos;
-    cur_world_pos /= cur_world_pos.w;
-    vec2 normal_sph = texelFetch(cur_normal, cur_image_pos, 0).xy;     //still in sperical coordinates
+    vec3 new_color = imageLoad(noisy, ivec2(gl_GlobalInvocationID)).xyz;
+    float cur_screen_depth = imageLoad(depth, ivec2(gl_GlobalInvocationID)).x;
+    vec2 compressedNormal = imageLoad(normal, ivec2(gl_GlobalInvocationID)).xy;
     vec3 normal;
-    normal.xy = normal_sph;
-    normal.z = sqrt(1 - clamp(dot(normal_sph, normal_sph),0,1));
-    vec3 cur_color = texelFetch(cur_noisy, cur_image_pos, 0).xyz;
-    
-    float blend_alpha = 1;
-    vec3 prev_color = vec3(0);
-    
-    vec4 prev_frame_uv = vec4(0);
-    if(bool(frame_number)){
-        prev_frame_uv = prev_cam_matrix * cur_world_pos;
-        prev_frame_uv /= prev_frame_uv.w;
-        prev_frame_uv += 1;
-        prev_frame_uv /= 2.f;
-        float prev_d = texture(prev_depth, prev_frame_uv.xy).x;
-        if(distance(prev_d, prev_frame_uv.z) < POSITION_LIMIT){
-            vec2 prev_normal_sph = texture(prev_normal, prev_frame_uv.xy).xy;
-            vec3 prev_normall;
-            prev_normall.xy = prev_normal_sph;
-            prev_normall.z = sqrt(1 - clamp(dot(prev_normal_sph, prev_normal_sph),0,1));
-            if(distance(prev_normall, normal)< NORMAL_LIMIT){
-                pixel_accept  = true;
-                pixel_spp += texture(prev_spp, prev_frame_uv.xy).x;
-                prev_color += texture(prev_accs, vec3(prev_frame_uv.xy, 0)).xyz;
-            }
-        }
-        if(pixel_accept){
-            blend_alpha = max(1.f / (pixel_spp + 1), BLEND_ALPHA);
-        }
-    }
-	pixel_spp = clamp(pixel_spp + 1,0,255);
-
-    if(save)
-        imageStore(spp, cur_image_pos,uvec4(pixel_spp));
-
-    vec3 new_color = max(blend_alpha * cur_color + (1 - blend_alpha) * prev_color, vec3(0));
-
-    if(save)
-        imageStore(accs, ivec3(cur_image_pos, 0), vec4(new_color,1));
+    normal.x = sin(compressedNormal.y) * cos(compressedNormal.x);
+    normal.y = cos(compressedNormal.y) * cos(compressedNormal.x);
+    normal.z = sin(compressedNormal.x);
+    vec2 prev_frame_uv = imageLoad(motion, ivec2(gl_GlobalInvocationID)).xy;
+    pixel_accept = prev_frame_uv.x >= 0;
+    pixel_spp = imageLoad(samples, ivec2(gl_GlobalInvocationID)).x;
 
     //--------------------------------------------------------------------------
     //  L1 Gradient descent
@@ -264,7 +232,6 @@ void main(){
 
     // normalizing world depth
     {
-        cur_screen_depth = 1/cur_screen_depth;
         float min_val = parallel_reduction_min(cur_screen_depth);
         float max_val = parallel_reduction_max(cur_screen_depth);
         cur_screen_depth -= min_val;
@@ -318,22 +285,22 @@ void main(){
     //  Data accumulation
     //--------------------------------------------------------------------------
     vec3 prev_acc_color = vec3(0);
-    blend_alpha = 1;
+    float blend_alpha = 1;
     if( frame_number > 0 && pixel_accept){
-        prev_acc_color += texture(prev_accs, vec3(prev_frame_uv.xy, 1)).xyz;
+        //TODO: automatic adoption of array index according to frame index
+        prev_acc_color += texture(denoisedSampled, vec3(prev_frame_uv.xy, 0)).xyz;
         blend_alpha = max(1.f / pixel_spp, SECOND_BLEND_ALPHA);
     }
 
     //averaging up with previoius color and storing the results (This is still only lighting without surface albedo color)
     denoised_color = blend_alpha * denoised_color + (1 - blend_alpha) * prev_acc_color;
 
-    imageStore(accs, ivec3(cur_image_pos,1), vec4(denoised_color,1));
+    imageStore(denoised, ivec3(cur_image_pos,1), vec4(denoised_color,1));
 
     //remodulate albedo and tone map
-    vec3 albedo = texelFetch(cur_albedo, cur_image_pos, 0).xyz;
+    vec3 albedo = imageLoad(albedo, ivec2(gl_GlobalInvocationID)).xyz;
     vec3 tone_mapped_color = clamp(pow(max(vec3(0),albedo * denoised_color),vec3(.454545f)),0,1);
-    imageStore(prevUV, cur_image_pos, vec4(prev_frame_uv.xy,0,0));
-    imageStore(accs, ivec3(cur_image_pos, 2), vec4(tone_mapped_color, 1));
+    imageStore(finalImage, ivec2(cur_image_pos), vec4(tone_mapped_color, 1));
 
     //--------------------------------------------------------------------------
     //  Temporal anti aliasing is done in an extra kernel as the whole tone mapped frame is needed
