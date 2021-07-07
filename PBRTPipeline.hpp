@@ -36,13 +36,13 @@ public:
         buffer->updateDescriptor(bindRayTracingDescriptorSet);
         illuminationBuffer = buffer;
 
+        auto final = illuminationBuffer.cast<IlluminationBufferFinal>();
+        auto finalDirIndir = illuminationBuffer.cast<IlluminationBufferFinalDirIndir>();
+        auto finalDemod = illuminationBuffer.cast<IlluminationBufferFinalDemodulated>();
         //set different raygen shaders according to state of external gbuffer and illumination buffer type
         //TODO: create different shaders for correct model
         std::string raygenPath = "shaders/raygen.rgen.spv";
         if(useExternalGBuffer){
-            auto final = illuminationBuffer.cast<IlluminationBufferFinal>();
-            auto finalDirIndir = illuminationBuffer.cast<IlluminationBufferFinalDirIndir>();
-            auto finalDemod = illuminationBuffer.cast<IlluminationBufferFinalDemodulated>();
             if(final){
                 raygenPath = "shaders/raygen.rgen.spv";
             }
@@ -54,9 +54,6 @@ public:
             }
         }
         else{
-            auto final = illuminationBuffer.cast<IlluminationBufferFinal>();
-            auto finalDirIndir = illuminationBuffer.cast<IlluminationBufferFinalDirIndir>();
-            auto finalDemod = illuminationBuffer.cast<IlluminationBufferFinalDemodulated>();
             if(final){
                 raygenPath = "shaders/raygen.rgen.spv";
             }
@@ -68,6 +65,34 @@ public:
             }
         }
         raygenShader->module = vsg::ShaderModule::read(raygenPath);
+
+        //create additional accumulation images dependant on illumination buffer type
+        if(final){
+
+        }
+        else if(finalDirIndir){
+
+        }
+        else if(finalDemod){
+            auto image = vsg::Image::create();
+            image->imageType = VK_IMAGE_TYPE_2D;
+            image->format = VK_FORMAT_R16G16B16A16_SFLOAT;
+            image->extent.width = width;
+            image->extent.height = height;
+            image->extent.depth = 1;
+            image->mipLevels = 1;
+            image->arrayLayers = 1;
+            image->samples = VK_SAMPLE_COUNT_1_BIT;
+            image->tiling = VK_IMAGE_TILING_OPTIMAL;
+            image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+            image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+            auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+            vsg::ImageInfo imageInfo{sampler, imageView, VK_IMAGE_LAYOUT_GENERAL};
+            demodAcc = vsg::DescriptorImage::create(imageInfo, demodAccBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+
+            bindRayTracingDescriptorSet->descriptorSet->descriptors.push_back(demodAcc);
+        }
     }
 
     void setTlas(vsg::ref_ptr<vsg::AccelerationStructure> as){
@@ -86,8 +111,15 @@ public:
     vsg::ref_ptr<vsg::PushConstants> pushConstants;
     vsg::ref_ptr<vsg::TraceRays> traceRays;
 
+    //optional resources for data accumulation
+    vsg::ref_ptr<vsg::DescriptorImage> demodAcc, sampleAcc;
+    uint demodAccBinding = 23, sampleAccBinding = 24;
+
     //shader binding table for trace rays
     vsg::ref_ptr<vsg::RayTracingShaderBindingTable> shaderBindingTable;
+
+    //general bilinear sampler
+    vsg::ref_ptr<vsg::Sampler> sampler;
 
 protected:
     class ConstantInfosValue : public vsg::Inherit<vsg::Value<ConstantInfos>, ConstantInfosValue>{
@@ -98,6 +130,9 @@ protected:
     bool useExternalGBuffer;
 
     void setupPipeline(vsg::Node* scene){
+        //creating standard bilinear sampler
+        sampler = vsg::Sampler::create();
+
         //parsing data from scene
         CreateRayTracingDescriptorTraversal buildDescriptorBinding;
         scene->accept(buildDescriptorBinding);
@@ -149,5 +184,25 @@ protected:
 
         //adding gbuffer bindings to the descriptor
         gBuffer->updateDescriptor(bindRayTracingDescriptorSet);
+
+        //creating sample accumulation image
+        auto image = vsg::Image::create();
+        image->imageType = VK_IMAGE_TYPE_2D;
+        image->format = VK_FORMAT_R8_UINT;
+        image->extent.width = width;
+        image->extent.height = height;
+        image->extent.depth = 1;
+        image->mipLevels = 1;
+        image->arrayLayers = 1;
+        image->samples = VK_SAMPLE_COUNT_1_BIT;
+        image->tiling = VK_IMAGE_TILING_OPTIMAL;
+        image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+        image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+        vsg::ImageInfo imageInfo{sampler, imageView, VK_IMAGE_LAYOUT_GENERAL};
+        sampleAcc = vsg::DescriptorImage::create(imageInfo, sampleAccBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+
+        bindRayTracingDescriptorSet->descriptorSet->descriptors.push_back(sampleAcc);
     }
 };

@@ -201,7 +201,8 @@ int main(int argc, char** argv){
         auto rayTracingPushConstantsValue = RayTracingPushConstantsValue::create();
         perspective->get_inverse(rayTracingPushConstantsValue->value().projInverse);
         lookAt->get_inverse(rayTracingPushConstantsValue->value().viewInverse);
-        rayTracingPushConstantsValue->value().prevViewProj = {};
+        perspective->get(rayTracingPushConstantsValue->value().prevProj);
+        lookAt->get(rayTracingPushConstantsValue->value().prevView);
         rayTracingPushConstantsValue->value().frameNumber = 0;
         rayTracingPushConstantsValue->value().steadyCamFrame = 0;
         auto pushConstants = vsg::PushConstants::create(VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, rayTracingPushConstantsValue);
@@ -211,10 +212,10 @@ int main(int argc, char** argv){
         auto pbrtPipeline = PBRTPipeline::create(windowTraits->width, windowTraits->height, maxRecursionDepth, loaded_scene);
         auto gBuffer = pbrtPipeline->gBuffer;
         vsg::CompileTraversal imageLayoutCompile(window);
-        auto illuminationBuffer = IlluminationBufferFinal::create(windowTraits->width, windowTraits->height);
+        auto illuminationBuffer = IlluminationBufferFinalDemodulated::create(windowTraits->width, windowTraits->height);
         pbrtPipeline->setIlluminationBuffer(illuminationBuffer);
         pbrtPipeline->setTlas(tlas);
-        auto bfr = BFR::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer, illuminationBuffer);
+        auto bfr = BFR::create(windowTraits->width, windowTraits->height, 16, 16, pbrtPipeline);
 
         guiValues->raysPerPixel = maxRecursionDepth * 2; //for each recursion one next event estimate is done
 
@@ -240,6 +241,9 @@ int main(int argc, char** argv){
         traceRays->depth = 1;
 
         scenegraph->addChild(traceRays);
+        bfr->addDispatchToCommandGraph(scenegraph);
+        illuminationBuffer->copyImage(scenegraph, 1, pbrtPipeline->demodAcc->imageInfoList[0].imageView->image);
+        gBuffer->copySampleImage(scenegraph, pbrtPipeline->sampleAcc->imageInfoList[0].imageView->image);
 
         auto viewport = vsg::ViewportState::create(0, 0, windowTraits->width, windowTraits->height);
         auto camera = vsg::Camera::create(perspective, lookAt, viewport);
@@ -247,7 +251,7 @@ int main(int argc, char** argv){
         auto commandGraph = vsg::CommandGraph::create(window);
         auto renderGraph = vsg::createRenderGraphForView(window, camera, vsgImGui::RenderImGui::create(window, Gui(guiValues)));//vsg::RenderGraph::create(window); // render graph for gui rendering
         renderGraph->clearValues.clear();   //removing clear values to avoid clearing the raytraced image
-        auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(illuminationBuffer->illuminationImages[0]->imageInfoList[0].imageView, window);
+        auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bfr->taaPipeline->finalImage->imageInfoList[0].imageView, window);
 
         commandGraph->addChild(scenegraph);
         commandGraph->addChild(copyImageViewToWindow);
@@ -280,10 +284,7 @@ int main(int argc, char** argv){
             viewer->recordAndSubmit();
             viewer->present();
 
-            vsg::mat4 proj, view;
-            perspective->get(proj);
-            lookAt->get(view);
-            rayTracingPushConstantsValue->value().prevViewProj = proj * view;
+            lookAt->get(rayTracingPushConstantsValue->value().prevView);
         }
     }
     catch (const vsg::Exception& e){

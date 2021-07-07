@@ -8,16 +8,18 @@
 
 class BFR: public vsg::Inherit<vsg::Object, BFR>{
 public:
-    uint depthBinding = 0, normalBinding = 1, materialBinding = 2, albedoBinding = 3, prevDepthBinding = -1, prevNormalBinding = -1, motionBinding = 4, sampleBinding = 5, denoisedIlluBinding = 6, finalBinding = 7, noisyBinding = 8;
+    uint depthBinding = 0, normalBinding = 1, materialBinding = 2, albedoBinding = 3, prevDepthBinding = -1, prevNormalBinding = -1, motionBinding = 4, sampleBinding = 5, sampledDenIlluBinding = 6, denoisedIlluBinding = 9, finalBinding = 7, noisyBinding = 8, denoisedBinding = 9;
     
-    BFR(uint width, uint height, uint workWidth, uint workHeight, vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<IlluminationBuffer> illumination):
+    BFR(uint width, uint height, uint workWidth, uint workHeight, vsg::ref_ptr<PBRTPipeline> pbrtPipeline):
     width(width),
     height(height),
     workWidth(workWidth),
     workHeight(workHeight),
-    gBuffer(gBuffer)
+    gBuffer(pbrtPipeline->gBuffer),
+    sampler(vsg::Sampler::create())
     {
-        if(!illumination.cast<IlluminationBufferFinalDemodulated>()) return;        //demodulated illumination needed 
+        if(!pbrtPipeline->illuminationBuffer.cast<IlluminationBufferFinalDemodulated>()) return;        //demodulated illumination needed 
+        auto illumination = pbrtPipeline->illuminationBuffer;
         std::string shaderPath = "shader/bfr.comp.spv";
         auto computeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", shaderPath);
         computeStage->specializationConstants = vsg::ShaderStage::SpecializationConstants{
@@ -43,6 +45,8 @@ public:
         auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
         vsg::ImageInfo imageInfo = {nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
         accumulatedIllumination = vsg::DescriptorImage::create(imageInfo, denoisedIlluBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        imageInfo.sampler = sampler;
+        auto sampledAccIllu = vsg::DescriptorImage::create(imageInfo, sampledDenIlluBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
         image = vsg::Image::create();
         image->imageType = VK_IMAGE_TYPE_2D;
@@ -74,7 +78,8 @@ public:
             vsg::DescriptorImage::create(gBuffer->sample->imageInfoList[0], sampleBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
             vsg::DescriptorImage::create(illumination->illuminationImages[1]->imageInfoList[0], noisyBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
             accumulatedIllumination,
-            finalIllumination
+            finalIllumination,
+            sampledAccIllu
         };
         auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, descriptors);
 
@@ -118,6 +123,8 @@ public:
 
     vsg::ref_ptr<vsg::DescriptorImage> accumulatedIllumination, finalIllumination;
     vsg::ref_ptr<Taa> taaPipeline;
+
+    vsg::ref_ptr<vsg::Sampler> sampler;
 protected:
     uint width, height, workWidth, workHeight;
     vsg::ref_ptr<GBuffer> gBuffer;

@@ -11,6 +11,16 @@ layout(binding = 2, rgba8) uniform image2D finalImage;
 layout(binding = 3) uniform sampler2D accumulation;
 //Note: the resulting tone mapped colors for the current imamge are in accs while the samples of the previous frame are in prev_accs
 
+layout(push_constant) uniform PushConstants 
+{
+	mat4 inverseViewMatrix;
+	mat4 inverseProjectionMatrix;
+	mat4 prevViewProj;
+	mat4 prevView;
+	mat4 prevProj;
+	uint steadyCamFrame;
+} camParams;
+
 layout(binding = 3) uniform infos{
     mat4 prev_cam_matrix;
     mat4 cur_cam_matrix;
