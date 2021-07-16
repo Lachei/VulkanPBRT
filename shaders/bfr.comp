@@ -1,31 +1,23 @@
 #version 450
 #extension GL_KHR_shader_subgroup_arithmetic: enable
-#extension GL_ARB_gl_spirv: enable
+//#extension GL_ARB_gl_spirv: enable
 
 layout(binding = 0, r32f) uniform image2D depth;
 layout(binding = 1, rg32f) uniform image2D normal;
 layout(binding = 2, rgba8) uniform image2D material;
 layout(binding = 3, rgba8) uniform image2D albedo;
 layout(binding = 4, rg16f) uniform image2D motion;
-layout(binding = 5, r8ui) uniform uimage2D samples;
+layout(binding = 5, r8) uniform image2D samples;
 layout(binding = 6) uniform sampler2DArray denoisedSampled; //one spot for current frame denoised illumination, one for previous
 layout(binding = 7, rgba16f) uniform image2D finalImage;
 layout(binding = 8, rgba16f) uniform image2D noisy;
 layout(binding = 9, rgba16f) uniform image2DArray denoised;
-
-layout(binding = 11) uniform infos{
-    mat4 prev_cam_matrix;
-    mat4 cur_cam_matrix;
-	ivec4 pixel_offset;
-	uint frame_number;
-};
 
 layout(push_constant) uniform PushConstants 
 {
 	mat4 inverseViewMatrix;
 	mat4 inverseProjectionMatrix;
 	mat4 prevView;
-	mat4 prevProj;
 	uint frameNumber;
 	uint steadyCamFrame;
 } camParams;
@@ -94,6 +86,8 @@ layout (local_size_x_id = 2,local_size_y_id = 3,local_size_z=1) in;
 #define BETA2_L .75f
 #define SPP_THRESH 10
 #define GRADIENT_THRESH 0.00f
+
+ivec2 pixelOffsets[] = { {-7, -11}, {-14, -8}, {-5, -12}, {-15, -1}, {-5, -9}, {-1, -4}, {-14, -7}, {0, -13}, {-5, -1}, {-1, 0}, {-15, -2}, {-14, -10}, {-1, -1}, {-6, -3}, {0, -8}, {-10, -4} };
 
 shared vec3 gradient_left;
 shared vec3 alpha_vec[ALPHA_SIZE];
@@ -210,7 +204,7 @@ void main(){
     bool pixel_accept = false;
     float pixel_spp = 0;
     ivec2 im_Size = ivec2(IMAGE_WIDTH, IMAGE_HEIGHT);
-    ivec2 cur_absolut_pos = ivec2(gl_GlobalInvocationID.xy) + pixel_offset.xy;
+    ivec2 cur_absolut_pos = ivec2(gl_GlobalInvocationID.xy) + pixelOffsets[camParams.frameNumber % 16].xy;
     ivec2 cur_image_pos = mirror(cur_absolut_pos, im_Size);
     bool save = all(equal(cur_absolut_pos,cur_image_pos));
     vec3 m = vec3(0);           // each worker is at most responsible for 1 alpha value in the alpha vector -> only one element of the m and v vector for adam optimizer is needed
@@ -230,7 +224,7 @@ void main(){
     normal.z = sin(compressedNormal.x);
     vec2 prev_frame_uv = imageLoad(motion, ivec2(gl_GlobalInvocationID)).xy;
     pixel_accept = prev_frame_uv.x >= 0;
-    pixel_spp = imageLoad(samples, ivec2(gl_GlobalInvocationID)).x;
+    pixel_spp = imageLoad(samples, ivec2(gl_GlobalInvocationID)).x * 256;
 
     //--------------------------------------------------------------------------
     //  L1 Gradient descent
@@ -296,16 +290,15 @@ void main(){
     //--------------------------------------------------------------------------
     vec3 prev_acc_color = vec3(0);
     float blend_alpha = 1;
-    if( frame_number > 0 && pixel_accept){
-        //TODO: automatic adoption of array index according to frame index
-        prev_acc_color += texture(denoisedSampled, vec3(prev_frame_uv.xy, 0)).xyz;
+    if( camParams.frameNumber > 0 && pixel_accept){
+        prev_acc_color += texture(denoisedSampled, vec3(prev_frame_uv.xy, camParams.frameNumber & 1)).xyz;
         blend_alpha = max(1.f / pixel_spp, SECOND_BLEND_ALPHA);
     }
 
     //averaging up with previoius color and storing the results (This is still only lighting without surface albedo color)
     denoised_color = blend_alpha * denoised_color + (1 - blend_alpha) * prev_acc_color;
 
-    imageStore(denoised, ivec3(cur_image_pos,1), vec4(denoised_color,1));
+    imageStore(denoised, ivec3(cur_image_pos,(camParams.frameNumber & 1) ^ 1), vec4(denoised_color,1));
 
     //remodulate albedo and tone map
     vec3 albedo = imageLoad(albedo, ivec2(gl_GlobalInvocationID)).xyz;

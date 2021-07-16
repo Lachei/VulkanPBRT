@@ -20,7 +20,7 @@ public:
     {
         if(!pbrtPipeline->illuminationBuffer.cast<IlluminationBufferFinalDemodulated>()) return;        //demodulated illumination needed 
         auto illumination = pbrtPipeline->illuminationBuffer;
-        std::string shaderPath = "shader/bfr.comp.spv";
+        std::string shaderPath = "shaders/bfr.comp.spv";
         auto computeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", shaderPath);
         computeStage->specializationConstants = vsg::ShaderStage::SpecializationConstants{
             {0, vsg::intValue::create(width)},
@@ -39,14 +39,15 @@ public:
         image->arrayLayers = 2;
         image->samples = VK_SAMPLE_COUNT_1_BIT;
         image->tiling = VK_IMAGE_TILING_OPTIMAL;
-        image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+        image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+        imageView->viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
         vsg::ImageInfo imageInfo = {nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
         accumulatedIllumination = vsg::DescriptorImage::create(imageInfo, denoisedIlluBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
         imageInfo.sampler = sampler;
-        auto sampledAccIllu = vsg::DescriptorImage::create(imageInfo, sampledDenIlluBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        auto sampledAccIllu = vsg::DescriptorImage::create(imageInfo, sampledDenIlluBinding, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
         image = vsg::Image::create();
         image->imageType = VK_IMAGE_TYPE_2D;
@@ -66,7 +67,18 @@ public:
         finalIllumination = vsg::DescriptorImage::create(imageInfo, finalBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
         // descriptor set layout
-        vsg::DescriptorSetLayoutBindings descriptorBindings{{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}};
+        vsg::DescriptorSetLayoutBindings descriptorBindings{
+            {0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {7, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {8, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {9, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}
+        };
         auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
         // filling descriptor set
         vsg::Descriptors descriptors{
@@ -92,10 +104,13 @@ public:
         taaPipeline = Taa::create(width, height, workWidth, workHeight, gBuffer, finalIllumination);
     }
 
-    void addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph){
+    void addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants){
         commandGraph->addChild(bindBfrPipeline);
         commandGraph->addChild(bindDescriptorSet);
+        commandGraph->addChild(pushConstants);
         commandGraph->addChild(vsg::Dispatch::create(uint(ceil(float(width) / float(workWidth))), uint(ceil(float(height) / float(workHeight))), 1));
+        auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT);
+        commandGraph->addChild(pipelineBarrier);        //barrier to wait for completion of denoising before taa is applied
         taaPipeline->addDispatchToCommandGraph(commandGraph);
     }
 
@@ -109,9 +124,9 @@ public:
         VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0 , 1, 0, 2};
         auto accIlluLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, 0, 0, accumulatedIllumination->imageInfoList[0].imageView->image, resourceRange);
         resourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0 , 1, 0, 1};
-        auto finalIluLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, 0, 0, accumulatedIllumination->imageInfoList[0].imageView->image, resourceRange);
+        auto finalIluLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, 0, 0, finalIllumination->imageInfoList[0].imageView->image, resourceRange);
 
-        auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_DEPENDENCY_BY_REGION_BIT,
+        auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
             accIlluLayout, finalIluLayout);
         context.commands.push_back(pipelineBarrier);
         taaPipeline->updateImageLayout(context);

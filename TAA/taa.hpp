@@ -11,7 +11,9 @@ public:
     workWidth(workWidth),
     workHeight(workHeight)
     {
-        std::string shaderPath = "shader/taa.comp.spv";
+        sampler = vsg::Sampler::create();
+
+        std::string shaderPath = "shaders/taa.comp.spv";
         auto computeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", shaderPath);
         computeStage->specializationConstants = vsg::ShaderStage::SpecializationConstants{
             {0, vsg::intValue::create(width)},
@@ -22,7 +24,7 @@ public:
         //final image and accumulation creation
         auto image = vsg::Image::create();
         image->imageType = VK_IMAGE_TYPE_2D;
-        image->format = VK_FORMAT_R16G16B16A16_SFLOAT;
+        image->format = VK_FORMAT_R8G8B8A8_UNORM;
         image->extent.width = width;
         image->extent.height = height;
         image->extent.depth = 1;
@@ -30,12 +32,12 @@ public:
         image->arrayLayers = 1;
         image->samples = VK_SAMPLE_COUNT_1_BIT;
         image->tiling = VK_IMAGE_TILING_OPTIMAL;
-        image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+        image->usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-        vsg::ImageInfo imageInfo = {nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
-        accumulationImage = vsg::DescriptorImage::create(imageInfo, accumulationBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        vsg::ImageInfo imageInfo = {sampler, imageView, VK_IMAGE_LAYOUT_GENERAL};
+        accumulationImage = vsg::DescriptorImage::create(imageInfo, accumulationBinding, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
         image = vsg::Image::create();
         image->imageType = VK_IMAGE_TYPE_2D;
@@ -55,7 +57,12 @@ public:
         finalImage = vsg::DescriptorImage::create(imageInfo, finalImageBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
         //descriptor set layout
-        vsg::DescriptorSetLayoutBindings descriptorBindings{{0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}};
+        vsg::DescriptorSetLayoutBindings descriptorBindings{
+            {0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+        };
         auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
         //filling descriptor set
         //vsg::Descriptors descriptors{vsg::DescriptorBuffer::create(vsg::BufferInfoList{vsg::BufferInfo(buffer, 0, bufferSize)}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)};
@@ -77,6 +84,7 @@ public:
         commandGraph->addChild(bindPipeline);
         commandGraph->addChild(bindDescriptorSet);
         commandGraph->addChild(vsg::Dispatch::create(uint(ceil(float(width) / float(workWidth))), uint(ceil(float(height) / float(workHeight))), 1));
+        copyFinalImageToAccumulation(commandGraph);
     }
 
     void compile(vsg::Context& context){
@@ -88,18 +96,19 @@ public:
         VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0 , 1, 0, 1};
         auto accumulationLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, 0, 0, accumulationImage->imageInfoList[0].imageView->image, resourceRange);
         auto finalLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, 0, 0, finalImage->imageInfoList[0].imageView->image, resourceRange);
-        auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_DEPENDENCY_BY_REGION_BIT,
+        auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
                 accumulationLayout, finalLayout);
         context.commands.push_back(pipelineBarrier);
     }
 
-    void copyFinalImage(vsg::ref_ptr<vsg::Commands> commands, vsg::ref_ptr<vsg::Image> dstImage){
+    void copyFinalImageToAccumulation(vsg::ref_ptr<vsg::Commands> commands){
         auto srcImage = finalImage->imageInfoList[0].imageView->image;
+        auto dstImage = accumulationImage->imageInfoList[0].imageView->image;
 
         VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0 , 1, 0, 1};
         auto srcBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0, srcImage, resourceRange);
-        auto dstBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, 0, srcImage, resourceRange);
-        auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_DEPENDENCY_BY_REGION_BIT,
+        auto dstBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, 0, dstImage, resourceRange);
+        auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
                             srcBarrier, dstBarrier);
         commands->addChild(pipelineBarrier);
 
@@ -119,8 +128,40 @@ public:
         commands->addChild(copyImage);
 
         srcBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, 0, 0, srcImage, resourceRange);
-        dstBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, 0, 0, srcImage, resourceRange);
-        pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_DEPENDENCY_BY_REGION_BIT,
+        dstBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, 0, 0, dstImage, resourceRange);
+        pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+                            srcBarrier, dstBarrier);
+        commands->addChild(pipelineBarrier);
+    }
+
+    void copyFinalImage(vsg::ref_ptr<vsg::Commands> commands, vsg::ref_ptr<vsg::Image> dstImage){
+        auto srcImage = finalImage->imageInfoList[0].imageView->image;
+
+        VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0 , 1, 0, 1};
+        auto srcBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0, srcImage, resourceRange);
+        auto dstBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, 0, dstImage, resourceRange);
+        auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+                            srcBarrier, dstBarrier);
+        commands->addChild(pipelineBarrier);
+
+        VkImageCopy copyRegion{};
+        copyRegion.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+        copyRegion.srcOffset = {0, 0, 0};
+        copyRegion.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+        copyRegion.dstOffset = {0, 0, 0};
+        copyRegion.extent = {width, height, 1};
+        
+        auto copyImage = vsg::CopyImage::create();
+        copyImage->srcImage = srcImage;
+        copyImage->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        copyImage->dstImage = dstImage;
+        copyImage->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        copyImage->regions.emplace_back(copyRegion);
+        commands->addChild(copyImage);
+
+        srcBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, 0, 0, srcImage, resourceRange);
+        dstBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, 0, 0, dstImage, resourceRange);
+        pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
                             srcBarrier, dstBarrier);
         commands->addChild(pipelineBarrier);
     }
@@ -129,6 +170,8 @@ public:
     vsg::ref_ptr<vsg::BindComputePipeline> bindPipeline;
     vsg::ref_ptr<vsg::BindDescriptorSet> bindDescriptorSet;
     vsg::ref_ptr<vsg::DescriptorImage> finalImage, accumulationImage;
+
+    vsg::ref_ptr<vsg::Sampler> sampler;
 protected:
     uint width, height, workWidth, workHeight;
 };

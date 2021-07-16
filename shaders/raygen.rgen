@@ -10,9 +10,9 @@ layout(binding = 18, set = 0, rgba8) uniform image2D albedoImage;
 layout(binding = 19) uniform sampler2D prevDepth;
 layout(binding = 20) uniform sampler2D prevNormal;
 layout(binding = 21, r16f) uniform image2D motion;
-layout(binding = 22, r8ui) uniform uimage2D sampleCounts;
+layout(binding = 22, r8) uniform image2D sampleCounts;
 layout(binding = 23) uniform sampler2D prevOutput;
-layout(binding = 24) uniform usampler2D prevSampleCounts;
+layout(binding = 24) uniform sampler2D prevSampleCounts;
 layout(binding = 25, rgba16f) uniform image2D illumination;
 layout(binding = 26) uniform Infos{
   uint lightCount;
@@ -25,7 +25,6 @@ layout(push_constant) uniform PushConstants
 	mat4 inverseViewMatrix;
 	mat4 inverseProjectionMatrix;
 	mat4 prevView;
-	mat4 prevProj;
 	uint frameNumber;
 	uint steadyCamFrame;
 } camParams;
@@ -81,33 +80,41 @@ void main()
 	traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, worldSpacePos.xyz, tmin, worldSpaceDir.xyz, tmax, 1);
 
 	imageStore(depthImage, ivec2(gl_LaunchIDEXT.xy), vec4(distance(rayPayload.position, worldSpacePos.xyz)));
-	imageStore(normalImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.si.normal, 1));
+	vec2 compressedNormal;
+	compressedNormal.x = acos(rayPayload.si.normal.z);
+	compressedNormal.y = atan(rayPayload.si.normal.y / rayPayload.si.normal.x);
+	imageStore(normalImage, ivec2(gl_LaunchIDEXT.xy), vec4(compressedNormal, 1, 1));
 	imageStore(materialImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.reflector));
 	imageStore(albedoImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.albedo));
 
 	//accumulation with previous frames
+	mat4 prevProj = inverse(camParams.inverseProjectionMatrix);
 	bool reprojected = false;
 	vec4 p = vec4(rayPayload.position, 1);
 	vec4 prevPos = camParams.prevView * p;
 	float preDepth = length(prevPos.xyz);
-	prevPos = camParams.prevProj * prevPos;
+	prevPos = prevProj * prevPos;
 	prevPos /= prevPos.w; // xy now holds the prev image position
+	prevPos.xy += 1;
+	prevPos.xy *= .5;
 	ivec2 prevPixelIndex = ivec2(prevPos.xy * (gl_LaunchSizeEXT.xy - vec2(1)) + .5f);
-	uint pixelSpp = 1;
+	float pixelSpp = 1.0 / 256.0; //has to be normalized as only floating point 8 bit interp is supported
 	vec3 prevColor;
+	vec3 prevNor;
+	float truePrevDepth;
 	if(camParams.frameNumber > 0){
 		//depth check
-		float truePrevDepth = texture(prevDepth, prevPos.xy).x;
+		truePrevDepth = texture(prevDepth, prevPos.xy).x;
 		float depthDissim = (truePrevDepth / preDepth) - 1;	//using relative error of depths to blend pixels further away form camera together
 		if(all(greaterThanEqual(prevPos.xy, vec2(0))) && all(lessThanEqual(prevPos.xy, vec2(1))) && abs(depthDissim) <= .01f){		//dissimilarity in depth values shoudl be smaller than 1%
 			//normal check
-			vec3 prevNor = texture(prevNormal, prevPos.xy).xyz;
-			prevNor = vec3(sin(prevNor.y) * cos(prevNor.x), cos(prevNor.y) * cos(prevNor.y), sin(prevNor.x));
-			if(dot(rayPayload.si.normal, prevNor) > .95f){	//we do have a point which can be reprojected
+			prevNor = texture(prevNormal, prevPos.xy).xyz;
+			prevNor = vec3(sin(prevNor.x) * cos(prevNor.y), sin(prevNor.x) * sin(prevNor.y), cos(prevNor.x));
+			//if(dot(rayPayload.si.normal, prevNor) > .9f){	//we do have a point which can be reprojected
 				reprojected = true;
 				prevColor = texture(prevOutput, prevPos.xy).xyz;
 				pixelSpp += texture(prevSampleCounts, prevPos.xy).x;
-			}
+			//}
 		}
 	}
 	if(reprojected){
@@ -116,7 +123,7 @@ void main()
 	else{
 		imageStore(motion, prevPixelIndex, vec4(-1));
 	}
-	imageStore(sampleCounts, ivec2(gl_LaunchIDEXT.xy), uvec4(min(pixelSpp, 255)));
+	imageStore(sampleCounts, ivec2(gl_LaunchIDEXT.xy), uvec4(min(pixelSpp, 1.0)));
 
 	//final image color 
 	vec3 prevFrameColor = vec3(1.0/0);
@@ -138,7 +145,7 @@ void main()
 
 	vec3 demodulated = finalColor / (rayPayload.albedo.xyz + vec3(EPSILON));
 	if(reprojected){
-		float blendAlpha = max(1.f / pixelSpp, BLEND_ALPHA);
+		float blendAlpha = max(1.f / (pixelSpp * 256.0), BLEND_ALPHA);
 		demodulated = mix(prevColor, demodulated, blendAlpha);
 	}
 
@@ -149,6 +156,6 @@ void main()
 
 	finalColor = LINEARtoSRGB(vec4(finalColor, 1)).xyz;
 	
-	imageStore(outputImage, ivec2(gl_LaunchIDEXT.xy), vec4(finalColor,1));
+	imageStore(outputImage, ivec2(gl_LaunchIDEXT.xy), vec4(demodulated, 1));
 	imageStore(illumination, ivec2(gl_LaunchIDEXT.xy), vec4(demodulated, 1));
 }
