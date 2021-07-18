@@ -84,7 +84,7 @@ layout (local_size_x_id = 2,local_size_y_id = 3,local_size_z=1) in;
 #define K_L .4
 #define BETA1_L .45f
 #define BETA2_L .75f
-#define SPP_THRESH 10
+#define SPP_THRESH 40
 #define GRADIENT_THRESH 0.00f
 
 ivec2 pixelOffsets[] = { {-7, -11}, {-14, -8}, {-5, -12}, {-15, -1}, {-5, -9}, {-1, -4}, {-14, -7}, {0, -13}, {-5, -1}, {-1, 0}, {-15, -2}, {-14, -10}, {-1, -1}, {-6, -3}, {0, -8}, {-10, -4} };
@@ -215,16 +215,16 @@ void main(){
     //--------------------------------------------------------------------------
     //  Noise accumulation done by raytracer, only reading out accumulated illumination
     //--------------------------------------------------------------------------
-    vec3 new_color = imageLoad(noisy, ivec2(gl_GlobalInvocationID)).xyz;
-    float cur_screen_depth = imageLoad(depth, ivec2(gl_GlobalInvocationID)).x;
-    vec2 compressedNormal = imageLoad(normal, ivec2(gl_GlobalInvocationID)).xy;
+    vec3 new_color = imageLoad(noisy, cur_image_pos).xyz;
+    float cur_screen_depth = imageLoad(depth, cur_image_pos).x;
+    vec2 compressedNormal = imageLoad(normal, cur_image_pos).xy;
     vec3 normal;
     normal.x = sin(compressedNormal.y) * cos(compressedNormal.x);
     normal.y = cos(compressedNormal.y) * cos(compressedNormal.x);
     normal.z = sin(compressedNormal.x);
-    vec2 prev_frame_uv = imageLoad(motion, ivec2(gl_GlobalInvocationID)).xy;
+    vec2 prev_frame_uv = imageLoad(motion, cur_image_pos).xy;
     pixel_accept = prev_frame_uv.x >= 0;
-    pixel_spp = imageLoad(samples, ivec2(gl_GlobalInvocationID)).x * 256;
+    pixel_spp = imageLoad(samples, cur_image_pos).x * 256;
 
     //--------------------------------------------------------------------------
     //  L1 Gradient descent
@@ -301,7 +301,7 @@ void main(){
     imageStore(denoised, ivec3(cur_image_pos,(camParams.frameNumber & 1) ^ 1), vec4(denoised_color,1));
 
     //remodulate albedo and tone map
-    vec3 albedo = imageLoad(albedo, ivec2(gl_GlobalInvocationID)).xyz;
+    vec3 albedo = imageLoad(albedo, cur_image_pos).xyz;
     vec3 tone_mapped_color = clamp(pow(max(vec3(0),albedo * denoised_color),vec3(.454545f)),0,1);
     imageStore(finalImage, ivec2(cur_image_pos), vec4(tone_mapped_color, 1));
 

@@ -247,7 +247,6 @@ int main(int argc, char** argv){
         illuminationBuffer->copyImage(scenegraph, 1, pbrtPipeline->demodAcc->imageInfoList[0].imageView->image);
         gBuffer->copySampleImage(scenegraph, pbrtPipeline->sampleAcc->imageInfoList[0].imageView->image);
         gBuffer->copyToPrevImages(scenegraph);
-        pbrtPipeline->copyToAccImages(scenegraph);
 
         auto viewport = vsg::ViewportState::create(0, 0, windowTraits->width, windowTraits->height);
         auto camera = vsg::Camera::create(perspective, lookAt, viewport);
@@ -255,8 +254,8 @@ int main(int argc, char** argv){
         auto commandGraph = vsg::CommandGraph::create(window);
         auto renderGraph = vsg::createRenderGraphForView(window, camera, vsgImGui::RenderImGui::create(window, Gui(guiValues)));//vsg::RenderGraph::create(window); // render graph for gui rendering
         renderGraph->clearValues.clear();   //removing clear values to avoid clearing the raytraced image
-        //auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bfr->taaPipeline->finalImage->imageInfoList[0].imageView, window);
-        auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(illuminationBuffer->illuminationImages[0]->imageInfoList[0].imageView, window);
+        auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bfr->taaPipeline->finalImage->imageInfoList[0].imageView, window);
+        //auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(illuminationBuffer->illuminationImages[0]->imageInfoList[0].imageView, window);
 
         commandGraph->addChild(scenegraph);
         commandGraph->addChild(copyImageViewToWindow);

@@ -3,7 +3,7 @@
 
 class Taa: public vsg::Inherit<vsg::Object, Taa>{
 public:
-    uint denoisedBinding = 0, motionBinding = 1, finalImageBinding = 2, accumulationBinding = 3;
+    uint denoisedBinding = 1, motionBinding = 0, finalImageBinding = 2, accumulationBinding = 3;
 
     Taa(uint width, uint height, uint workWidth, uint workHeight, vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<vsg::DescriptorImage> denoised):
     width(width),
