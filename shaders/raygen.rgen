@@ -85,6 +85,7 @@ void main()
 	compressedNormal.y = atan(rayPayload.si.normal.y / rayPayload.si.normal.x);
 	imageStore(normalImage, ivec2(gl_LaunchIDEXT.xy), vec4(compressedNormal, 1, 1));
 	imageStore(materialImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.reflector));
+	vec3 curAlbedo = rayPayload.albedo.xyz;
 	imageStore(albedoImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.albedo));
 
 	//accumulation with previous frames
@@ -146,7 +147,7 @@ void main()
 
 	vec3 demodulated = finalColor;
 	if(!isinf(rayPayload.position.x))
-		demodulated /= (rayPayload.albedo.xyz + vec3(EPSILON));
+		demodulated /= (curAlbedo.xyz + vec3(EPSILON));
 	if(reprojected){
 		float blendAlpha = max(1.f / (pixelSpp * 256.0), BLEND_ALPHA);
 		demodulated = mix(prevColor, demodulated, blendAlpha);
