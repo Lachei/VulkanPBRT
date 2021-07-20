@@ -84,7 +84,7 @@ layout (local_size_x_id = 2,local_size_y_id = 3,local_size_z=1) in;
 #define K_L .4
 #define BETA1_L .45f
 #define BETA2_L .75f
-#define SPP_THRESH 40
+#define SPP_THRESH 5
 #define GRADIENT_THRESH 0.00f
 
 const float EPSILON = 1e-6;
@@ -217,7 +217,7 @@ void main(){
     //--------------------------------------------------------------------------
     //  Noise accumulation done by raytracer, only reading out accumulated illumination
     //--------------------------------------------------------------------------
-    vec3 new_color = imageLoad(noisy, cur_image_pos).zyx;
+    vec3 new_color = imageLoad(noisy, cur_image_pos).xyz;
     float cur_screen_depth = imageLoad(depth, cur_image_pos).x;
     vec2 compressedNormal = imageLoad(normal, cur_image_pos).xy;
     vec3 normal;
@@ -303,7 +303,7 @@ void main(){
     imageStore(denoised, ivec3(cur_image_pos,(camParams.frameNumber & 1) ^ 1), vec4(denoised_color,1));
 
     //remodulate albedo and tone map
-    vec3 albedo = imageLoad(albedo, cur_image_pos).zyx + vec3(EPSILON);
+    vec3 albedo = imageLoad(albedo, cur_image_pos).xyz + vec3(EPSILON);
     vec3 tone_mapped_color = clamp(pow(max(vec3(0),albedo * denoised_color),vec3(.454545f)),0,1);
     imageStore(finalImage, ivec2(cur_image_pos), vec4(tone_mapped_color, 1));
 
