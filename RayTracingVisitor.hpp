@@ -135,9 +135,6 @@ public:
                 setTextures.insert(8);
                 break;
             case 3: //light map
-                texture = vsg::DescriptorImage::create(d->imageInfoList, 9, _ao.size());
-                _ao.push_back(texture);
-                setTextures.insert(9);
                 break;
             case 4: //emissive map
                 texture = vsg::DescriptorImage::create(d->imageInfoList, 10, _emissive.size());
@@ -171,8 +168,6 @@ public:
                     _normal.push_back(texture);
                     break;
                 case 9:
-                    texture = vsg::DescriptorImage::create(_defaultTexture->imageInfoList, i, _ao.size());
-                    _ao.push_back(texture);
                     break;
                 case 10:
                     texture = vsg::DescriptorImage::create(_defaultTexture->imageInfoList, i, _emissive.size());
@@ -236,7 +231,6 @@ public:
                 {6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_diffuse.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
                 {7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_mr.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
                 {8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_normal.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {9, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_ao.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
                 {10, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_emissive.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
                 {11, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_specular.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
                 {12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
@@ -252,9 +246,6 @@ public:
                 descList.push_back(d);
             }
             for(const auto& d: _normal){
-                descList.push_back(d);
-            }
-            for(const auto& d: _ao){
                 descList.push_back(d);
             }
             for(const auto& d: _emissive){
@@ -327,7 +318,6 @@ protected:
     std::vector<vsg::ref_ptr<vsg::DescriptorImage>> _diffuse;
     std::vector<vsg::ref_ptr<vsg::DescriptorImage>> _mr;
     std::vector<vsg::ref_ptr<vsg::DescriptorImage>> _normal;
-    std::vector<vsg::ref_ptr<vsg::DescriptorImage>> _ao;
     std::vector<vsg::ref_ptr<vsg::DescriptorImage>> _emissive;
     std::vector<vsg::ref_ptr<vsg::DescriptorImage>> _specular;
     //buffers are available for each geometry

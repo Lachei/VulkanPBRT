@@ -11,7 +11,6 @@ layout(binding = 5, set = 0) buffer Indices {uint i[]; }  ind[];
 layout(binding = 6) uniform sampler2D diffuseMap[];
 layout(binding = 7) uniform sampler2D mrMap[];
 layout(binding = 8) uniform sampler2D normalMap[];
-layout(binding = 9) uniform sampler2D aoMap[];
 layout(binding = 10) uniform sampler2D emissiveMap[];
 layout(binding = 11) uniform sampler2D specularMap[];
 #define VERTEXINFOAVAILABLE
@@ -215,7 +214,6 @@ void main()
   vec4 diffuse = texture(diffuseMap[nonuniformEXT(objId)], texCoord);
   vec4 baseColor = SRGBtoLINEAR(diffuse) * vec4(mat.ambient, 1);
 
-  float ambientOcclusion = texture(aoMap[nonuniformEXT(objId)], texCoord).r;
   vec3 f0 = vec3(.04);
 
   if(mat.dissolve == 1.0f){
