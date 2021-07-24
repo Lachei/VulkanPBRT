@@ -195,6 +195,15 @@ void main()
 	Vertex v2 = unpack(index.z, objId);
 
   const vec3 bar = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
+  vec2 texCoord = v0.uv * bar.x + v1.uv * bar.y + v2.uv * bar.z;
+  vec4 diffuse = texture(diffuseMap[nonuniformEXT(objId)], texCoord);
+  vec3 position = v0.pos * bar.x + v1.pos * bar.y + v2.pos * bar.z;
+  position = (instance.objectMat * vec4(position, 1)).xyz;
+  if(diffuse.a == 0){ //skip transparent surfaces
+    rayPayload.albedo = diffuse;
+    rayPayload.position = position;
+    return;
+  }
   vec3 normal = normalize(v0.normal * bar.x + v1.normal * bar.y + v2.normal * bar.z).xzy;
   //normal = normalize((instance.objectMat * vec4(normal, 0)).xyz);
   vec3 T = getTangent(v0.pos, v1.pos, v2.pos, v0.uv, v1.uv, v2.uv).xzy;
@@ -202,16 +211,12 @@ void main()
   vec3 B = getBitangent(v0.pos, v1.pos, v2.pos, v0.uv, v1.uv, v2.uv).xzy;
   //B = (instance.objectMat * vec4(B, 0)).xyz;
   mat3 TBN = gramSchmidt(T, B, normal);
-  vec3 position = v0.pos * bar.x + v1.pos * bar.y + v2.pos * bar.z;
-  position = (instance.objectMat * vec4(position, 1)).xyz;
-  vec2 texCoord = v0.uv * bar.x + v1.uv * bar.y + v2.uv * bar.z;
   normal = getNormal(TBN, normalMap[nonuniformEXT(objId)], texCoord);
   normal.y *= -1;
 
   WaveFrontMaterial mat = unpack(materials.m[objId]);
   float perceptualRoughness = 0;
   float metallic;
-  vec4 diffuse = texture(diffuseMap[nonuniformEXT(objId)], texCoord);
   vec4 baseColor = SRGBtoLINEAR(diffuse) * vec4(mat.ambient, 1);
 
   vec3 f0 = vec3(.04);
