@@ -19,6 +19,8 @@ layout(binding = 26) uniform Infos{
   uint minRecursionDepth;
   uint maxRecursionDepth;
 }infos;
+layout(binding = 27, rgba16f) uniform image2D illuminationSquared;
+layout(binding = 28) uniform sampler2D prevIlluminationSquared;
 
 layout(push_constant) uniform PushConstants 
 {
@@ -110,6 +112,7 @@ void main()
 	float pixelSpp = 1.0 / 256.0; //has to be normalized as only floating point 8 bit interp is supported
 	if(isinf(rayPayload.position.x)) pixelSpp = 0;
  	vec3 prevColor;
+	vec3 prevColorSquared;
 	vec3 prevNor;
 	float truePrevDepth;
 	if(camParams.frameNumber > 0 && !isinf(rayPayload.position.x)){
@@ -123,6 +126,7 @@ void main()
 			//if(dot(rayPayload.si.normal, prevNor) > .9f){	//we do have a point which can be reprojected
 				reprojected = true;
 				prevColor = texture(prevOutput, prevPos.xy).xyz;
+				prevColorSquared = texture(prevIlluminationSquared, prevPos.xy).xyz;
 				pixelSpp += texture(prevSampleCounts, prevPos.xy).x;
 			//}
 		}
@@ -156,9 +160,11 @@ void main()
 	vec3 demodulated = finalColor;
 	if(!isinf(rayPayload.position.x))
 		demodulated /= (curAlbedo.xyz + vec3(EPSILON));
+	vec3 demodSquared = demodulated * demodulated;
 	if(reprojected){
 		float blendAlpha = max(1.f / (pixelSpp * 256.0), BLEND_ALPHA);
 		demodulated = mix(prevColor, demodulated, blendAlpha);
+		demodSquared = mix(prevColorSquared, demodulated, blendAlpha);
 	}
 
 	if(prevFrameColor != vec3(1.0/0)){
@@ -170,4 +176,5 @@ void main()
 	
 	imageStore(outputImage, ivec2(gl_LaunchIDEXT.xy), vec4(finalColor, 1));
 	imageStore(illumination, ivec2(gl_LaunchIDEXT.xy), vec4(demodulated, 1));
+	imageStore(illuminationSquared, ivec2(gl_LaunchIDEXT.xy), vec4(demodSquared, 1));
 }

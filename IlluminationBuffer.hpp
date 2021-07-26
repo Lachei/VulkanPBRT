@@ -166,6 +166,7 @@ public:
         this->height = height;
         illuminationBindings.push_back(1);
         illuminationBindings.push_back(25);
+        illuminationBindings.push_back(27);
         fillImages();
     };
 
@@ -203,5 +204,22 @@ public:
         imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
         imageInfo = {nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
         illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, illuminationBindings[1], 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
+    
+        image = vsg::Image::create();
+        image->imageType = VK_IMAGE_TYPE_2D;
+        image->format = VK_FORMAT_R16G16B16A16_SFLOAT;
+        image->extent.width = width;
+        image->extent.height = height;
+        image->extent.depth = 1;
+        image->mipLevels = 1;
+        image->arrayLayers = 1;
+        image->samples = VK_SAMPLE_COUNT_1_BIT;
+        image->tiling = VK_IMAGE_TILING_OPTIMAL;
+        image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+        image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+        imageInfo = {nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
+        illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, illuminationBindings[2], 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
     }
 };

@@ -93,6 +93,27 @@ public:
 
             bindRayTracingDescriptorSet->descriptorSet->descriptors.push_back(demodAcc);
             bindRayTracingDescriptorSet->descriptorSet->setLayout->bindings.push_back(VkDescriptorSetLayoutBinding{demodAccBinding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr});
+        
+            image = vsg::Image::create();
+            image->imageType = VK_IMAGE_TYPE_2D;
+            image->format = VK_FORMAT_R16G16B16A16_SFLOAT;
+            image->extent.width = width;
+            image->extent.height = height;
+            image->extent.depth = 1;
+            image->mipLevels = 1;
+            image->arrayLayers = 1;
+            image->samples = VK_SAMPLE_COUNT_1_BIT;
+            image->tiling = VK_IMAGE_TILING_OPTIMAL;
+            image->usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+            image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+            image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+            imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+            imageInfo = {sampler, imageView, VK_IMAGE_LAYOUT_GENERAL};
+            demodAcc = vsg::DescriptorImage::create(imageInfo, demodAccSquaredBinding, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+
+            bindRayTracingDescriptorSet->descriptorSet->descriptors.push_back(demodAccSquared);
+            bindRayTracingDescriptorSet->descriptorSet->setLayout->bindings.push_back(VkDescriptorSetLayoutBinding{demodAccSquaredBinding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr});
+        
         }
     }
 
@@ -105,6 +126,8 @@ public:
         sampleAcc->compile(context);
         if(demodAcc)
             demodAcc->compile(context);
+        if(demodAccSquared)
+            demodAccSquared->compile(context);
     }
 
     void updateImageLayouts(vsg::Context& context){
@@ -114,6 +137,10 @@ public:
         pipelineBarrier->imageMemoryBarriers.push_back(sampleAccLayout);
         if(demodAcc){
             auto demodAccLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, 0, 0, demodAcc->imageInfoList[0].imageView->image, resourceRange);
+            pipelineBarrier->imageMemoryBarriers.push_back(demodAccLayout);
+        }
+        if(demodAccSquared){
+            auto demodAccLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, 0, 0, demodAccSquared->imageInfoList[0].imageView->image, resourceRange);
             pipelineBarrier->imageMemoryBarriers.push_back(demodAccLayout);
         }
         context.commands.push_back(pipelineBarrier);
@@ -175,6 +202,30 @@ public:
                                 srcBarrier, dstBarrier);
             commands->addChild(pipelineBarrier);
         }
+        if(demodAccSquared){
+            srcImage = illuminationBuffer->illuminationImages[1]->imageInfoList[0].imageView->image;
+            dstImage = demodAccSquared->imageInfoList[0].imageView->image;
+
+            srcBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0, srcImage, resourceRange);
+            dstBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, 0, dstImage, resourceRange);
+            pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_DEPENDENCY_BY_REGION_BIT,
+                                srcBarrier, dstBarrier);
+            commands->addChild(pipelineBarrier);
+
+            copyImage = vsg::CopyImage::create();
+            copyImage->srcImage = srcImage;
+            copyImage->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            copyImage->dstImage = dstImage;
+            copyImage->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            copyImage->regions.emplace_back(copyRegion);
+            commands->addChild(copyImage);
+
+            srcBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, 0, 0, srcImage, resourceRange);
+            dstBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, 0, 0, dstImage, resourceRange);
+            pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_DEPENDENCY_BY_REGION_BIT,
+                                srcBarrier, dstBarrier);
+            commands->addChild(pipelineBarrier);
+        }
     }
 
     uint width, height, maxRecursionDepth, samplePerPixel;
@@ -189,8 +240,8 @@ public:
     vsg::ref_ptr<vsg::TraceRays> traceRays;
 
     //optional resources for data accumulation
-    vsg::ref_ptr<vsg::DescriptorImage> demodAcc, sampleAcc;
-    uint demodAccBinding = 23, sampleAccBinding = 24, uniformBufferBinding = 26;
+    vsg::ref_ptr<vsg::DescriptorImage> demodAcc, demodAccSquared, sampleAcc;
+    uint demodAccBinding = 23, demodAccSquaredBinding = 28, sampleAccBinding = 24, uniformBufferBinding = 26;
 
     //shader binding table for trace rays
     vsg::ref_ptr<vsg::RayTracingShaderBindingTable> shaderBindingTable;
