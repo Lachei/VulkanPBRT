@@ -7,6 +7,7 @@
 #include "PBRTPipeline.hpp"
 #include "BFR/bfr.hpp"
 #include "TAA/taa.hpp"
+#include "BFRBlender.hpp"
 #include "PipelineStructs.hpp"
  
 #include "gui.hpp"
@@ -216,7 +217,13 @@ int main(int argc, char** argv){
         auto illuminationBuffer = IlluminationBufferFinalDemodulated::create(windowTraits->width, windowTraits->height);
         pbrtPipeline->setIlluminationBuffer(illuminationBuffer);
         pbrtPipeline->setTlas(tlas);
-        auto bfr = BFR::create(windowTraits->width, windowTraits->height, 16, 16, pbrtPipeline);
+        auto bfr8 = BFR::create(windowTraits->width, windowTraits->height, 8, 8, pbrtPipeline);
+        auto bfr16 = BFR::create(windowTraits->width, windowTraits->height, 16, 16, pbrtPipeline);
+        auto bfr32 = BFR::create(windowTraits->width, windowTraits->height, 32, 32, pbrtPipeline);
+        auto blender = BFRBlender::create(windowTraits->width, windowTraits->height, 
+                                        illuminationBuffer->illuminationImages[1], illuminationBuffer->illuminationImages[2],
+                                        bfr8->taaPipeline->finalImage, bfr16->taaPipeline->finalImage, bfr32->taaPipeline->finalImage);
+        
 
         guiValues->raysPerPixel = maxRecursionDepth * 2; //for each recursion one next event estimate is done
 
@@ -226,8 +233,14 @@ int main(int argc, char** argv){
         gBuffer->updateImageLayouts(imageLayoutCompile.context);
         illuminationBuffer->compile(imageLayoutCompile.context);
         illuminationBuffer->updateImageLayouts(imageLayoutCompile.context);
-        bfr->compile(imageLayoutCompile.context);
-        bfr->updateImageLayout(imageLayoutCompile.context);
+        bfr8->compile(imageLayoutCompile.context);
+        bfr8->updateImageLayout(imageLayoutCompile.context);
+        bfr16->compile(imageLayoutCompile.context);
+        bfr16->updateImageLayout(imageLayoutCompile.context);
+        bfr32->compile(imageLayoutCompile.context);
+        bfr32->updateImageLayout(imageLayoutCompile.context);
+        blender->compile(imageLayoutCompile.context);
+        blender->updateImageLayout(imageLayoutCompile.context);
         imageLayoutCompile.context.record();
 
         //state group to bind the pipeline and descriptorset
@@ -244,7 +257,12 @@ int main(int argc, char** argv){
         traceRays->depth = 1;
 
         scenegraph->addChild(traceRays);
-        bfr->addDispatchToCommandGraph(scenegraph, computeConstants);
+        bfr8->addDispatchToCommandGraph(scenegraph, computeConstants);
+        bfr16->addDispatchToCommandGraph(scenegraph, computeConstants);
+        bfr32->addDispatchToCommandGraph(scenegraph, computeConstants);
+        auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT);
+        scenegraph->addChild(pipelineBarrier);
+        blender->addDispatchToCommandGraph(scenegraph);
         illuminationBuffer->copyImage(scenegraph, 1, pbrtPipeline->demodAcc->imageInfoList[0].imageView->image);
         gBuffer->copySampleImage(scenegraph, pbrtPipeline->sampleAcc->imageInfoList[0].imageView->image);
         gBuffer->copyToPrevImages(scenegraph);
@@ -255,7 +273,8 @@ int main(int argc, char** argv){
         auto commandGraph = vsg::CommandGraph::create(window);
         auto renderGraph = vsg::createRenderGraphForView(window, camera, vsgImGui::RenderImGui::create(window, Gui(guiValues)));//vsg::RenderGraph::create(window); // render graph for gui rendering
         renderGraph->clearValues.clear();   //removing clear values to avoid clearing the raytraced image
-        auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bfr->taaPipeline->finalImage->imageInfoList[0].imageView, window);
+        auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(blender->finalImage->imageInfoList[0].imageView, window);
+        //auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bfr16->taaPipeline->finalImage->imageInfoList[0].imageView, window);
         //auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(illuminationBuffer->illuminationImages[0]->imageInfoList[0].imageView, window);
 
         commandGraph->addChild(scenegraph);

@@ -39,8 +39,8 @@ set(SHADERS
     simple_raygen.rgen
     bfr.comp
     taa.comp
+    bfrBlender.comp
 )
-message(${SHADERS})
 
 add_executable(VulkanPBRT ${SOURCES} ${VSG_ALL} ${BFR_SRC} ${TAA_SRC})
 

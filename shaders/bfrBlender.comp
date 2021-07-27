@@ -1,0 +1,35 @@
+#version 460
+#extension GL_GOOGLE_include_directive : enable
+
+layout(binding = 0, rgba16f) uniform image2D average;
+layout(binding = 1, rgba16f) uniform image2D averageSquared;
+layout(binding = 2, rgba8) uniform image2D denoised0;
+layout(binding = 3, rgba8) uniform image2D denoised1;
+layout(binding = 4, rgba8) uniform image2D denoised2;
+layout(binding = 5, rgba8) uniform image2D final;
+
+layout(constant_id = 0) const int IMAGE_WIDTH = 1280;
+layout(constant_id = 1) const int IMAGE_HEIGHT = 720;
+layout(constant_id = 2) const int BLOCK_WIDTH = 16;
+layout(constant_id = 3) const int BLOCK_HEIGHT = 16;
+
+layout (local_size_x_id = 2,local_size_y_id = 3,local_size_z=1) in;
+
+#include "general.glsl"
+
+void main(){
+    if(gl_GlobalInvocationID.x >= IMAGE_WIDTH || gl_GlobalInvocationID.y >= IMAGE_HEIGHT) return;
+    vec3 ave = imageLoad(average, ivec2(gl_GlobalInvocationID.xy)).xyz;
+    vec3 aveSquared = imageLoad(averageSquared, ivec2(gl_GlobalInvocationID.xy)).xyz;
+    vec3 den0 = imageLoad(denoised0, ivec2(gl_GlobalInvocationID.xy)).xyz;
+    vec3 den1 = imageLoad(denoised1, ivec2(gl_GlobalInvocationID.xy)).xyz;
+    vec3 den2 = imageLoad(denoised2, ivec2(gl_GlobalInvocationID.xy)).xyz;
+    //linearize denoised outputs(averages are in linear space)
+    den0 = LINEARtoSRGB(den0);
+    den1 = LINEARtoSRGB(den1);
+    den2 = LINEARtoSRGB(den2);
+
+    vec3 stdDev = sqrt(aveSquared - (ave * ave));
+
+    imageStore(final, ivec2(gl_GlobalInvocationID.xy), vec4(stdDev, 1));
+}

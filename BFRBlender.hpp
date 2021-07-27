@@ -14,7 +14,7 @@ public:
     BFRBlender(uint width, uint height, 
         vsg::ref_ptr<vsg::DescriptorImage> averageImage, vsg::ref_ptr<vsg::DescriptorImage> averageSquaredImage,
         vsg::ref_ptr<vsg::DescriptorImage> denoised0, vsg::ref_ptr<vsg::DescriptorImage> denoised1, vsg::ref_ptr<vsg::DescriptorImage> denoised2, 
-        uint workWidth = 16, uint workHight = 16):
+        uint workWidth = 16, uint workHeight = 16):
         width(width), height(height), workWidth(workWidth), workHeight(workHeight)
         {
         std::string shaderPath = "shaders/bfrBlender.comp.spv";
@@ -22,14 +22,14 @@ public:
         computeStage->specializationConstants = vsg::ShaderStage::SpecializationConstants{
             {0, vsg::intValue::create(width)},
             {1, vsg::intValue::create(height)},
-            {2, vsg::intValue::create(workHight)},
+            {2, vsg::intValue::create(workHeight)},
             {3, vsg::intValue::create(workWidth)}
         };
 
         //final image
         auto image = vsg::Image::create();
         image->imageType = VK_IMAGE_TYPE_2D;
-        image->format = VK_FORMAT_R8G8B8A8_UNORM;
+        image->format = VK_FORMAT_B8G8R8A8_UNORM;
         image->extent.width = width;
         image->extent.height = height;
         image->extent.depth = 1;
@@ -37,12 +37,12 @@ public:
         image->arrayLayers = 1;
         image->samples = VK_SAMPLE_COUNT_1_BIT;
         image->tiling = VK_IMAGE_TILING_OPTIMAL;
-        image->usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
         image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
         vsg::ImageInfo imageInfo = {nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
-        finalImage = vsg::DescriptorImage::create(imageInfo, finalBinding, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        finalImage = vsg::DescriptorImage::create(imageInfo, finalBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
         vsg::DescriptorSetLayoutBindings descriptorBindings{
             {0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},

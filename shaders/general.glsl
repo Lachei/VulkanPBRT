@@ -181,6 +181,12 @@ vec4 LINEARtoSRGB(vec4 srgbIn)
     return vec4(linOut, srgbIn.w);
 }
 
+vec3 LINEARtoSRGB(vec3 srgbIn)
+{
+    vec3 linOut = pow(srgbIn.xyz, vec3(1.0 / 2.2));
+    return linOut;
+}
+
 float rcp(const in float value)
 {
     return 1.0 / value;

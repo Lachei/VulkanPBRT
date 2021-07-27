@@ -109,7 +109,7 @@ public:
             image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
             imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
             imageInfo = {sampler, imageView, VK_IMAGE_LAYOUT_GENERAL};
-            demodAcc = vsg::DescriptorImage::create(imageInfo, demodAccSquaredBinding, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+            demodAccSquared = vsg::DescriptorImage::create(imageInfo, demodAccSquaredBinding, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
             bindRayTracingDescriptorSet->descriptorSet->descriptors.push_back(demodAccSquared);
             bindRayTracingDescriptorSet->descriptorSet->setLayout->bindings.push_back(VkDescriptorSetLayoutBinding{demodAccSquaredBinding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr});
