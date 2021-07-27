@@ -1,0 +1,26 @@
+layout(binding = 0, r32f) uniform image2D depth;
+layout(binding = 1, rg32f) uniform image2D normal;
+layout(binding = 2, rgba8) uniform image2D material;
+layout(binding = 3, rgba8) uniform image2D albedo;
+layout(binding = 4, rg16f) uniform image2D motion;
+layout(binding = 5, r8) uniform image2D samples;
+layout(binding = 6) uniform sampler2DArray denoisedSampled; //one spot for current frame denoised illumination, one for previous
+layout(binding = 7, rgba16f) uniform image2D finalImage;
+layout(binding = 8, rgba16f) uniform image2D noisy;
+layout(binding = 9, rgba16f) uniform image2DArray denoised;
+
+layout(push_constant) uniform PushConstants 
+{
+	mat4 inverseViewMatrix;
+	mat4 inverseProjectionMatrix;
+	mat4 prevView;
+	uint frameNumber;
+	uint steadyCamFrame;
+} camParams;
+
+layout(constant_id = 0) const int IMAGE_WIDTH = 1280;
+layout(constant_id = 1) const int IMAGE_HEIGHT = 720;
+layout(constant_id = 2) const int BLOCK_WIDTH = 16;
+layout(constant_id = 3) const int BLOCK_HEIGHT = 16;
+
+layout (local_size_x_id = 2,local_size_y_id = 3,local_size_z=1) in;
