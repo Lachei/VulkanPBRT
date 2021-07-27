@@ -264,6 +264,7 @@ int main(int argc, char** argv){
         scenegraph->addChild(pipelineBarrier);
         blender->addDispatchToCommandGraph(scenegraph);
         illuminationBuffer->copyImage(scenegraph, 1, pbrtPipeline->demodAcc->imageInfoList[0].imageView->image);
+        illuminationBuffer->copyImage(scenegraph, 2, pbrtPipeline->demodAccSquared->imageInfoList[0].imageView->image);
         gBuffer->copySampleImage(scenegraph, pbrtPipeline->sampleAcc->imageInfoList[0].imageView->image);
         gBuffer->copyToPrevImages(scenegraph);
 

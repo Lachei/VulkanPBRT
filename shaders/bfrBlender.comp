@@ -15,7 +15,16 @@ layout(constant_id = 3) const int BLOCK_HEIGHT = 16;
 
 layout (local_size_x_id = 2,local_size_y_id = 3,local_size_z=1) in;
 
+const float stdDevMid = .1f;
+
 #include "general.glsl"
+
+float mix3(float a, float b, float c, float t, float mid){
+    float aFac = max(1.0 - (t / mid), 0);
+    float bFac = (t < mid) ? t / mid : 1 - (t - mid) / (1.0 - mid);
+    float cFac = 1.0 - aFac - bFac;
+    return aFac * a + bFac * b + cFac * c;
+}
 
 void main(){
     if(gl_GlobalInvocationID.x >= IMAGE_WIDTH || gl_GlobalInvocationID.y >= IMAGE_HEIGHT) return;
@@ -31,5 +40,12 @@ void main(){
 
     vec3 stdDev = sqrt(aveSquared - (ave * ave));
 
-    imageStore(final, ivec2(gl_GlobalInvocationID.xy), vec4(stdDev, 1));
+    //blending according to stdDev. 0 stddev-> den0, medium stddev -> den1, large stddev-> den2
+    vec3 finalColor;
+    finalColor.x = mix3(den0.x, den1.x, den2.x, stdDev.x, stdDevMid);
+    finalColor.y = mix3(den0.y, den1.y, den2.y, stdDev.y, stdDevMid);
+    finalColor.z = mix3(den0.z, den1.z, den2.z, stdDev.z, stdDevMid);
+    //finalColor = den2;
+
+    imageStore(final, ivec2(gl_GlobalInvocationID.xy), vec4(finalColor,1));
 }

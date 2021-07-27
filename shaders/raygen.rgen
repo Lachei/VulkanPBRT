@@ -164,7 +164,7 @@ void main()
 	if(reprojected){
 		float blendAlpha = max(1.f / (pixelSpp * 256.0), BLEND_ALPHA);
 		demodulated = mix(prevColor, demodulated, blendAlpha);
-		demodSquared = mix(prevColorSquared, demodulated, blendAlpha);
+		demodSquared = mix(prevColorSquared, demodSquared, blendAlpha);
 	}
 
 	if(prevFrameColor != vec3(1.0/0)){
