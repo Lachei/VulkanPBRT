@@ -1,3 +1,5 @@
+#extension GL_KHR_shader_subgroup_arithmetic: enable
+
 layout(binding = 0, r32f) uniform image2D depth;
 layout(binding = 1, rg32f) uniform image2D normal;
 layout(binding = 2, rgba8) uniform image2D material;
@@ -8,6 +10,7 @@ layout(binding = 6) uniform sampler2DArray denoisedSampled; //one spot for curre
 layout(binding = 7, rgba16f) uniform image2D finalImage;
 layout(binding = 8, rgba16f) uniform image2D noisy;
 layout(binding = 9, rgba16f) uniform image2DArray denoised;
+layout(binding = 10, r16f) uniform image2DArray featureBuffer;
 
 layout(push_constant) uniform PushConstants 
 {
@@ -23,4 +26,53 @@ layout(constant_id = 1) const int IMAGE_HEIGHT = 720;
 layout(constant_id = 2) const int BLOCK_WIDTH = 16;
 layout(constant_id = 3) const int BLOCK_HEIGHT = 16;
 
+//constants ---------------------------------------------
+const float EPS = 1e-8;
+//pixel offsets in 0 to 1, have to be converted with block edge length to retrieve total offset
+const vec2 pixelOffsets[] = { {.7, .85}, {.95, .5}, {.43, .76}, {.97, .03}, {.37, .58}, {.03, .36}, {.81, .46}, {0, .78}, {.36, -.08}, {-.06, 0}, {.95, .1}, {.85, .61}, {.06, .1}, {.43, .16}, {0, .5}, {.73, .38} };
+//-------------------------------------------------------
+
 layout (local_size_x_id = 2,local_size_y_id = 3,local_size_z=1) in;
+
+shared float reduction[32];
+float parallel_reduction_min(float var) {
+	float t = subgroupMin(var);             //Min across the subgroup
+	if (subgroupElect()) {
+        reduction[gl_SubgroupID] = t;
+	}
+    barrier();
+	if (gl_LocalInvocationID == uvec3(0, 0, 0)) {
+        for (int i = 1; i < gl_NumSubgroups; ++i) {
+            t = min(reduction[i],t);
+        }
+        reduction[0] = t;
+	}
+    barrier();
+    return reduction[0];
+}
+
+float parallel_reduction_max(float var) {
+	float t = subgroupMax(var);             //Max across the subgroup
+	if (subgroupElect()) {
+        reduction[gl_SubgroupID] = t;
+	}
+    barrier();
+	if (gl_LocalInvocationID == uvec3(0, 0, 0)) {
+        for (int i = 1; i < gl_NumSubgroups; ++i) {
+            t = max(reduction[i], t);
+        }
+        reduction[0] = t;
+	}
+    barrier();
+    return reduction[0];
+}
+
+int mirror(int x, int s){
+    if(x < 0) return abs(x) - 1;
+    if(x >= s) return 2 * s - x - 1;
+    return x;
+}
+
+ivec2 mirror(ivec2 x, ivec2 s){
+    return ivec2(mirror(x.x, s.x), mirror(x.y,s.y));
+}

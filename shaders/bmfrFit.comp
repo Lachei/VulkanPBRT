@@ -1,0 +1,7 @@
+#version 460
+
+#include "bmfrGeneral.comp" //includes all layout declarations and common functions
+
+void main(){
+    
+}
