@@ -2,6 +2,36 @@
 
 #include "bmfrGeneral.comp" //includes all layout declarations and common functions
 
+shared float uVec[PIXEL_BLOCK];
 void main(){
-    
+    //note: this kernel should always run in a one dimensional block, so local_size_x,y = 1
+
+    float prod = 0;
+
+    const int groupId = gl_WorkGroupID.x * gl_NumWorkGropus.y + gl_WorkGroupID.y;
+    const int id = gl_LocalInvocationIndex;
+
+    // Computing R matrix
+    for(int col = 0; col < ALPHA_SIZE - 3; ++col){
+        //int colLimited = min(col, ALPHA_SIZE - 3); // not needed as the last three columns are never processed
+        //load column
+        int featureBuffer = col;
+        float tmpSum = 0;
+        for(int subVector = 0; subVector < PIXEL_BLOCK / BLOCK_WIDTH; ++subVector){
+            float tmp = imageLoad(....);    // todo, load from the correct pixel value
+
+            const int index = id + subVector * BLOCK_WIDTH;
+            if(index >= col){
+                tmpSum += tmp * tmp;
+            }
+        }
+
+        barrier();
+
+        // Length of vecto in A's column with reduction sum
+        sumVec[id] == tmpSum;
+        // do things here...
+
+        float rValue;
+    }
 }
