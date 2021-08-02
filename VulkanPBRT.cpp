@@ -54,8 +54,8 @@ int main(int argc, char** argv){
 
         auto numFrames = arguments.value(-1, "-f");
         auto filename = arguments.value(std::string(), "-i");
-        filename = "/home/lachei/Downloads/glTF-Sample-Models-master/2.0/Sponza/glTF/Sponza.gltf";//"/home/lachei/Downloads/teapot.obj";
-        //filename = "/home/stumpfegger/Downloads/glTF-Sample-Models-master/2.0/Sponza/glTF/Sponza.gltf";//"/home/lachei/Downloads/teapot.obj";
+        //filename = "/home/lachei/Downloads/glTF-Sample-Models-master/2.0/Sponza/glTF/Sponza.gltf";//"/home/lachei/Downloads/teapot.obj";
+        filename = "/home/stumpfegger/Downloads/glTF-Sample-Models-master/2.0/Sponza/glTF/Sponza.gltf";//"/home/lachei/Downloads/teapot.obj";
         if(arguments.read("m")) filename = "models/raytracing_scene.vsgt";
         if(arguments.errors()) return arguments.writeErrorMessages(std::cerr);
 
@@ -274,8 +274,8 @@ int main(int argc, char** argv){
         auto commandGraph = vsg::CommandGraph::create(window);
         auto renderGraph = vsg::createRenderGraphForView(window, camera, vsgImGui::RenderImGui::create(window, Gui(guiValues)));//vsg::RenderGraph::create(window); // render graph for gui rendering
         renderGraph->clearValues.clear();   //removing clear values to avoid clearing the raytraced image
-        auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(blender->finalImage->imageInfoList[0].imageView, window);
-        //auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bfr16->taaPipeline->finalImage->imageInfoList[0].imageView, window);
+        //auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(blender->finalImage->imageInfoList[0].imageView, window);
+        auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bfr16->taaPipeline->finalImage->imageInfoList[0].imageView, window);
         //auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(illuminationBuffer->illuminationImages[0]->imageInfoList[0].imageView, window);
 
         commandGraph->addChild(scenegraph);

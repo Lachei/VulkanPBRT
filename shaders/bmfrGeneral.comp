@@ -11,6 +11,8 @@ layout(binding = 7, rgba16f) uniform image2D finalImage;
 layout(binding = 8, rgba16f) uniform image2D noisy;
 layout(binding = 9, rgba16f) uniform image2DArray denoised;
 layout(binding = 10, r16f) uniform image2DArray featureBuffer;
+layout(binding = 12, r32f) uniform image2DArray rMat;       // the r matrix has in the depth 3 values for each feature plus additional 3 elements for the color values
+layout(binding = 11, r32f) uniform image2DArray weights;
 
 layout(push_constant) uniform PushConstants 
 {
@@ -25,13 +27,16 @@ layout(constant_id = 0) const int IMAGE_WIDTH = 1280;
 layout(constant_id = 1) const int IMAGE_HEIGHT = 720;
 layout(constant_id = 2) const int BLOCK_WIDTH = 16;
 layout(constant_id = 3) const int BLOCK_HEIGHT = 16;
-layout(constant_id = 4) const int PIXEL_BLOCK = 32;
+layout(constant_id = 4) const int PIXEL_BLOCK = 32; //holds the true block size for the fitter, as in the fitter pass the block height will always be 1
 
 //constants ---------------------------------------------
-const float EPS = 1e-8;
+const float EPS = 1e-6;
 //pixel offsets in 0 to 1, have to be converted with block edge length to retrieve total offset
 const vec2 pixelOffsets[] = { {.7, .85}, {.95, .5}, {.43, .76}, {.97, .03}, {.37, .58}, {.03, .36}, {.81, .46}, {0, .78}, {.36, -.08}, {-.06, 0}, {.95, .1}, {.85, .61}, {.06, .1}, {.43, .16}, {0, .5}, {.73, .38} };
 const uint ALPHA_SIZE = 13;  //contains the features and the noisy pixels: 1, vec3 normal, vec3 worldPos, vec3 worldPos^2
+const float SECOND_BLEND_ALPHA = 0.1f;
+const float NOISE_AMOUNT = 1e-2;
+const int R_EDGE = int(ALPHA_SIZE) - 2;
 //-------------------------------------------------------
 
 layout (local_size_x_id = 2,local_size_y_id = 3,local_size_z=1) in;
@@ -77,4 +82,26 @@ int mirror(int x, int s){
 
 ivec2 mirror(ivec2 x, ivec2 s){
     return ivec2(mirror(x.x, s.x), mirror(x.y,s.y));
+}
+
+float random(uint a){
+    a = (a+0x7ed55d16) + (a<<12);
+    a = (a^0xc761c23c) ^ (a>>19);
+    a = (a+0x165667b1) + (a<<5);
+    a = (a+0xd3a2646c) ^ (a<<9);
+    a = (a+0xfd7046c5) + (a<<3);
+    a = (a^0xb55a4f09) ^ (a>>16);
+
+    return uintBitsToFloat(a) / uintBitsToFloat(0xffffffff);
+}
+
+float addRandom(float value, int id, int subVector, int featureBuffer, int frameNumber){
+    return value + NOISE_AMOUNT * 2.f * (random(id + subVector * BLOCK_WIDTH + featureBuffer * PIXEL_BLOCK * PIXEL_BLOCK + frameNumber * ALPHA_SIZE * PIXEL_BLOCK * PIXEL_BLOCK) - .5f);
+}
+
+// retrieves the index in the copmressed r matrix for place [x,y]
+int rIndex(int x, int y){
+    const int rSize = R_EDGE * (R_EDGE + 1) / 2;
+    const int rowStart = rSize - (R_EDGE - y) * (R_EDGE - y + 1) / 2;
+    return rowStart + x - y;
 }

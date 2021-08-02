@@ -41,6 +41,8 @@ set(SHADERS
     taa.comp
     bfrBlender.comp
     bmfrPre.comp
+    bmfrFit.comp
+    bmfrPost.comp
 )
 
 add_executable(VulkanPBRT ${SOURCES} ${VSG_ALL} ${BFR_SRC} ${TAA_SRC})

@@ -1,0 +1,81 @@
+#version 460
+
+#include "bmfrGeneral.comp" //includes all layout declarations and common functions
+
+void main(){
+    float pixelSpp = 0;
+    ivec2 imSize = ivec2(IMAGE_WIDTH, IMAGE_HEIGHT);
+    ivec2 curAbsolutPos = ivec2(gl_GlobalInvocationID.xy) - ivec2(vec2(BLOCK_WIDTH, BLOCK_HEIGHT) * pixelOffsets[camParams.frameNumber % 16]);
+    ivec2 curImagePos = mirror(curAbsolutPos, imSize);
+    float features[ALPHA_SIZE - 3];
+    //only calculating for pixels inside the image domain
+    if(curAbsolutPos != curImagePos) return;
+
+    //--------------------------------------------------------------------------
+    // Loading all features and samples
+    //--------------------------------------------------------------------------
+    vec3 noisyColor = imageLoad(noisy, curImagePos).xyz;
+    float screenDepth = imageLoad(depth, curImagePos).x;
+    vec2 compressedNormal = imageLoad(normal, curImagePos).xy;
+    vec3 normal;
+    normal.x = sin(compressedNormal.y) * cos(compressedNormal.x);
+    normal.y = cos(compressedNormal.y) * cos(compressedNormal.x);
+    normal.z = sin(compressedNormal.x);
+    vec2 prevFrameUv = imageLoad(motion, curImagePos).xy;
+    bool pixelAccept = prevFrameUv.x >= 0;
+    pixelSpp = imageLoad(samples, curImagePos).x * 256;
+    
+    //--------------------------------------------------------------------------
+    // normalizing depth and filling the feature maps
+    //--------------------------------------------------------------------------
+    // normalizing world depth
+    {
+        float min_val = parallel_reduction_min(screenDepth);
+        float max_val = parallel_reduction_max(screenDepth);
+        screenDepth -= min_val;
+        screenDepth /= max_val - min_val + EPS;
+        screenDepth = screenDepth * 2 - 1;
+    }
+    vec2 screenPos = vec2(gl_LocalInvocationID.xy) / (vec2(BLOCK_WIDTH, BLOCK_HEIGHT) - vec2(1));
+
+    features= float[ALPHA_SIZE - 3](
+        1.,
+        normal.x,
+        normal.y,
+        normal.z,
+        screenPos.x,
+        screenPos.y,
+        screenDepth,
+        screenPos.x * screenPos.x,
+        screenPos.y * screenPos.y,
+        screenDepth * screenDepth
+    );
+
+    // weighted sum calculation
+    vec3 denoisedColor = vec3(0);
+    for(int feature = 0; feature < ALPHA_SIZE - 3; ++feature){
+        vec3 weight = imageLoad(weights, ivec3(gl_WorkGroupID.xy, feature)).xyz;
+        denoisedColor += weight * features[feature];
+    }
+
+    denoisedColor = max(denoisedColor, vec3(0));
+    //--------------------------------------------------------------------------
+    //  Data accumulation
+    //--------------------------------------------------------------------------
+    vec3 prevAccColor = vec3(0);
+    float blendAlpha = 1;
+    if( camParams.frameNumber > 0 && pixelAccept){
+        prevAccColor += texture(denoisedSampled, vec3(prevFrameUv.xy, camParams.frameNumber & 1)).xyz;
+        blendAlpha = max(1.f / pixelSpp, SECOND_BLEND_ALPHA);
+    }
+
+    //averaging up with previoius color and storing the results (This is still only lighting without surface albedo color)
+    denoisedColor = blendAlpha * denoisedColor + (1 - blendAlpha) * prevAccColor;
+
+    imageStore(denoised, ivec3(curImagePos,(camParams.frameNumber & 1) ^ 1), vec4(denoisedColor,1));
+
+    //remodulate albedo and tone map
+    vec3 albedo = imageLoad(albedo, curImagePos).xyz + vec3(EPS);
+    vec3 toneMappedColor = clamp(pow(max(vec3(0),albedo * denoisedColor),vec3(.454545f)),0,1);
+    imageStore(finalImage, ivec2(curImagePos), vec4(toneMappedColor, 1));
+}

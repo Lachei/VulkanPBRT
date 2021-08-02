@@ -2,21 +2,10 @@
 
 #include "bmfrGeneral.comp" //includes all layout declarations and common functions
 
-int mirror(int x, int s){
-    if(x < 0) return abs(x) - 1;
-    if(x >= s) return 2 * s - x - 1;
-    return x;
-}
-
-ivec2 mirror(ivec2 x, ivec2 s){
-    return ivec2(mirror(x.x, s.x), mirror(x.y,s.y));
-}
-
 void main(){
     //--------------------------------------------------------------------------
     // Settings
     //--------------------------------------------------------------------------
-    const uint ALPHA_SIZE = 13;  //contains the features and the noisy pixels: 1, vec3 normal, vec3 worldPos, vec3 worldPos^2
 
     //--------------------------------------------------------------------------
     // Local variables

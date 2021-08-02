@@ -11,7 +11,7 @@
 class BMFR: public vsg::Inherit<vsg::Object, BMFR>{
 public:
     uint depthBinding = 0, normalBinding = 1, materialBinding = 2, albedoBinding = 3, motionBinding = 4, sampleBinding = 5, sampledDenIlluBinding = 6, finalBinding = 7, noisyBinding = 8, denoisedBinding = 9;
-    uint width, height, workWidth, workHeight;
+    uint width, height, workWidth, workHeight, fittingKernel;
     vsg::ref_ptr<GBuffer> gBuffer;
     vsg::ref_ptr<vsg::Sampler> sampler;
     vsg::ref_ptr<vsg::BindComputePipeline> bindPrePipeline, bindFitPipeline, bindPostPipeline;
@@ -20,11 +20,12 @@ public:
     vsg::ref_ptr<vsg::BindDescriptorSet> bindDescriptorSet;
     vsg::ref_ptr<Taa> taaPipeline;
 
-    BMFR(uint width, uint height, uint workWidth, uint workHeight, vsg::ref_ptr<PBRTPipeline> pbrtPipeline):
+    BMFR(uint width, uint height, uint workWidth, uint workHeight, vsg::ref_ptr<PBRTPipeline> pbrtPipeline, uint fittingKernel = 256):
     width(width),
     height(height),
     workWidth(workWidth),
     workHeight(workHeight),
+    fittingKernel(fittingKernel),
     gBuffer(pbrtPipeline->gBuffer),
     sampler(vsg::Sampler::create())
     {
