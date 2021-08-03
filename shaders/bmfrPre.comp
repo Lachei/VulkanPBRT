@@ -24,9 +24,9 @@ void main(){
     float screenDepth = imageLoad(depth, curImagePos).x;
     vec2 compressedNormal = imageLoad(normal, curImagePos).xy;
     vec3 normal;
-    normal.x = sin(compressedNormal.y) * cos(compressedNormal.x);
-    normal.y = cos(compressedNormal.y) * cos(compressedNormal.x);
-    normal.z = sin(compressedNormal.x);
+    normal.x = cos(compressedNormal.y) * sin(compressedNormal.x);
+    normal.y = sin(compressedNormal.y) * sin(compressedNormal.x);
+    normal.z = cos(compressedNormal.x);
     
     //--------------------------------------------------------------------------
     // normalizing depth and filling the feature maps

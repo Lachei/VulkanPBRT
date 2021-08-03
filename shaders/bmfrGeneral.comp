@@ -11,7 +11,6 @@ layout(binding = 7, rgba16f) uniform image2D finalImage;
 layout(binding = 8, rgba16f) uniform image2D noisy;
 layout(binding = 9, rgba16f) uniform image2DArray denoised;
 layout(binding = 10, r16f) uniform image2DArray featureBuffer;
-layout(binding = 12, r32f) uniform image2DArray rMat;       // the r matrix has in the depth 3 values for each feature plus additional 3 elements for the color values
 layout(binding = 11, r32f) uniform image2DArray weights;
 
 layout(push_constant) uniform PushConstants 
@@ -71,6 +70,20 @@ float parallel_reduction_max(float var) {
         reduction[0] = t;
 	}
     barrier();
+    return reduction[0];
+}
+
+float parallel_reduction_sum(float var){
+    float t = subgroupAdd(var);
+    if(subgroupElect()) reduction[gl_SubgroupID] = t;
+    barrier();  // wait for completion of subroup adds
+    if(gl_LocalInvocationID == uvec3(0, 0, 0)) { //the first thread of the workgroup adds up
+        for(int i = 1; i < gl_NumSubgroups; ++i){
+            t += reduction[i];
+        }
+        reduction[0] = t;
+    }
+    barrier();  // sync first thread with all other
     return reduction[0];
 }
 

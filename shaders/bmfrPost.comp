@@ -18,9 +18,9 @@ void main(){
     float screenDepth = imageLoad(depth, curImagePos).x;
     vec2 compressedNormal = imageLoad(normal, curImagePos).xy;
     vec3 normal;
-    normal.x = sin(compressedNormal.y) * cos(compressedNormal.x);
-    normal.y = cos(compressedNormal.y) * cos(compressedNormal.x);
-    normal.z = sin(compressedNormal.x);
+    normal.x = cos(compressedNormal.y) * sin(compressedNormal.x);
+    normal.y = sin(compressedNormal.y) * sin(compressedNormal.x);
+    normal.z = cos(compressedNormal.x);
     vec2 prevFrameUv = imageLoad(motion, curImagePos).xy;
     bool pixelAccept = prevFrameUv.x >= 0;
     pixelSpp = imageLoad(samples, curImagePos).x * 256;
@@ -54,7 +54,10 @@ void main(){
     // weighted sum calculation
     vec3 denoisedColor = vec3(0);
     for(int feature = 0; feature < ALPHA_SIZE - 3; ++feature){
-        vec3 weight = imageLoad(weights, ivec3(gl_WorkGroupID.xy, feature)).xyz;
+        vec3 weight;
+        weight.x = imageLoad(weights, ivec3(gl_WorkGroupID.xy, feature * 3)).x;
+        weight.y = imageLoad(weights, ivec3(gl_WorkGroupID.xy, feature * 3 + 1)).x;
+        weight.z = imageLoad(weights, ivec3(gl_WorkGroupID.xy, feature * 3 + 2)).x;
         denoisedColor += weight * features[feature];
     }
 

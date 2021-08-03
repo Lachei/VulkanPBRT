@@ -8,6 +8,7 @@
 #include "BFR/bfr.hpp"
 #include "TAA/taa.hpp"
 #include "BFRBlender.hpp"
+#include "BMFR.hpp"
 #include "PipelineStructs.hpp"
  
 #include "gui.hpp"
@@ -54,8 +55,8 @@ int main(int argc, char** argv){
 
         auto numFrames = arguments.value(-1, "-f");
         auto filename = arguments.value(std::string(), "-i");
-        //filename = "/home/lachei/Downloads/glTF-Sample-Models-master/2.0/Sponza/glTF/Sponza.gltf";//"/home/lachei/Downloads/teapot.obj";
-        filename = "/home/stumpfegger/Downloads/glTF-Sample-Models-master/2.0/Sponza/glTF/Sponza.gltf";//"/home/lachei/Downloads/teapot.obj";
+        filename = "/home/lachei/Downloads/glTF-Sample-Models-master/2.0/Sponza/glTF/Sponza.gltf";//"/home/lachei/Downloads/teapot.obj";
+        //filename = "/home/stumpfegger/Downloads/glTF-Sample-Models-master/2.0/Sponza/glTF/Sponza.gltf";//"/home/lachei/Downloads/teapot.obj";
         if(arguments.read("m")) filename = "models/raytracing_scene.vsgt";
         if(arguments.errors()) return arguments.writeErrorMessages(std::cerr);
 
@@ -223,7 +224,7 @@ int main(int argc, char** argv){
         auto blender = BFRBlender::create(windowTraits->width, windowTraits->height, 
                                         illuminationBuffer->illuminationImages[1], illuminationBuffer->illuminationImages[2],
                                         bfr8->taaPipeline->finalImage, bfr16->taaPipeline->finalImage, bfr32->taaPipeline->finalImage);
-        
+        auto bmfr32 = BMFR::create(windowTraits->width, windowTraits->height, 32, 32, pbrtPipeline);
 
         guiValues->raysPerPixel = maxRecursionDepth * 2; //for each recursion one next event estimate is done
 
@@ -241,6 +242,8 @@ int main(int argc, char** argv){
         bfr32->updateImageLayout(imageLayoutCompile.context);
         blender->compile(imageLayoutCompile.context);
         blender->updateImageLayout(imageLayoutCompile.context);
+        bmfr32->compileImages(imageLayoutCompile.context);
+        bmfr32->updateImageLayouts(imageLayoutCompile.context);
         imageLayoutCompile.context.record();
 
         //state group to bind the pipeline and descriptorset
@@ -257,12 +260,13 @@ int main(int argc, char** argv){
         traceRays->depth = 1;
 
         scenegraph->addChild(traceRays);
-        bfr8->addDispatchToCommandGraph(scenegraph, computeConstants);
+        //bfr8->addDispatchToCommandGraph(scenegraph, computeConstants);
         bfr16->addDispatchToCommandGraph(scenegraph, computeConstants);
-        bfr32->addDispatchToCommandGraph(scenegraph, computeConstants);
-        auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT);
-        scenegraph->addChild(pipelineBarrier);
-        blender->addDispatchToCommandGraph(scenegraph);
+        //bfr32->addDispatchToCommandGraph(scenegraph, computeConstants);
+        //auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT);
+        //scenegraph->addChild(pipelineBarrier);
+        //blender->addDispatchToCommandGraph(scenegraph);
+        //bmfr32->addDispatchToCommandGraph(scenegraph, computeConstants);
         illuminationBuffer->copyImage(scenegraph, 1, pbrtPipeline->demodAcc->imageInfoList[0].imageView->image);
         illuminationBuffer->copyImage(scenegraph, 2, pbrtPipeline->demodAccSquared->imageInfoList[0].imageView->image);
         gBuffer->copySampleImage(scenegraph, pbrtPipeline->sampleAcc->imageInfoList[0].imageView->image);
@@ -277,6 +281,7 @@ int main(int argc, char** argv){
         //auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(blender->finalImage->imageInfoList[0].imageView, window);
         auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bfr16->taaPipeline->finalImage->imageInfoList[0].imageView, window);
         //auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(illuminationBuffer->illuminationImages[0]->imageInfoList[0].imageView, window);
+        //auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bmfr32->taaPipeline->finalImage->imageInfoList[0].imageView, window);
 
         commandGraph->addChild(scenegraph);
         commandGraph->addChild(copyImageViewToWindow);

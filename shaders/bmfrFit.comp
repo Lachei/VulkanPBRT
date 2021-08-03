@@ -3,10 +3,8 @@
 #include "bmfrGeneral.comp" //includes all layout declarations and common functions
 
 shared float uVec[PIXEL_BLOCK];
+shared vec3 rMat[(ALPHA_SIZE - 2) * (ALPHA_SIZE - 1) / 2];
 shared float uLengthSquared;
-shared float vecLength;
-shared float dotProd;
-shared float sumVec[BLOCK_WIDTH];
 shared vec3 divider;
 void main(){
     //note: this kernel always runs in a one dimensional block, so local_size_x,y = 1
@@ -35,8 +33,7 @@ void main(){
         barrier();
 
         // Length of vecto in A's column with reduction sum
-        sumVec[id] == tmpSum;
-        // todo: parallel reduction sum
+        float vecLength = parallel_reduction_sum(tmpSum);
 
         float rValue;
         if((id < col)){
@@ -58,15 +55,13 @@ void main(){
         int idLimited = min(id, int(ALPHA_SIZE) - 3);
         if(col < ALPHA_SIZE - 3){
             // broadcasting the value accross all entries
-            int ind = rIndex(colLimited, idLimited) * 3;
-            imageStore(rMat, ivec3(gl_WorkGroupID.xy, ind), vec4(rValue));
-            imageStore(rMat, ivec3(gl_WorkGroupID.xy, ind + 1), vec4(rValue));
-            imageStore(rMat, ivec3(gl_WorkGroupID.xy, ind + 1), vec4(rValue));
+            int ind = rIndex(colLimited, idLimited);
+            rMat[ind] = vec3(rValue);
         }
         else{
             // storing only a single channel
-            int ind = rIndex(colLimited, idLimited) + col - int(ALPHA_SIZE) + 3;
-            imageStore(rMat, ivec3(gl_WorkGroupID.xy, ind), vec4(rValue));
+            int ind = rIndex(colLimited, idLimited);
+            rMat[ind][col - int(ALPHA_SIZE) + 3] = rValue;
         }
         barrier();
 
@@ -95,9 +90,7 @@ void main(){
                 }
             }
 
-            sumVec[id] = tmpSum;
-            barrier();
-            //todo: parallel reduction sum on sumVec;
+            float dotProd = parallel_reduction_sum(tmpSum);
 
             for(int subVector = 0; subVector < PIXEL_BLOCK / BLOCK_WIDTH; ++subVector){
                 const int index = id + subVector * BLOCK_WIDTH;
@@ -145,7 +138,10 @@ void main(){
 
     // store weights
     if(id < ALPHA_SIZE - 3){
-        const vec3 weight = vec3(0); // load from r matrix
-        imageStore(weights, ivec3(gl_WorkGroupID.xy, id), vec4(weight, 0));
+        int index = rIndex(int(ALPHA_SIZE) - 3, id);
+        const vec3 weight = rMat[index]; // load from r matrix
+        imageStore(weights, ivec3(gl_WorkGroupID.xy, id * 3), vec4(weight.x));
+        imageStore(weights, ivec3(gl_WorkGroupID.xy, id * 3 + 1), vec4(weight.y));
+        imageStore(weights, ivec3(gl_WorkGroupID.xy, id * 3 + 2), vec4(weight.z));
     }
 }
