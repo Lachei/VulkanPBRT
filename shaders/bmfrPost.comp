@@ -61,7 +61,9 @@ void main(){
         denoisedColor += weight * features[feature];
     }
 
-    denoisedColor = max(denoisedColor, vec3(0));
+    //denoisedColor = max(denoisedColor, vec3(0));
+    if(isinf(denoisedColor.x)) denoisedColor = vec3(1,0,0);
+    if(isnan(denoisedColor.x)) denoisedColor = vec3(0,1,0);
     //--------------------------------------------------------------------------
     //  Data accumulation
     //--------------------------------------------------------------------------

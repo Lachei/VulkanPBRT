@@ -55,8 +55,8 @@ int main(int argc, char** argv){
 
         auto numFrames = arguments.value(-1, "-f");
         auto filename = arguments.value(std::string(), "-i");
-        filename = "/home/lachei/Downloads/glTF-Sample-Models-master/2.0/Sponza/glTF/Sponza.gltf";//"/home/lachei/Downloads/teapot.obj";
-        //filename = "/home/stumpfegger/Downloads/glTF-Sample-Models-master/2.0/Sponza/glTF/Sponza.gltf";//"/home/lachei/Downloads/teapot.obj";
+        //filename = "/home/lachei/Downloads/glTF-Sample-Models-master/2.0/Sponza/glTF/Sponza.gltf";//"/home/lachei/Downloads/teapot.obj";
+        filename = "/home/stumpfegger/Downloads/glTF-Sample-Models-master/2.0/Sponza/glTF/Sponza.gltf";//"/home/lachei/Downloads/teapot.obj";
         if(arguments.read("m")) filename = "models/raytracing_scene.vsgt";
         if(arguments.errors()) return arguments.writeErrorMessages(std::cerr);
 
@@ -261,12 +261,12 @@ int main(int argc, char** argv){
 
         scenegraph->addChild(traceRays);
         //bfr8->addDispatchToCommandGraph(scenegraph, computeConstants);
-        bfr16->addDispatchToCommandGraph(scenegraph, computeConstants);
+        //bfr16->addDispatchToCommandGraph(scenegraph, computeConstants);
         //bfr32->addDispatchToCommandGraph(scenegraph, computeConstants);
         //auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT);
         //scenegraph->addChild(pipelineBarrier);
         //blender->addDispatchToCommandGraph(scenegraph);
-        //bmfr32->addDispatchToCommandGraph(scenegraph, computeConstants);
+        bmfr32->addDispatchToCommandGraph(scenegraph, computeConstants);
         illuminationBuffer->copyImage(scenegraph, 1, pbrtPipeline->demodAcc->imageInfoList[0].imageView->image);
         illuminationBuffer->copyImage(scenegraph, 2, pbrtPipeline->demodAccSquared->imageInfoList[0].imageView->image);
         gBuffer->copySampleImage(scenegraph, pbrtPipeline->sampleAcc->imageInfoList[0].imageView->image);
@@ -279,9 +279,9 @@ int main(int argc, char** argv){
         auto renderGraph = vsg::createRenderGraphForView(window, camera, vsgImGui::RenderImGui::create(window, Gui(guiValues)));//vsg::RenderGraph::create(window); // render graph for gui rendering
         renderGraph->clearValues.clear();   //removing clear values to avoid clearing the raytraced image
         //auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(blender->finalImage->imageInfoList[0].imageView, window);
-        auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bfr16->taaPipeline->finalImage->imageInfoList[0].imageView, window);
+        //auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bfr16->taaPipeline->finalImage->imageInfoList[0].imageView, window);
         //auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(illuminationBuffer->illuminationImages[0]->imageInfoList[0].imageView, window);
-        //auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bmfr32->taaPipeline->finalImage->imageInfoList[0].imageView, window);
+        auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bmfr32->taaPipeline->finalImage->imageInfoList[0].imageView, window);
 
         commandGraph->addChild(scenegraph);
         commandGraph->addChild(copyImageViewToWindow);
