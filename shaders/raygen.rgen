@@ -157,6 +157,7 @@ void main()
 		}
 	}
 
+	finalColor = clamp(finalColor, 0, c_MaxRadiance);
 	vec3 demodulated = finalColor;
 	if(!isinf(rayPayload.position.x))
 		demodulated /= (curAlbedo.xyz + vec3(EPSILON));

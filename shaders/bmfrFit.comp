@@ -13,7 +13,7 @@ void main(){
 
     const int groupId = int(gl_WorkGroupID.x * gl_NumWorkGroups.y + gl_WorkGroupID.y);
     const int id = int(gl_LocalInvocationIndex);
-    const ivec2 basePixel = ivec2(gl_WorkGroupID.xy) * ivec2(PIXEL_BLOCK, PIXEL_BLOCK);
+    const ivec2 basePixel = ivec2(gl_WorkGroupID.xy) * ivec2(PIXEL_BLOCK_WIDTH, PIXEL_BLOCK_WIDTH);
 
     // Computing R matrix
     for(int col = 0; col < int(ALPHA_SIZE); ++col){
@@ -22,9 +22,11 @@ void main(){
         float tmpSum = 0;
         for(int subVector = 0; subVector < PIXEL_BLOCK / BLOCK_WIDTH; ++subVector){
             const int index = id + subVector * BLOCK_WIDTH;     //holds the linearized pixel index in the block
-            const ivec2 pixelCoords = ivec2(index / PIXEL_BLOCK, index % PIXEL_BLOCK) + basePixel;
+            const ivec2 pixelCoords = ivec2(index / PIXEL_BLOCK_WIDTH, index % PIXEL_BLOCK_WIDTH) + basePixel;
             float tmp = imageLoad(featureBuffer, ivec3(pixelCoords, col)).x;
 
+            //if(isnan(tmp)) tmp = 1;
+            tmp = clamp(tmp, -1e6, 1e6);
             uVec[index] = tmp;
             if(index > col){
                 tmpSum += tmp * tmp;
@@ -74,7 +76,7 @@ void main(){
             for(int subVector = 0; subVector < PIXEL_BLOCK / BLOCK_WIDTH; ++subVector){
                 const int index = id + subVector * BLOCK_WIDTH;
                 if(index >= colLimited){
-                    const ivec2 pixelCoords = ivec2(index / PIXEL_BLOCK, index % PIXEL_BLOCK) + basePixel;
+                    const ivec2 pixelCoords = ivec2(index / PIXEL_BLOCK_WIDTH, index % PIXEL_BLOCK_WIDTH) + basePixel;
                     float tmp = imageLoad(featureBuffer, ivec3(pixelCoords, feature)).x;
 
                     // adding noise the first time values are loaded
@@ -96,7 +98,7 @@ void main(){
                     float storeValue = tmpDataCache[subVector];
 
                     storeValue -= 2 * uVec[index] * dotProd / uLengthSquared;
-                    const ivec2 pixelCoords = ivec2(index / PIXEL_BLOCK, index % PIXEL_BLOCK) + basePixel;
+                    const ivec2 pixelCoords = ivec2(index / PIXEL_BLOCK_WIDTH, index % PIXEL_BLOCK_WIDTH) + basePixel;
                     imageStore(featureBuffer, ivec3(pixelCoords, feature), vec4(storeValue));
                 }
             }
@@ -139,6 +141,7 @@ void main(){
     if(id < ALPHA_SIZE - 3){
         int index = rIndex(R_EDGE - 1, id);
         const vec3 weight = rMat[index]; // load from r matrix
+        
         imageStore(weights, ivec3(gl_WorkGroupID.xy, id * 3), vec4(weight.x));
         imageStore(weights, ivec3(gl_WorkGroupID.xy, id * 3 + 1), vec4(weight.y));
         imageStore(weights, ivec3(gl_WorkGroupID.xy, id * 3 + 2), vec4(weight.z));
