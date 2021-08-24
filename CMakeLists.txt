@@ -3,7 +3,7 @@
 project(VulkanPBRT
     VERSION 1.0.0
     DESCRIPTION "Vulkan physically based raytracer"
-    LANGUAGES CXX
+    LANGUAGES C CXX
 )
 
 find_package(Vulkan REQUIRED)

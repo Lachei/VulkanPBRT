@@ -22,6 +22,9 @@ namespace vsg
     // forward declare
     class Context;
 
+    using DescriptorSetLayoutBindings = std::vector<VkDescriptorSetLayoutBinding>;
+    using PushConstantRanges = std::vector<VkPushConstantRange>;
+
     template<typename T>
     bool readFile(T& buffer, const std::string& filename)
     {
@@ -73,6 +76,10 @@ namespace vsg
         void release(uint32_t deviceID) { _implementation[deviceID] = {}; }
         void release() { _implementation.clear(); }
 
+        // SPRIV-Reflect code
+        const std::map<uint32_t, vsg::DescriptorSetLayoutBindings>& getDescriptorSetLayoutBindingsMap();
+        const vsg::PushConstantRanges& getPushConstantRanges();
+
     protected:
         virtual ~ShaderModule();
 
@@ -87,6 +94,12 @@ namespace vsg
         };
 
         vk_buffer<ref_ptr<Implementation>> _implementation;
+
+        // SPIRV-Reflect data
+        void _createReflectData();
+        bool _isReflectDataLoaded = false;
+        std::map<uint32_t, vsg::DescriptorSetLayoutBindings> _descriptorSetLayoutBindingsMap;
+        vsg::PushConstantRanges _pushConstantRanges;
     };
     VSG_type_name(vsg::ShaderModule);
 

@@ -32,4 +32,6 @@ else()
     list(REMOVE_ITEM VSG_SRC "${ANDROID_PLATFORM}")
 endif()
 
-set(VSG_ALL ${VSG_SRC} ${IMGUI_SRC} PARENT_SCOPE)
+file(GLOB SPIRV_REFLECT_SRC src/SPIRV-Reflect/spirv_reflect.c)
+
+set(VSG_ALL ${VSG_SRC} ${IMGUI_SRC} ${SPIRV_REFLECT_SRC} PARENT_SCOPE)

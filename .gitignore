@@ -36,3 +36,7 @@
 
 #build directory
 build/
+
+# CLion
+.idea/*
+cmake-build-*/

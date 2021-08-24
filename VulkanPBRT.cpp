@@ -5,6 +5,7 @@
 #include <vsgXchange/images.h>
 #include "RayTracingVisitor.hpp"
 #include "PBRTPipeline.hpp"
+#include "IO/IO.hpp"
 #include "BFR/bfr.hpp"
 #include "TAA/taa.hpp"
 #include "BFRBlender.hpp"
@@ -55,8 +56,7 @@ int main(int argc, char** argv){
 
         auto numFrames = arguments.value(-1, "-f");
         auto filename = arguments.value(std::string(), "-i");
-        filename = "/home/lachei/Downloads/glTF-Sample-Models-master/2.0/Sponza/glTF/Sponza.gltf";//"/home/lachei/Downloads/teapot.obj";
-        //filename = "/home/stumpfegger/Downloads/glTF-Sample-Models-master/2.0/Sponza/glTF/Sponza.gltf";//"/home/lachei/Downloads/teapot.obj";
+        filename = getUserDirectory() + "Downloads/glTF-Sample-Models-master/2.0/Sponza/glTF/Sponza.gltf";//"/Downloads/teapot.obj";
         if(arguments.read("m")) filename = "models/raytracing_scene.vsgt";
         if(arguments.errors()) return arguments.writeErrorMessages(std::cerr);
 
