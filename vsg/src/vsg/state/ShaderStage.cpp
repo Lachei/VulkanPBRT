@@ -10,9 +10,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
+#include <vsg/core/Exception.h>
 #include <vsg/io/Options.h>
 #include <vsg/state/ShaderStage.h>
 #include <vsg/traversals/CompileTraversal.h>
+#include <SPIRV-Reflect/spirv_reflect.h>
 
 using namespace vsg;
 
@@ -139,4 +141,91 @@ void ShaderStage::compile(Context& context)
     {
         module->compile(context);
     }
+}
+
+const vsg::BindingMap& ShaderStage::getDescriptorSetLayoutBindingsMap()
+{
+    if(!_reflected) _createReflectData();
+    return _descriptorSetLayoutBindingsMap;
+}
+
+const vsg::PushConstantRanges& ShaderStage::getPushConstantRanges()
+{
+    if(!_reflected) _createReflectData();
+    return _pushConstantRanges;
+}
+
+void ShaderStage::_createReflectData()
+{
+    // Create the reflect shader module.
+    SpvReflectShaderModule spvModule;
+    SpvReflectResult result = spvReflectCreateShaderModule(module->code.size() * sizeof(module->code[0]), module->code.data(), &spvModule);
+    if (result != SPV_REFLECT_RESULT_SUCCESS) {
+        throw Exception{"Error: vsg::ShaderStage::_createReflectData(...) failed to create SpvReflectResult.", result};
+    }
+
+    // Get reflection information on the descriptor sets.
+    uint32_t numDescriptorSets = 0;
+    result = spvReflectEnumerateDescriptorSets(&spvModule, &numDescriptorSets, nullptr);
+    if (result != SPV_REFLECT_RESULT_SUCCESS) {
+        throw Exception{"Error: vsg::ShaderStage::_createReflectData(...) failed to get descriptor sets reflection.", result};
+    }
+    std::vector<SpvReflectDescriptorSet*> descriptorSets(numDescriptorSets);
+    result = spvReflectEnumerateDescriptorSets(&spvModule, &numDescriptorSets, descriptorSets.data());
+    if (result != SPV_REFLECT_RESULT_SUCCESS) {
+        throw Exception{"Error: vsg::ShaderStage::_createReflectData(...) failed to get descriptor sets reflection.", result};
+    }
+
+    for (SpvReflectDescriptorSet* reflectDescriptorSet: descriptorSets) {
+        uint32_t setIdx = reflectDescriptorSet->set;
+        for (uint32_t bindingIdx = 0; bindingIdx < reflectDescriptorSet->binding_count; bindingIdx++) {
+            VkDescriptorSetLayoutBinding descriptorInfo;
+            descriptorInfo.binding = reflectDescriptorSet->bindings[bindingIdx]->binding;
+            descriptorInfo.descriptorType = VkDescriptorType(reflectDescriptorSet->bindings[bindingIdx]->descriptor_type);
+            if (reflectDescriptorSet->bindings[bindingIdx]->type_description
+                    && reflectDescriptorSet->bindings[bindingIdx]->type_description->type_name
+                    && strlen(reflectDescriptorSet->bindings[bindingIdx]->type_description->type_name) > 0) {
+                _descriptorSetLayoutBindingsMap[setIdx].names.push_back(reflectDescriptorSet->bindings[bindingIdx]->type_description->type_name);
+            } else {
+                _descriptorSetLayoutBindingsMap[setIdx].names.push_back(reflectDescriptorSet->bindings[bindingIdx]->name);
+            }
+            descriptorInfo.descriptorCount = reflectDescriptorSet->bindings[bindingIdx]->count;
+            descriptorInfo.stageFlags = stage;
+            //TODO: add additional infos for images
+            //descriptorInfo.readOnly = true;
+            //descriptorInfo.image = reflectDescriptorSet->bindings[bindingIdx]->image;
+            _descriptorSetLayoutBindingsMap[setIdx].bindings.push_back(descriptorInfo);
+
+            if (reflectDescriptorSet->bindings[bindingIdx]->descriptor_type == SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_IMAGE
+                    || reflectDescriptorSet->bindings[bindingIdx]->descriptor_type == SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER
+                    || reflectDescriptorSet->bindings[bindingIdx]->descriptor_type == SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER
+                    || reflectDescriptorSet->bindings[bindingIdx]->descriptor_type == SPV_REFLECT_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC) {
+                //descriptorInfo.readOnly = reflectDescriptorSet->bindings[0]->type_description->decoration_flags & SPV_REFLECT_DECORATION_NON_WRITABLE;
+            }
+        }
+    }
+
+    // Get reflection information on the push constant blocks.
+    uint32_t numPushConstantBlocks = 0;
+    result = spvReflectEnumeratePushConstantBlocks(&spvModule, &numPushConstantBlocks, nullptr);
+    if (result != SPV_REFLECT_RESULT_SUCCESS) {
+        throw Exception{"Error: vsg::ShaderStage::_createReflectData(...) failed to get push constant block reflection.", result};
+    }
+    std::vector<SpvReflectBlockVariable*> pushConstantBlockVariables(numPushConstantBlocks);
+    result = spvReflectEnumeratePushConstantBlocks(&spvModule, &numPushConstantBlocks, pushConstantBlockVariables.data());
+    if (result != SPV_REFLECT_RESULT_SUCCESS) {
+        throw Exception{"Error: vsg::ShaderStage::_createReflectData(...) failed to get push constant block reflection.", result};
+    }
+
+    _pushConstantRanges.resize(numPushConstantBlocks);
+    for (uint32_t blockIdx = 0; blockIdx < numPushConstantBlocks; blockIdx++) {
+        VkPushConstantRange& pushConstantRange = _pushConstantRanges.at(blockIdx);
+        SpvReflectBlockVariable* pushConstantBlockVariable = pushConstantBlockVariables.at(blockIdx);
+        pushConstantRange.stageFlags = 0; //uint32_t(shaderModuleType);
+        pushConstantRange.offset = pushConstantBlockVariable->absolute_offset;
+        pushConstantRange.size = pushConstantBlockVariable->size;
+    }
+
+    spvReflectDestroyShaderModule(&spvModule);
+    _reflected = true;
 }

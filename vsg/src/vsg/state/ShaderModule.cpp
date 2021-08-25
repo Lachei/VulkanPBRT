@@ -14,7 +14,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/io/Options.h>
 #include <vsg/state/ShaderModule.h>
 #include <vsg/traversals/CompileTraversal.h>
-#include <SPIRV-Reflect/spirv_reflect.h>
 
 using namespace vsg;
 
@@ -88,58 +87,6 @@ void ShaderModule::write(Output& output) const
 void ShaderModule::compile(Context& context)
 {
     if (!_implementation[context.deviceID]) _implementation[context.deviceID] = Implementation::create(context.device, this);
-}
-
-const std::map<uint32_t, vsg::DescriptorSetLayoutBindings>& ShaderModule::getDescriptorSetLayoutBindingsMap()
-{
-    if (!_isReflectDataLoaded) {
-        _createReflectData();
-    }
-    return _descriptorSetLayoutBindingsMap;
-}
-
-const vsg::PushConstantRanges& ShaderModule::getPushConstantRanges()
-{
-    if (!_isReflectDataLoaded) {
-        _createReflectData();
-    }
-    return _pushConstantRanges;
-}
-
-void ShaderModule::_createReflectData()
-{
-    // Create the reflect shader module.
-    SpvReflectShaderModule module;
-    SpvReflectResult result = spvReflectCreateShaderModule(code.size() * 4, code.data(), &module);
-    if (result != SPV_REFLECT_RESULT_SUCCESS) {
-        throw std::runtime_error("spvReflectCreateShaderModule failed!");
-    }
-
-
-    // Get reflection information on the push constant blocks.
-    uint32_t numPushConstantBlocks = 0;
-    result = spvReflectEnumeratePushConstantBlocks(&module, &numPushConstantBlocks, nullptr);
-    if (result != SPV_REFLECT_RESULT_SUCCESS) {
-        throw std::runtime_error("spvReflectEnumeratePushConstantBlocks failed!");
-    }
-    std::vector<SpvReflectBlockVariable*> pushConstantBlockVariables(numPushConstantBlocks);
-    result = spvReflectEnumeratePushConstantBlocks(&module, &numPushConstantBlocks, pushConstantBlockVariables.data());
-    if (result != SPV_REFLECT_RESULT_SUCCESS) {
-        throw std::runtime_error("spvReflectEnumeratePushConstantBlocks failed!");
-    }
-
-    _pushConstantRanges.resize(numPushConstantBlocks);
-    for (uint32_t blockIdx = 0; blockIdx < numPushConstantBlocks; blockIdx++) {
-        VkPushConstantRange& pushConstantRange = _pushConstantRanges.at(blockIdx);
-        SpvReflectBlockVariable* pushConstantBlockVariable = pushConstantBlockVariables.at(blockIdx);
-        // TODO: Stage flag is set in vsg::ShaderStage.
-        pushConstantRange.stageFlags = 0; //uint32_t(shaderModuleType);
-        pushConstantRange.offset = pushConstantBlockVariable->absolute_offset;
-        pushConstantRange.size = pushConstantBlockVariable->size;
-    }
-
-
-    spvReflectDestroyShaderModule(&module);
 }
 
 ShaderModule::Implementation::Implementation(Device* device, ShaderModule* shaderModule) :
