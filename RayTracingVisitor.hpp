@@ -23,8 +23,7 @@ public:
         image.sampler->maxLod = 1;
         _defaultTexture = vsg::DescriptorImage::create(image);
     };
-    CreateRayTracingDescriptorTraversal(vsg::ref_ptr<vsg::PipelineLayout> pipelineLayout): pipelineLayout(pipelineLayout){};
-
+    
     //default visiting for standard nodes, simply forward to children
     void apply(vsg::Object& object){
         object.traverse(*this);
@@ -187,7 +186,7 @@ public:
         packedLights.push_back(l.getPacked());
     }
 
-    vsg::ref_ptr<vsg::BindDescriptorSet> getBindDescriptorSet(){
+    vsg::ref_ptr<vsg::BindDescriptorSet> getBindDescriptorSet(vsg::ref_ptr<vsg::PipelineLayout> pipelineLayout, const std::vector<std::string>& bindingNames){
         if(!_bindDescriptor){
             if(packedLights.empty())
             {
@@ -221,67 +220,82 @@ public:
                 std::copy(_instancesArray.begin(), _instancesArray.end(), instances->data());
                 _instances = vsg::DescriptorBuffer::create(instances, 14, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
             }
-            vsg::DescriptorSetLayoutBindings descriptorBindings{
-                {0, VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                //{1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr},
-                {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(_positions.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(_normals.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(_indices.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(_indices.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_diffuse.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_mr.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_normal.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {10, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_emissive.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {11, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(_specular.size()), VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {13, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr},
-                {14, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, nullptr}
-                };
-            //adding all descriptors
+
+            // setting the descriptor amount for the object arrays
+            vsg::DescriptorSetLayoutBindings& bindings = pipelineLayout->setLayouts[0]->bindings;
+            int posInd = std::find(bindingNames.begin(), bindingNames.end(), "pos") - bindingNames.begin();
+            bindings[posInd].descriptorCount = static_cast<uint32_t>(_positions.size());
+            int norInd = std::find(bindingNames.begin(), bindingNames.end(), "nor") - bindingNames.begin();
+            bindings[norInd].descriptorCount = static_cast<uint32_t>(_normals.size());
+            int texInd = std::find(bindingNames.begin(), bindingNames.end(), "tex") - bindingNames.begin();
+            bindings[texInd].descriptorCount = static_cast<uint32_t>(_indices.size());
+            int indInd = std::find(bindingNames.begin(), bindingNames.end(), "ind") - bindingNames.begin();
+            bindings[indInd].descriptorCount = static_cast<uint32_t>(_indices.size());
+            int diffuseInd = std::find(bindingNames.begin(), bindingNames.end(), "diffuseMap") - bindingNames.begin();
+            bindings[diffuseInd].descriptorCount = static_cast<uint32_t>(_diffuse.size());
+            int mrInd = std::find(bindingNames.begin(), bindingNames.end(), "mrMap") - bindingNames.begin();
+            bindings[mrInd].descriptorCount = static_cast<uint32_t>(_mr.size());
+            int normalInd = std::find(bindingNames.begin(), bindingNames.end(), "normalMap") - bindingNames.begin();
+            bindings[normalInd].descriptorCount = static_cast<uint32_t>(_normal.size());
+            int emissiveInd = std::find(bindingNames.begin(), bindingNames.end(), "emissiveMap") - bindingNames.begin();
+            bindings[emissiveInd].descriptorCount = static_cast<uint32_t>(_emissive.size());
+            int specularInd = std::find(bindingNames.begin(), bindingNames.end(), "specularMap") - bindingNames.begin();
+            bindings[specularInd].descriptorCount = static_cast<uint32_t>(_specular.size());
+            int lightInd = std::find(bindingNames.begin(), bindingNames.end(), "lights") - bindingNames.begin();
+            int matInd = std::find(bindingNames.begin(), bindingNames.end(), "materials") - bindingNames.begin();
+            int instancesInd = std::find(bindingNames.begin(), bindingNames.end(), "instances") - bindingNames.begin();
+            
+            //adding all descriptors and updating their binding
             vsg::Descriptors descList;
-            for(const auto& d: _diffuse){
+            for(auto& d: _diffuse){
+                d->dstBinding = diffuseInd;
                 descList.push_back(d);
             }
-            for(const auto& d: _mr){
+            for(auto& d: _mr){
+                d->dstBinding = mrInd;
                 descList.push_back(d);
             }
-            for(const auto& d: _normal){
+            for(auto& d: _normal){
+                d->dstBinding = normalInd;
                 descList.push_back(d);
             }
-            for(const auto& d: _emissive){
+            for(auto& d: _emissive){
+                d->dstBinding = emissiveInd;
                 descList.push_back(d);
             }
-            for(const auto& d: _specular){
+            for(auto& d: _specular){
+                d->dstBinding = specularInd;
                 descList.push_back(d);
             }
+            _lights->dstBinding = lightInd;
+            _materials->dstBinding = matInd;
+            _instances->dstBinding = instancesInd;
             descList.push_back(_lights);
             descList.push_back(_materials);
             descList.push_back(_instances);
-            for(const auto& d: _positions){
+            for(auto& d: _positions){
+                d->dstBinding = posInd;
                 descList.push_back(d);
             }
-            for(const auto& d: _normals){
+            for(auto& d: _normals){
+                d->dstBinding = norInd;
                 descList.push_back(d);
             }
-            for(const auto& d: _texCoords){
+            for(auto& d: _texCoords){
+                d->dstBinding = texInd;
                 descList.push_back(d);
             }
-            for(const auto& d: _indices){
+            for(auto& d: _indices){
+                d->dstBinding = indInd;
                 descList.push_back(d);
             }
-            _descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
-            _descriptorSet = vsg::DescriptorSet::create(_descriptorSetLayout, descList);
-            if(!pipelineLayout)
-            {
-                pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{_descriptorSetLayout}, vsg::PushConstantRanges{{VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(RayTracingPushConstants)}});
-            }
+            _descriptorSet = vsg::DescriptorSet::create(pipelineLayout->setLayouts[0], descList);
             _bindDescriptor = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipelineLayout, 0, _descriptorSet);
         }
         return _bindDescriptor;
     };
 
     //holds the binding command for the raytracing decriptor
-    vsg::ref_ptr<vsg::PipelineLayout> pipelineLayout;
     std::vector<vsg::Light::PackedLight> packedLights;
 protected:
     struct ObjectInstance{

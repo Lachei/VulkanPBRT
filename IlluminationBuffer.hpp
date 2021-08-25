@@ -6,7 +6,7 @@
 //base illumination buffer class
 class IlluminationBuffer: public vsg::Inherit<vsg::Object, IlluminationBuffer>{
 public:
-    std::vector<uint> illuminationBindings;
+    std::vector<std::string> illuminationBindings;
     std::vector<vsg::ref_ptr<vsg::DescriptorImage>> illuminationImages;
     uint width, height;
 
@@ -14,10 +14,11 @@ public:
         for(auto& image: illuminationImages) image->compile(context);
     }
 
-    void updateDescriptor(vsg::BindDescriptorSet* descSet){
+    void updateDescriptor(vsg::BindDescriptorSet* descSet,const std::vector<std::string>& bindingNames){
         for(int i = 0; i < illuminationBindings.size(); ++i){
+            int index = std::find(bindingNames.begin(), bindingNames.end(), illuminationBindings[i]) - bindingNames.begin();
+            illuminationImages[i]->dstBinding = index;
             descSet->descriptorSet->descriptors.push_back(illuminationImages[i]);
-            descSet->descriptorSet->setLayout->bindings.push_back(VkDescriptorSetLayoutBinding{illuminationBindings[i], VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr});
         }
     }
 
@@ -70,7 +71,7 @@ public:
     IlluminationBufferFinal(uint width, uint height){
         this->width = width;
         this->height = height;
-        illuminationBindings.push_back(1);
+        illuminationBindings.push_back("outputImage");
         fillImages();
     };
 
@@ -99,9 +100,9 @@ public:
     IlluminationBufferFinalDirIndir(uint width, uint height){
         this->width = width;
         this->height = height;
-        illuminationBindings.push_back(0);  //TODO change to appropriate value
-        illuminationBindings.push_back(1);
-        illuminationBindings.push_back(2);
+        illuminationBindings.push_back("outputImage");  //TODO change to appropriate value
+        illuminationBindings.push_back("outputImage");
+        illuminationBindings.push_back("outputImage");
         fillImages();
     };
 
@@ -164,9 +165,9 @@ public:
     IlluminationBufferFinalDemodulated(uint width, uint height){
         this->width = width;
         this->height = height;
-        illuminationBindings.push_back(1);
-        illuminationBindings.push_back(25);
-        illuminationBindings.push_back(27);
+        illuminationBindings.push_back("outputImage");
+        illuminationBindings.push_back("illumination");
+        illuminationBindings.push_back("illuminationSquared");
         fillImages();
     };
 

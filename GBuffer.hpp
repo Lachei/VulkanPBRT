@@ -14,7 +14,25 @@ public:
     uint width, height;
     vsg::ref_ptr<vsg::DescriptorImage> depth, normal, material, albedo, prevDepth, prevNormal, motion, sample, prevSample;
 
-    void updateDescriptor(vsg::BindDescriptorSet* descSet){
+    void updateDescriptor(vsg::BindDescriptorSet* descSet, const std::vector<std::string>& bindingNames){
+        vsg::DescriptorSetLayoutBindings& bindings = descSet->descriptorSet->setLayout->bindings;
+        int depthInd = std::find(bindingNames.begin(), bindingNames.end(), "depthImage") - bindingNames.begin();
+        depth->dstBinding = depthInd;
+        int normalInd = std::find(bindingNames.begin(), bindingNames.end(), "normalImage") - bindingNames.begin();
+        normal->dstBinding = normalInd;
+        int materialInd = std::find(bindingNames.begin(), bindingNames.end(), "materialImage") - bindingNames.begin();
+        material->dstBinding = materialInd;
+        int albedoInd = std::find(bindingNames.begin(), bindingNames.end(), "albedoImage") - bindingNames.begin();
+        albedo->dstBinding = albedoInd;
+        int prevDepthInd = std::find(bindingNames.begin(), bindingNames.end(), "prevDepth") - bindingNames.begin();
+        prevDepth->dstBinding = prevDepthInd;
+        int prevNormalInd = std::find(bindingNames.begin(), bindingNames.end(), "prevNormal") - bindingNames.begin();
+        prevNormal->dstBinding = prevNormalInd;
+        int motionInd = std::find(bindingNames.begin(), bindingNames.end(), "motion") - bindingNames.begin();
+        motion->dstBinding = motionInd;
+        int sampleInd = std::find(bindingNames.begin(), bindingNames.end(), "sampleCounts") - bindingNames.begin();
+        sample->dstBinding = sampleInd;
+        
         descSet->descriptorSet->descriptors.push_back(depth);
         descSet->descriptorSet->descriptors.push_back(normal);
         descSet->descriptorSet->descriptors.push_back(material);
@@ -23,14 +41,7 @@ public:
         descSet->descriptorSet->descriptors.push_back(prevNormal);
         descSet->descriptorSet->descriptors.push_back(motion);
         descSet->descriptorSet->descriptors.push_back(sample);
-        descSet->descriptorSet->setLayout->bindings.push_back(VkDescriptorSetLayoutBinding{depthBinding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr});
-        descSet->descriptorSet->setLayout->bindings.push_back(VkDescriptorSetLayoutBinding{normalBinding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr});
-        descSet->descriptorSet->setLayout->bindings.push_back(VkDescriptorSetLayoutBinding{materialBinding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr});
-        descSet->descriptorSet->setLayout->bindings.push_back(VkDescriptorSetLayoutBinding{albedoBinding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr});
-        descSet->descriptorSet->setLayout->bindings.push_back(VkDescriptorSetLayoutBinding{prevDepthBinding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr});
-        descSet->descriptorSet->setLayout->bindings.push_back(VkDescriptorSetLayoutBinding{prevNormalBinding, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr});
-        descSet->descriptorSet->setLayout->bindings.push_back(VkDescriptorSetLayoutBinding{motionBinding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr});
-        descSet->descriptorSet->setLayout->bindings.push_back(VkDescriptorSetLayoutBinding{sampleBinding, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_RAYGEN_BIT_KHR, nullptr});    }
+    }
 
     void updateImageLayouts(vsg::Context& context){
         VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0 , 1, 0, 1};

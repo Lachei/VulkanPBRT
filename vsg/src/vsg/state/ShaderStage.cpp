@@ -229,3 +229,34 @@ void ShaderStage::_createReflectData()
     spvReflectDestroyShaderModule(&spvModule);
     _reflected = true;
 }
+
+static BindingMap mergeBindingMaps(const std::vector<BindingMap>& maps){
+    BindingMap result;
+    for(const auto& map: maps){
+        for(const auto& entry: map){
+            auto& resBindings = result[entry.first].bindings;
+            auto& resNames = result[entry.first].names;
+            const auto& bindings = entry.second.bindings;
+            const auto& names = entry.second.names;
+            for(int i = 0; i < bindings.size(); ++i){
+                // only add binding if not yet in the binding vector of the result
+                if(std::find_if(resBindings.begin(), resBindings.end(), [&](VkDescriptorSetLayoutBinding& b){return b.binding == bindings[i].binding;}) == resBindings.end()){
+                    resBindings.push_back(bindings[i]);
+                    resNames.push_back(names[i]);
+                }
+                // if binding does exist, check if names are the same
+                else{
+                    int bindingIndex = std::find_if(resBindings.begin(), resBindings.end(), [&](VkDescriptorSetLayoutBinding& b){return b.binding == bindings[i].binding;}) - resBindings.begin();
+                    int nameIndex = std::find_if(resNames.begin(), resNames.end(), [&](std::string& s){return s == names[i];}) - resNames.begin();
+                    if(bindingIndex != nameIndex){
+                        throw Exception{"Error: vsg::mergeBindingMaps(...) descriptor bindings are not mergable.", 0};
+                    }
+                    else{   //add stage mask
+                        resBindings[bindingIndex].stageFlags |= bindings[i].stageFlags;
+                    }
+                }
+            }
+        }
+    }
+    return result;
+}

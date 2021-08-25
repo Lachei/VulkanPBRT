@@ -24,6 +24,7 @@ namespace vsg
         vsg::DescriptorSetLayoutBindings bindings;
     };
     using BindingMap = std::map<uint32_t, NamesBindingsPair>;
+    static BindingMap mergeBindingMaps(const std::vector<BindingMap>& maps);
 
     class VSG_DECLSPEC ShaderStage : public Inherit<Object, ShaderStage>
     {
