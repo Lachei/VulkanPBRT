@@ -11,32 +11,15 @@
 #include "BFRBlender.hpp"
 #include "BMFR.hpp"
 #include "PipelineStructs.hpp"
+#include "CountTrianglesVisitor.hpp"
  
 #include "gui.hpp"
+
+#define _DEBUG
 
 class RayTracingPushConstantsValue : public vsg::Inherit<vsg::Value<RayTracingPushConstants>, RayTracingPushConstantsValue>{
     public:
     RayTracingPushConstantsValue(){}
-};
-
-class CountTrianglesVisitor : public vsg::Visitor
-{
-public:
-    CountTrianglesVisitor():triangleCount(0){};
-
-    void apply(vsg::Object& object){
-        object.traverse(*this);
-    };
-    void apply(vsg::Geometry& geometry){
-        triangleCount += geometry.indices->valueCount() / 3;
-    };
-
-    void apply(vsg::VertexIndexDraw& vid)
-    {
-        triangleCount += vid.indices->valueCount() / 3;
-    }
-
-    int triangleCount;
 };
 
 int main(int argc, char** argv){
@@ -46,9 +29,7 @@ int main(int argc, char** argv){
 
         auto windowTraits = vsg::WindowTraits::create();
         windowTraits->windowTitle = "VulkanPBRT";
-        windowTraits->width = 1800;
-        //windowTraits->height = 1080;
-        windowTraits->debugLayer = true;//arguments.read({"--debug", "-d"});
+        windowTraits->debugLayer = arguments.read({"--debug", "-d"});
         windowTraits->apiDumpLayer = arguments.read({"--api", "-a"});
         if(arguments.read({"--fullscreen", "-fs"})) windowTraits->fullscreen = true;
         if(arguments.read({"--window", "-w"}, windowTraits->width, windowTraits->height)) windowTraits->fullscreen = false;
@@ -56,9 +37,15 @@ int main(int argc, char** argv){
 
         auto numFrames = arguments.value(-1, "-f");
         auto filename = arguments.value(std::string(), "-i");
-        filename = getUserDirectory() + "Downloads/glTF-Sample-Models-master/2.0/Sponza/glTF/Sponza.gltf";//"/Downloads/teapot.obj";
         if(arguments.read("m")) filename = "models/raytracing_scene.vsgt";
         if(arguments.errors()) return arguments.writeErrorMessages(std::cerr);
+
+#ifdef _DEBUG
+        // overwriting command line options for debug
+        windowTraits->debugLayer = true;
+        windowTraits->width = 1800;
+        filename = getUserDirectory() + "Downloads/glTF-Sample-Models-master/2.0/Sponza/glTF/Sponza.gltf";//"/Downloads/teapot.obj";
+#endif
 
         //viewer creation
         auto viewer = vsg::Viewer::create();
@@ -92,62 +79,63 @@ int main(int argc, char** argv){
             std::cout << e.message << " Vk Result = " << e.result << std::endl;
             return 0;
         }
+
         //setting a custom render pass for imgui non clear rendering
-        vsg::AttachmentDescription  colorAttachment = vsg::defaultColorAttachment(window->surfaceFormat().format);
-        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        colorAttachment.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-        //colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        vsg::AttachmentDescription depthAttachment = vsg::defaultDepthAttachment(window->depthFormat());
-        depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        vsg::RenderPass::Attachments attachments{
-            colorAttachment,
-            depthAttachment};
+        {
+            vsg::AttachmentDescription  colorAttachment = vsg::defaultColorAttachment(window->surfaceFormat().format);
+            colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+            colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+            colorAttachment.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+            vsg::AttachmentDescription depthAttachment = vsg::defaultDepthAttachment(window->depthFormat());
+            depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+            depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+            vsg::RenderPass::Attachments attachments{
+                colorAttachment,
+                depthAttachment};
+    
+            VkAttachmentReference colorAttachmentRef = {};
+            colorAttachmentRef.attachment = 0;
+            colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    
+            VkAttachmentReference depthAttachmentRef = {};
+            depthAttachmentRef.attachment = 1;
+            depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    
+            vsg::SubpassDescription subpass = {};
+            subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+            subpass.colorAttachments.emplace_back(colorAttachmentRef);
+            subpass.depthStencilAttachments.emplace_back(depthAttachmentRef);
+    
+            vsg::RenderPass::Subpasses subpasses{subpass};
+    
+            // image layout transition
+            VkSubpassDependency colorDependency = {};
+            colorDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+            colorDependency.dstSubpass = 0;
+            colorDependency.srcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            colorDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            colorDependency.srcAccessMask = 0;
+            colorDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            colorDependency.dependencyFlags = 0;
+    
+            // depth buffer is shared between swap chain images
+            VkSubpassDependency depthDependency = {};
+            depthDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+            depthDependency.dstSubpass = 0;
+            depthDependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+            depthDependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+            depthDependency.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            depthDependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            depthDependency.dependencyFlags = 0;
+    
+            vsg::RenderPass::Dependencies dependencies{colorDependency, depthDependency};
+    
+            auto renderPass = vsg::RenderPass::create(device, attachments, subpasses, dependencies);
+            window->setRenderPass(renderPass);
+            viewer->addWindow(window);
+        }
 
-        VkAttachmentReference colorAttachmentRef = {};
-        colorAttachmentRef.attachment = 0;
-        colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-        VkAttachmentReference depthAttachmentRef = {};
-        depthAttachmentRef.attachment = 1;
-        depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-        vsg::SubpassDescription subpass = {};
-        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        subpass.colorAttachments.emplace_back(colorAttachmentRef);
-        subpass.depthStencilAttachments.emplace_back(depthAttachmentRef);
-
-        vsg::RenderPass::Subpasses subpasses{subpass};
-
-        // image layout transition
-        VkSubpassDependency colorDependency = {};
-        colorDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-        colorDependency.dstSubpass = 0;
-        colorDependency.srcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        colorDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        colorDependency.srcAccessMask = 0;
-        colorDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        colorDependency.dependencyFlags = 0;
-
-        // depth buffer is shared between swap chain images
-        VkSubpassDependency depthDependency = {};
-        depthDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-        depthDependency.dstSubpass = 0;
-        depthDependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-        depthDependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-        depthDependency.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-        depthDependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-        depthDependency.dependencyFlags = 0;
-
-        vsg::RenderPass::Dependencies dependencies{colorDependency, depthDependency};
-
-        auto renderPass = vsg::RenderPass::create(device, attachments, subpasses, dependencies);
-        window->setRenderPass(renderPass);
-        //window->clearColor() = {};
-        viewer->addWindow(window);
-
-        //creating camera things
+        //creating camera matrices
         auto perspective = vsg::Perspective::create(60, static_cast<double>(windowTraits->width) / static_cast<double>(windowTraits->height), .1, 1000);
         vsg::ref_ptr<vsg::LookAt> lookAt;
 

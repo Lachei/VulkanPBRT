@@ -239,7 +239,6 @@ public:
 
     //optional resources for data accumulation
     vsg::ref_ptr<vsg::DescriptorImage> demodAcc, demodAccSquared, sampleAcc;
-    uint demodAccBinding = 23, demodAccSquaredBinding = 28, sampleAccBinding = 24, uniformBufferBinding = 26;
 
     //shader binding table for trace rays
     vsg::ref_ptr<vsg::RayTracingShaderBindingTable> shaderBindingTable;
@@ -314,6 +313,7 @@ protected:
         constantInfos->value().lightCount = buildDescriptorBinding.packedLights.size();
         constantInfos->value().maxRecursionDepth = maxRecursionDepth;
         constantInfos->value().minRecursionDepth = maxRecursionDepth;
+        uint uniformBufferBinding = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Infos").second;
         auto constantInfosDescriptor = vsg::DescriptorBuffer::create(constantInfos, uniformBufferBinding, 0);
         bindRayTracingDescriptorSet->descriptorSet->descriptors.push_back(constantInfosDescriptor);
 

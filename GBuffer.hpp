@@ -9,8 +9,6 @@ class GBuffer: public vsg::Inherit<vsg::Object, GBuffer>{
 public:
     GBuffer(uint width, uint height): width(width), height(height){setupImages();}
 
-    // these are the bindings the gbuffers are bound to
-    const uint depthBinding = 15, normalBinding = 16, materialBinding = 17, albedoBinding = 18, prevDepthBinding = 19, prevNormalBinding = 20, motionBinding = 21, sampleBinding = 22;
     uint width, height;
     vsg::ref_ptr<vsg::DescriptorImage> depth, normal, material, albedo, prevDepth, prevNormal, motion, sample, prevSample;
 
@@ -163,6 +161,7 @@ protected:
     void setupImages(){
         sampler = vsg::Sampler::create();
 
+        //all images are bound initially to set 0 binding 0. Correct binding number is set in updateDescriptor()
         auto image = vsg::Image::create();
         image->imageType = VK_IMAGE_TYPE_2D;
         image->format = VK_FORMAT_R32_SFLOAT;
@@ -178,7 +177,7 @@ protected:
         image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
         vsg::ImageInfo imageInfo{nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
-        depth = vsg::DescriptorImage::create(imageInfo, depthBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        depth = vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
         image = vsg::Image::create();
         image->imageType = VK_IMAGE_TYPE_2D;
@@ -195,7 +194,7 @@ protected:
         image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
         imageInfo = {nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
-        normal = vsg::DescriptorImage::create(imageInfo, normalBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        normal = vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
         image = vsg::Image::create();
         image->imageType = VK_IMAGE_TYPE_2D;
@@ -212,7 +211,7 @@ protected:
         image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
         imageInfo = {nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
-        material = vsg::DescriptorImage::create(imageInfo, materialBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        material = vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
         image = vsg::Image::create();
         image->imageType = VK_IMAGE_TYPE_2D;
@@ -229,7 +228,7 @@ protected:
         image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
         imageInfo = {nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
-        albedo = vsg::DescriptorImage::create(imageInfo, albedoBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        albedo = vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
         image = vsg::Image::create();
         image->imageType = VK_IMAGE_TYPE_2D;
@@ -246,7 +245,7 @@ protected:
         image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
         imageInfo = {sampler, imageView, VK_IMAGE_LAYOUT_GENERAL};
-        prevDepth = vsg::DescriptorImage::create(imageInfo, prevDepthBinding, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        prevDepth = vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
         image = vsg::Image::create();
         image->imageType = VK_IMAGE_TYPE_2D;
@@ -263,7 +262,7 @@ protected:
         image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
         imageInfo = {sampler, imageView, VK_IMAGE_LAYOUT_GENERAL};
-        prevNormal = vsg::DescriptorImage::create(imageInfo, prevNormalBinding, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        prevNormal = vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
         image = vsg::Image::create();
         image->imageType = VK_IMAGE_TYPE_2D;
@@ -280,7 +279,7 @@ protected:
         image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
         imageInfo = {nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
-        motion = vsg::DescriptorImage::create(imageInfo, motionBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        motion = vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
         image = vsg::Image::create();
         image->imageType = VK_IMAGE_TYPE_2D;
@@ -297,6 +296,6 @@ protected:
         image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
         imageInfo = {nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
-        sample = vsg::DescriptorImage::create(imageInfo, sampleBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        sample = vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
     }
 };
