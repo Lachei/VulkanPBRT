@@ -24,7 +24,7 @@ namespace vsg
         vsg::DescriptorSetLayoutBindings bindings;
     };
     using BindingMap = std::map<uint32_t, NamesBindingsPair>;
-    static BindingMap mergeBindingMaps(const std::vector<BindingMap>& maps);
+    using SetBindingIndex = std::pair<uint32_t, uint32_t>;
 
     class VSG_DECLSPEC ShaderStage : public Inherit<Object, ShaderStage>
     {
@@ -55,6 +55,8 @@ namespace vsg
         void compile(Context& context);
 
         // SPRIV-Reflect code
+        static BindingMap mergeBindingMaps(const std::vector<BindingMap>& maps);
+        static SetBindingIndex getSetBindingIndex(const BindingMap& map, const std::string_view& name);
         const BindingMap& getDescriptorSetLayoutBindingsMap();
         const vsg::PushConstantRanges& getPushConstantRanges();
 

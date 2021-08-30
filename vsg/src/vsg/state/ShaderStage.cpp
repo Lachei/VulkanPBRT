@@ -230,7 +230,7 @@ void ShaderStage::_createReflectData()
     _reflected = true;
 }
 
-static BindingMap mergeBindingMaps(const std::vector<BindingMap>& maps){
+BindingMap ShaderStage::mergeBindingMaps(const std::vector<BindingMap>& maps){
     BindingMap result;
     for(const auto& map: maps){
         for(const auto& entry: map){
@@ -259,4 +259,15 @@ static BindingMap mergeBindingMaps(const std::vector<BindingMap>& maps){
         }
     }
     return result;
+}
+
+SetBindingIndex ShaderStage::getSetBindingIndex(const BindingMap& map, const std::string_view& name){
+    for(auto& entry: map){
+        for(int i = 0; i < entry.second.names.size(); ++i){
+            if(entry.second.names[i] == name){
+                return {entry.first, entry.second.bindings[i].binding};
+            }
+        }
+    }
+    throw Exception{"Error: vsg::getSetBindingIndex(...) binding name not in Binding Map:" + std::string(name), 0};
 }

@@ -5,9 +5,9 @@
 
 layout(binding = 0, set = 0) uniform accelerationStructureEXT tlas;
 layout(binding = 2, set = 0) buffer Pos {float p[]; }     pos[];  //non interleaved positions, normals and texture arrays
-layout(binding = 3, set = 0) buffer Normals {float n[]; } nor[];
+layout(binding = 3, set = 0) buffer Nor {float n[]; }     nor[];
 layout(binding = 4, set = 0) buffer Tex {float t[]; }     tex[];
-layout(binding = 5, set = 0) buffer Indices {uint i[]; }  ind[];
+layout(binding = 5, set = 0) buffer Ind {uint i[]; }  ind[];
 layout(binding = 6) uniform sampler2D diffuseMap[];
 layout(binding = 7) uniform sampler2D mrMap[];
 layout(binding = 8) uniform sampler2D normalMap[];

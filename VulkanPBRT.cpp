@@ -212,11 +212,10 @@ int main(int argc, char** argv){
 
         // raytracing pipelin setup
         uint maxRecursionDepth = 2;
-        auto pbrtPipeline = PBRTPipeline::create(windowTraits->width, windowTraits->height, maxRecursionDepth, loaded_scene);
+        auto illuminationBuffer = IlluminationBufferFinalDemodulated::create(windowTraits->width, windowTraits->height);
+        auto pbrtPipeline = PBRTPipeline::create(windowTraits->width, windowTraits->height, maxRecursionDepth, loaded_scene, illuminationBuffer);
         auto gBuffer = pbrtPipeline->gBuffer;
         vsg::CompileTraversal imageLayoutCompile(window);
-        auto illuminationBuffer = IlluminationBufferFinalDemodulated::create(windowTraits->width, windowTraits->height);
-        pbrtPipeline->setIlluminationBuffer(illuminationBuffer);
         pbrtPipeline->setTlas(tlas);
         auto bfr8 = BFR::create(windowTraits->width, windowTraits->height, 8, 8, pbrtPipeline);
         auto bfr16 = BFR::create(windowTraits->width, windowTraits->height, 16, 16, pbrtPipeline);

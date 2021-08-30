@@ -186,7 +186,7 @@ public:
         packedLights.push_back(l.getPacked());
     }
 
-    vsg::ref_ptr<vsg::BindDescriptorSet> getBindDescriptorSet(vsg::ref_ptr<vsg::PipelineLayout> pipelineLayout, const std::vector<std::string>& bindingNames){
+    vsg::ref_ptr<vsg::BindDescriptorSet> getBindDescriptorSet(vsg::ref_ptr<vsg::PipelineLayout> pipelineLayout, const vsg::BindingMap& bindingMap){
         if(!_bindDescriptor){
             if(packedLights.empty())
             {
@@ -223,27 +223,27 @@ public:
 
             // setting the descriptor amount for the object arrays
             vsg::DescriptorSetLayoutBindings& bindings = pipelineLayout->setLayouts[0]->bindings;
-            int posInd = std::find(bindingNames.begin(), bindingNames.end(), "pos") - bindingNames.begin();
-            bindings[posInd].descriptorCount = static_cast<uint32_t>(_positions.size());
-            int norInd = std::find(bindingNames.begin(), bindingNames.end(), "nor") - bindingNames.begin();
-            bindings[norInd].descriptorCount = static_cast<uint32_t>(_normals.size());
-            int texInd = std::find(bindingNames.begin(), bindingNames.end(), "tex") - bindingNames.begin();
-            bindings[texInd].descriptorCount = static_cast<uint32_t>(_indices.size());
-            int indInd = std::find(bindingNames.begin(), bindingNames.end(), "ind") - bindingNames.begin();
-            bindings[indInd].descriptorCount = static_cast<uint32_t>(_indices.size());
-            int diffuseInd = std::find(bindingNames.begin(), bindingNames.end(), "diffuseMap") - bindingNames.begin();
-            bindings[diffuseInd].descriptorCount = static_cast<uint32_t>(_diffuse.size());
-            int mrInd = std::find(bindingNames.begin(), bindingNames.end(), "mrMap") - bindingNames.begin();
-            bindings[mrInd].descriptorCount = static_cast<uint32_t>(_mr.size());
-            int normalInd = std::find(bindingNames.begin(), bindingNames.end(), "normalMap") - bindingNames.begin();
-            bindings[normalInd].descriptorCount = static_cast<uint32_t>(_normal.size());
-            int emissiveInd = std::find(bindingNames.begin(), bindingNames.end(), "emissiveMap") - bindingNames.begin();
-            bindings[emissiveInd].descriptorCount = static_cast<uint32_t>(_emissive.size());
-            int specularInd = std::find(bindingNames.begin(), bindingNames.end(), "specularMap") - bindingNames.begin();
-            bindings[specularInd].descriptorCount = static_cast<uint32_t>(_specular.size());
-            int lightInd = std::find(bindingNames.begin(), bindingNames.end(), "lights") - bindingNames.begin();
-            int matInd = std::find(bindingNames.begin(), bindingNames.end(), "materials") - bindingNames.begin();
-            int instancesInd = std::find(bindingNames.begin(), bindingNames.end(), "instances") - bindingNames.begin();
+            int posInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Pos").second;
+            std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b){return b.binding == posInd;})->descriptorCount = static_cast<uint32_t>(_positions.size());
+            int norInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Nor").second;
+            std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b){return b.binding == norInd;})->descriptorCount = static_cast<uint32_t>(_normals.size());
+            int texInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Tex").second;
+            std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b){return b.binding == texInd;})->descriptorCount = static_cast<uint32_t>(_texCoords.size());
+            int indInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Ind").second;
+            std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b){return b.binding == indInd;})->descriptorCount = static_cast<uint32_t>(_indices.size());
+            int diffuseInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "diffuseMap").second;
+            std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b){return b.binding == diffuseInd;})->descriptorCount = static_cast<uint32_t>(_diffuse.size());
+            int mrInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "mrMap").second;
+            std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b){return b.binding == mrInd;})->descriptorCount = static_cast<uint32_t>(_mr.size());
+            int normalInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "normalMap").second;
+            std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b){return b.binding == normalInd;})->descriptorCount = static_cast<uint32_t>(_normal.size());
+            int emissiveInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "emissiveMap").second;
+            std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b){return b.binding == emissiveInd;})->descriptorCount = static_cast<uint32_t>(_emissive.size());
+            int specularInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "specularMap").second;
+            std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b){return b.binding == specularInd;})->descriptorCount = static_cast<uint32_t>(_specular.size());
+            int lightInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Lights").second;
+            int matInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Materials").second;
+            int instancesInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Instances").second;
             
             //adding all descriptors and updating their binding
             vsg::Descriptors descList;

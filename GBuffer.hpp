@@ -14,23 +14,23 @@ public:
     uint width, height;
     vsg::ref_ptr<vsg::DescriptorImage> depth, normal, material, albedo, prevDepth, prevNormal, motion, sample, prevSample;
 
-    void updateDescriptor(vsg::BindDescriptorSet* descSet, const std::vector<std::string>& bindingNames){
+    void updateDescriptor(vsg::BindDescriptorSet* descSet, const vsg::BindingMap& bindingMap){
         vsg::DescriptorSetLayoutBindings& bindings = descSet->descriptorSet->setLayout->bindings;
-        int depthInd = std::find(bindingNames.begin(), bindingNames.end(), "depthImage") - bindingNames.begin();
+        int depthInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "depthImage").second;
         depth->dstBinding = depthInd;
-        int normalInd = std::find(bindingNames.begin(), bindingNames.end(), "normalImage") - bindingNames.begin();
+        int normalInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "normalImage").second;
         normal->dstBinding = normalInd;
-        int materialInd = std::find(bindingNames.begin(), bindingNames.end(), "materialImage") - bindingNames.begin();
+        int materialInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "materialImage").second;
         material->dstBinding = materialInd;
-        int albedoInd = std::find(bindingNames.begin(), bindingNames.end(), "albedoImage") - bindingNames.begin();
+        int albedoInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "albedoImage").second;
         albedo->dstBinding = albedoInd;
-        int prevDepthInd = std::find(bindingNames.begin(), bindingNames.end(), "prevDepth") - bindingNames.begin();
+        int prevDepthInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "prevDepth").second;
         prevDepth->dstBinding = prevDepthInd;
-        int prevNormalInd = std::find(bindingNames.begin(), bindingNames.end(), "prevNormal") - bindingNames.begin();
+        int prevNormalInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "prevNormal").second;
         prevNormal->dstBinding = prevNormalInd;
-        int motionInd = std::find(bindingNames.begin(), bindingNames.end(), "motion") - bindingNames.begin();
+        int motionInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "motion").second;
         motion->dstBinding = motionInd;
-        int sampleInd = std::find(bindingNames.begin(), bindingNames.end(), "sampleCounts") - bindingNames.begin();
+        int sampleInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "sampleCounts").second;
         sample->dstBinding = sampleInd;
         
         descSet->descriptorSet->descriptors.push_back(depth);
