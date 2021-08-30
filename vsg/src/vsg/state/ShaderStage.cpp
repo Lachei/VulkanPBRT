@@ -221,7 +221,7 @@ void ShaderStage::_createReflectData()
     for (uint32_t blockIdx = 0; blockIdx < numPushConstantBlocks; blockIdx++) {
         VkPushConstantRange& pushConstantRange = _pushConstantRanges.at(blockIdx);
         SpvReflectBlockVariable* pushConstantBlockVariable = pushConstantBlockVariables.at(blockIdx);
-        pushConstantRange.stageFlags = 0; //uint32_t(shaderModuleType);
+        pushConstantRange.stageFlags = stage;
         pushConstantRange.offset = pushConstantBlockVariable->absolute_offset;
         pushConstantRange.size = pushConstantBlockVariable->size;
     }
