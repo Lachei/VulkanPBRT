@@ -4,7 +4,10 @@ file(GLOB_RECURSE VSG_SRC src/
     *.cpp
     +.h
 )
-list(FILTER VSG_SRC EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/vsg/src/imgui/.*" )
+file(GLOB_RECURSE VSG_IMGUI_SRC src/imgui/*)
+foreach(source ${VSG_IMGUI_SRC})
+    list(REMOVE_ITEM VSG_SRC ${source})
+endforeach()
 
 file(GLOB IMGUI_SRC src/imgui/imgui.cpp
     src/imgui/imgui_demo.cpp
