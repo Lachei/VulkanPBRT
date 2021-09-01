@@ -46,9 +46,11 @@ void TopLevelAccelerationStructure::compile(Context& context)
     _instances = VkGeometryInstanceArray::create(static_cast<uint32_t>(geometryInstances.size()));
 
     // compile the referenced bottom level acceleration structures and add geom instance to instances array
+    VkGeometryFlagsKHR geometryFlags{};
     for (uint32_t i = 0; i < geometryInstances.size(); i++)
     {
         geometryInstances[i]->accelerationStructure->compile(context);
+        geometryFlags |= geometryInstances[i]->geometryFlags;
         _instances->set(i, *geometryInstances[i]);
     }
 
@@ -67,7 +69,7 @@ void TopLevelAccelerationStructure::compile(Context& context)
     VkAccelerationStructureGeometryKHR accelerationStructureGeometry{};
     accelerationStructureGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
     accelerationStructureGeometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
-    accelerationStructureGeometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+    accelerationStructureGeometry.flags = geometryFlags;
     accelerationStructureGeometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
     accelerationStructureGeometry.geometry.instances.arrayOfPointers = VK_FALSE;
     accelerationStructureGeometry.geometry.instances.data.deviceAddress = extensions->vkGetBufferDeviceAddressKHR(*context.device, &bufferDeviceAddressInfo);

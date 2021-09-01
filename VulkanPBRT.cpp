@@ -267,8 +267,8 @@ int main(int argc, char** argv){
         renderGraph->clearValues.clear();   //removing clear values to avoid clearing the raytraced image
         //auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(blender->finalImage->imageInfoList[0].imageView, window);
         //auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bfr16->taaPipeline->finalImage->imageInfoList[0].imageView, window);
-        //auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(illuminationBuffer->illuminationImages[0]->imageInfoList[0].imageView, window);
-        auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bmfr32->taaPipeline->finalImage->imageInfoList[0].imageView, window);
+        auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(illuminationBuffer->illuminationImages[0]->imageInfoList[0].imageView, window);
+        //auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bmfr32->taaPipeline->finalImage->imageInfoList[0].imageView, window);
 
         commandGraph->addChild(scenegraph);
         commandGraph->addChild(copyImageViewToWindow);

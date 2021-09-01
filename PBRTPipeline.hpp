@@ -116,6 +116,15 @@ public:
     }
 
     void setTlas(vsg::ref_ptr<vsg::AccelerationStructure> as){
+        auto tlas = as.cast<vsg::TopLevelAccelerationStructure>();
+        assert(tlas);
+        for(int i = 0; i < tlas->geometryInstances.size(); ++i){
+            if(opaqueGeometries[i])
+                tlas->geometryInstances[i]->shaderOffset = 0;
+            else
+                tlas->geometryInstances[i]->shaderOffset = 1;
+                tlas->geometryInstances[i]->geometryFlags = VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR;
+        }
         auto accelDescriptor = vsg::DescriptorAccelerationStructure::create(vsg::AccelerationStructures{as}, 0, 0);
         bindRayTracingDescriptorSet->descriptorSet->descriptors.push_back(accelDescriptor);
     }
@@ -249,6 +258,8 @@ public:
     //binding map containing all descriptor bindings in the shaders
     vsg::BindingMap bindingMap;
 protected:
+    std::vector<bool> opaqueGeometries;
+
     class ConstantInfosValue : public vsg::Inherit<vsg::Value<ConstantInfos>, ConstantInfosValue>{
         public:
         ConstantInfosValue(){}
@@ -265,24 +276,27 @@ protected:
         std::string raymissPath = "shaders/miss.rmiss.spv";
         std::string shadowMissPath = "shaders/shadow.rmiss.spv";
         std::string closesthitPath = "shaders/pbr_closesthit.rchit.spv";
+        std::string anyHitPath = "shaders/alpha_hit.rahit.spv";
 
         raygenShader = vsg::ShaderStage::read(VK_SHADER_STAGE_RAYGEN_BIT_KHR, "main", raygenPath);
         auto raymissShader = vsg::ShaderStage::read(VK_SHADER_STAGE_MISS_BIT_KHR, "main", raymissPath);
         auto shadowMissShader = vsg::ShaderStage::read(VK_SHADER_STAGE_MISS_BIT_KHR, "main", shadowMissPath);
         auto closesthitShader = vsg::ShaderStage::read(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, "main", closesthitPath);
-        if(!raygenShader || !raymissShader || !closesthitShader || !shadowMissShader){
+        auto anyHitShader = vsg::ShaderStage::read(VK_SHADER_STAGE_ANY_HIT_BIT_KHR, "main", anyHitPath);
+        if(!raygenShader || !raymissShader || !closesthitShader || !shadowMissShader || !anyHitShader){
             throw vsg::Exception{"Error: vcreate PBRTPipeline(...) failed to create shader stages."};
         }
         bindingMap = vsg::ShaderStage::mergeBindingMaps(
             {raygenShader->getDescriptorSetLayoutBindingsMap(), 
             raymissShader->getDescriptorSetLayoutBindingsMap(),
             shadowMissShader->getDescriptorSetLayoutBindingsMap(),
-            closesthitShader->getDescriptorSetLayoutBindingsMap()});
+            closesthitShader->getDescriptorSetLayoutBindingsMap(),
+            anyHitShader->getDescriptorSetLayoutBindingsMap()});
 
         auto descriptorSetLayout = vsg::DescriptorSetLayout::create(bindingMap.begin()->second.bindings);
         //auto rayTracingPipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, vsg::PushConstantRanges{{VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, sizeof(RayTracingPushConstants)}});
         auto rayTracingPipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, raygenShader->getPushConstantRanges());
-        auto shaderStage = vsg::ShaderStages{raygenShader, raymissShader, shadowMissShader, closesthitShader};
+        auto shaderStage = vsg::ShaderStages{raygenShader, raymissShader, shadowMissShader, closesthitShader, anyHitShader};
         auto raygenShaderGroup = vsg::RayTracingShaderGroup::create();
         raygenShaderGroup->type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR;
         raygenShaderGroup->generalShader = 0;
@@ -295,11 +309,15 @@ protected:
         auto closesthitShaderGroup = vsg::RayTracingShaderGroup::create();
         closesthitShaderGroup->type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
         closesthitShaderGroup->closestHitShader = 3;
+        auto transparenthitShaderGroup = vsg::RayTracingShaderGroup::create();
+        transparenthitShaderGroup->type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
+        transparenthitShaderGroup->closestHitShader = 3;
+        transparenthitShaderGroup->anyHitShader = 4;
         auto shaderGroups = vsg::RayTracingShaderGroups{raygenShaderGroup, raymissShaderGroup, shadowMissShaderGroup, closesthitShaderGroup};
         shaderBindingTable = vsg::RayTracingShaderBindingTable::create();
         shaderBindingTable->bindingTableEntries.raygenGroups = {raygenShaderGroup};
         shaderBindingTable->bindingTableEntries.raymissGroups = {raymissShaderGroup, shadowMissShaderGroup};
-        shaderBindingTable->bindingTableEntries.hitGroups = {closesthitShaderGroup};
+        shaderBindingTable->bindingTableEntries.hitGroups = {closesthitShaderGroup, transparenthitShaderGroup};
         auto pipeline = vsg::RayTracingPipeline::create(rayTracingPipelineLayout, shaderStage, shaderGroups, shaderBindingTable, 2 * maxRecursionDepth);
         bindRayTracingPipeline = vsg::BindRayTracingPipeline::create(pipeline);
 
@@ -307,12 +325,12 @@ protected:
         CreateRayTracingDescriptorTraversal buildDescriptorBinding;
         scene->accept(buildDescriptorBinding);
         bindRayTracingDescriptorSet = buildDescriptorBinding.getBindDescriptorSet(rayTracingPipelineLayout, bindingMap);
+        opaqueGeometries = buildDescriptorBinding.isOpaque;
 
         //creating the constant infos uniform buffer object
         auto constantInfos = ConstantInfosValue::create();
         constantInfos->value().lightCount = buildDescriptorBinding.packedLights.size();
         constantInfos->value().maxRecursionDepth = maxRecursionDepth;
-        constantInfos->value().minRecursionDepth = maxRecursionDepth;
         uint uniformBufferBinding = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Infos").second;
         auto constantInfosDescriptor = vsg::DescriptorBuffer::create(constantInfos, uniformBufferBinding, 0);
         bindRayTracingDescriptorSet->descriptorSet->descriptors.push_back(constantInfosDescriptor);

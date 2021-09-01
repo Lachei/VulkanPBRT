@@ -1,0 +1,58 @@
+#version 460
+#extension GL_EXT_ray_tracing : require
+#extension GL_EXT_nonuniform_qualifier : enable
+
+#include "general.glsl"
+layout(binding = 2, set = 0) buffer Pos {float p[]; }     pos[];  //non interleaved positions, normals and texture arrays
+layout(binding = 3, set = 0) buffer Nor {float n[]; }     nor[];
+layout(binding = 4, set = 0) buffer Tex {float t[]; }     tex[];
+layout(binding = 5, set = 0) buffer Ind {uint i[]; }      ind[];
+layout(binding = 6) uniform sampler2D diffuseMap[];
+layout(binding = 14) buffer Instances{ObjectInstance i[]; } instances;
+
+hitAttributeEXT vec2 attribs;
+
+
+// alpha threshold used to reject intersection
+const float alphaTresh = .01f;
+
+// shader checks if alpha is higher than a 
+void main(){
+    ObjectInstance instance = instances.i[gl_InstanceCustomIndexEXT];
+    uint objId = int(instance.meshId);
+    uint indexStride = int(instances.i[gl_InstanceCustomIndexEXT].indexStride);
+    uvec3 index;
+    if(indexStride == 4)  //full uints are in the indexbuffer
+      index = ivec3(ind[nonuniformEXT(objId)].i[3 * gl_PrimitiveID], ind[nonuniformEXT(objId)].i[3 * gl_PrimitiveID + 1], ind[nonuniformEXT(objId)].i[3 * gl_PrimitiveID + 2]);
+    else                  //only ushorts are in the indexbuffer
+    {
+      int full = 3 * gl_PrimitiveID;
+      uint p = uint(full * .5f);
+      if(bool(full & 1)){   //not dividable by 2, second half of p + both places of p + 1
+        index.x = ind[nonuniformEXT(objId)].i[p] >> 16;
+        uint t = ind[nonuniformEXT(objId)].i[p + 1];
+        index.z = t >> 16;
+        index.y = t & 0xffff;
+      }
+      else{           //dividable by 2, full p plus first halv of p + 1
+        uint t = ind[nonuniformEXT(objId)].i[p];
+        index.y = t >> 16;
+        index.x = t & 0xffff;
+        index.z = ind[nonuniformEXT(objId)].i[p + 1] & 0xffff;
+      }
+    }
+
+    vec2 uv0, uv1, uv2;
+    uv0.x = tex[nonuniformEXT(objId)].t[2 * index.x];
+    uv0.y = tex[nonuniformEXT(objId)].t[2 * index.x + 1];
+    uv1.x = tex[nonuniformEXT(objId)].t[2 * index.y];
+    uv1.y = tex[nonuniformEXT(objId)].t[2 * index.y + 1];
+    uv2.x = tex[nonuniformEXT(objId)].t[2 * index.z];
+    uv2.y = tex[nonuniformEXT(objId)].t[2 * index.z + 1];
+    const vec3 bar = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
+    vec2 texCoord = uv0 * bar.x + uv1 * bar.y + uv2 * bar.z;
+    vec4 diffuse = texture(diffuseMap[nonuniformEXT(objId)], texCoord);
+    if(diffuse.a < alphaTresh){
+        ignoreIntersectionEXT;
+    }
+}
