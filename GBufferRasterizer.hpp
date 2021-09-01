@@ -24,6 +24,8 @@ public:
     vsg::ref_ptr<vsg::BindDescriptorSet> bindDescriptorSet;
     vsg::ref_ptr<vsg::RenderPass> renderPass;
     vsg::ref_ptr<vsg::Framebuffer> frameBuffer;
+    vsg::ref_ptr<vsg::ImageView> depth;
+    vsg::ref_ptr<vsg::RenderGraph> renderGraph;
 protected:
     uint width, height;
     bool doubleSided, blend;
@@ -121,52 +123,35 @@ protected:
 
         auto renderPass = vsg::RenderPass::create(device, attachments, subpasses, dependencies);
 
-        auto albedoImage = vsg::Image::create();
-        albedoImage->format = VK_FORMAT_R8G8B8A8_UNORM;
-        albedoImage->extent = {width, height, 1};
-        albedoImage->mipLevels = 1;
-        albedoImage->arrayLayers = 1;
-        albedoImage->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
-
-        auto positionImage = vsg::Image::create();
-        positionImage->format = VK_FORMAT_R32G32B32_SFLOAT;
-        positionImage->extent = {width, height, 1};
-        positionImage->mipLevels = 1;
-        positionImage->arrayLayers = 1;
-        positionImage->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
-
-        auto normalImage = vsg::Image::create();
-        normalImage->format = VK_FORMAT_R32G32_SFLOAT;
-        normalImage->extent = {width, height, 1};
-        normalImage->mipLevels = 1;
-        normalImage->arrayLayers = 1;
-        normalImage->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
-
-        auto materialImage = vsg::Image::create();
-        materialImage->format = VK_FORMAT_R32G32B32A32_SFLOAT;
-        materialImage->extent = {width, height, 1};
-        materialImage->mipLevels = 1;
-        materialImage->arrayLayers = 1;
-        materialImage->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
-
         auto depthImage = vsg::Image::create();
-        positionImage->format = VK_FORMAT_R32_SFLOAT;
-        positionImage->extent = {width, height, 1};
-        positionImage->mipLevels = 1;
-        positionImage->arrayLayers = 1;
-        positionImage->usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-
-
+        depthImage->format = VK_FORMAT_R32_SFLOAT;
+        depthImage->extent = {width, height, 1};
+        depthImage->mipLevels = 1;
+        depthImage->arrayLayers = 1;
+        depthImage->usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
         vsg::ImageViews attachmentViews{
-            vsg::ImageView::create(albedoImage),
-            vsg::ImageView::create(positionImage),
-            vsg::ImageView::create(normalImage),
-            vsg::ImageView::create(materialImage),
+            gBuffer->albedo->imageInfoList[0].imageView,
+            gBuffer->depth->imageInfoList[0].imageView,
+            gBuffer->normal->imageInfoList[0].imageView,
+            gBuffer->material->imageInfoList[0].imageView,
             vsg::ImageView::create(depthImage)
         };
 
         frameBuffer = vsg::Framebuffer::create(renderPass, attachmentViews, width, height, 1);
 
+        // we are using a rendergraph to set the framebuffer and renderpass
+        // see https://github.com/vsg-dev/vsgExamples/blob/master/examples/viewer/vsgrendertotexture/vsgrendertotexture.cpp
+        // for usage of offline rendering
+        auto renderGraph = vsg::RenderGraph::create();
+        renderGraph->renderArea.offset = {0,0};
+        renderGraph->renderArea.extent = {width, height};
+        renderGraph->framebuffer = frameBuffer;
+
+        renderGraph->clearValues.resize(dependencies.size(), {});
+        renderGraph->clearValues.back().depthStencil = {1,0};
+
+        //TODO: maybe create viewer already here, however requires scenen information.
+        // According to my current knowledge this is preferred, as the scene graph has to be transformed anyway to only use this pipeline
     }
 };
