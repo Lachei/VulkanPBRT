@@ -4,6 +4,7 @@
 #include "GBuffer.hpp"
 #include "IlluminationBuffer.hpp"
 #include "RayTracingVisitor.hpp"
+#include "AccumulationBuffer.hpp"
 
 class PBRTPipeline: public vsg::Inherit<vsg::Object, PBRTPipeline>{
 public:
@@ -90,7 +91,6 @@ public:
             image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
             auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
             vsg::ImageInfo imageInfo{sampler, imageView, VK_IMAGE_LAYOUT_GENERAL};
-            int demodAccIndex = vsg::ShaderStage::getSetBindingIndex(bindingMap, "prevOutput").second;
             demodAcc = vsg::DescriptorImage::create(imageInfo, demodAccIndex, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
             bindRayTracingDescriptorSet->descriptorSet->descriptors.push_back(demodAcc);
 
@@ -109,7 +109,6 @@ public:
             image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
             imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
             imageInfo = {sampler, imageView, VK_IMAGE_LAYOUT_GENERAL};
-            int demodAccSquaredIndex = vsg::ShaderStage::getSetBindingIndex(bindingMap, "prevIlluminationSquared").second;
             demodAccSquared = vsg::DescriptorImage::create(imageInfo, demodAccSquaredIndex, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
             bindRayTracingDescriptorSet->descriptorSet->descriptors.push_back(demodAccSquared);        
         }
@@ -130,30 +129,21 @@ public:
     }
 
     void compileImages(vsg::Context& context){
-        sampleAcc->compile(context);
-        if(demodAcc)
-            demodAcc->compile(context);
-        if(demodAccSquared)
-            demodAccSquared->compile(context);
+        gBuffer->compile(context);
+        illuminationBuffer->compile(context);
+        accumulationBuffer->compile(context);
     }
 
     void updateImageLayouts(vsg::Context& context){
-        auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT);
-        VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0 , 1, 0, 1};
-        auto sampleAccLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, 0, 0, sampleAcc->imageInfoList[0].imageView->image, resourceRange);
-        pipelineBarrier->imageMemoryBarriers.push_back(sampleAccLayout);
-        if(demodAcc){
-            auto demodAccLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, 0, 0, demodAcc->imageInfoList[0].imageView->image, resourceRange);
-            pipelineBarrier->imageMemoryBarriers.push_back(demodAccLayout);
-        }
-        if(demodAccSquared){
-            auto demodAccLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, 0, 0, demodAccSquared->imageInfoList[0].imageView->image, resourceRange);
-            pipelineBarrier->imageMemoryBarriers.push_back(demodAccLayout);
-        }
-        context.commands.push_back(pipelineBarrier);
+        gBuffer->updateImageLayouts(context);
+        illuminationBuffer->updateImageLayouts(context);
+        accumulationBuffer->updateImageLayouts(context);
     }
 
     void copyToAccImages(vsg::ref_ptr<vsg::Commands> commands){
+        accumulationBuffer->copyToBackImages(commands, gBuffer, illuminationBuffer);
+
+        //TODO: move to accumulation buffer
         auto srcImage = gBuffer->sample->imageInfoList[0].imageView->image;
         auto dstImage = sampleAcc->imageInfoList[0].imageView->image;
 
@@ -237,7 +227,8 @@ public:
 
     uint width, height, maxRecursionDepth, samplePerPixel;
     vsg::ref_ptr<GBuffer> gBuffer;
-    vsg::ref_ptr<IlluminationBuffer> illuminationBuffer;        //has to be set externally
+    vsg::ref_ptr<IlluminationBuffer> illuminationBuffer;        //is retrieved in the constructor
+    vsg::ref_ptr<AccumulationBuffer> accumulationBuffer;
     vsg::ref_ptr<vsg::ShaderStage> raygenShader;
 
     //resources which have to be added as childs to a scenegraph for rendering
@@ -246,14 +237,8 @@ public:
     vsg::ref_ptr<vsg::PushConstants> pushConstants;
     vsg::ref_ptr<vsg::TraceRays> traceRays;
 
-    //optional resources for data accumulation
-    vsg::ref_ptr<vsg::DescriptorImage> demodAcc, demodAccSquared, sampleAcc;
-
     //shader binding table for trace rays
     vsg::ref_ptr<vsg::RayTracingShaderBindingTable> shaderBindingTable;
-
-    //general bilinear sampler
-    vsg::ref_ptr<vsg::Sampler> sampler;
 
     //binding map containing all descriptor bindings in the shaders
     vsg::BindingMap bindingMap;
@@ -268,8 +253,9 @@ protected:
     bool useExternalGBuffer;
 
     void setupPipeline(vsg::Node* scene){
-        //creating standard bilinear sampler
-        sampler = vsg::Sampler::create();
+        accumulationBuffer = AccumulationBuffer::create(width, height);
+
+        setupAccumulationImages();
 
         //creating the shader stages and shader binding table
         std::string raygenPath = "shaders/raygen.rgen.spv";     //default reaygen shader
@@ -337,26 +323,5 @@ protected:
 
         //adding gbuffer bindings to the descriptor
         gBuffer->updateDescriptor(bindRayTracingDescriptorSet, bindingMap);
-        setupAccumulationImages();
-
-        //creating sample accumulation image
-        auto image = vsg::Image::create();
-        image->imageType = VK_IMAGE_TYPE_2D;
-        image->format = VK_FORMAT_R8_UNORM;
-        image->extent.width = width;
-        image->extent.height = height;
-        image->extent.depth = 1;
-        image->mipLevels = 1;
-        image->arrayLayers = 1;
-        image->samples = VK_SAMPLE_COUNT_1_BIT;
-        image->tiling = VK_IMAGE_TILING_OPTIMAL;
-        image->usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-        image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-        vsg::ImageInfo imageInfo{sampler, imageView, VK_IMAGE_LAYOUT_GENERAL};
-        int sampleAccIndex = vsg::ShaderStage::getSetBindingIndex(bindingMap, "prevSampleCounts").second;
-        sampleAcc = vsg::DescriptorImage::create(imageInfo, sampleAccIndex, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-        bindRayTracingDescriptorSet->descriptorSet->descriptors.push_back(sampleAcc);
     }
 };
