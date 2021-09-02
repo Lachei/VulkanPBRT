@@ -139,7 +139,7 @@ vec3 sampleLight(vec3 pos, vec3 n, out vec3 l, out float pdf)
       vec3 origin = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
       float tmin = 0.001;
 	    float tmax = 1000.0;
-      traceRayEXT(tlas, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xFF, 0, 0, 1, origin, tmin, l, tmax, 0);
+      traceRayEXT(tlas, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsNoOpaqueEXT, 0xFF, 0, 0, 1, origin, tmin, l, tmax, 0);
       return lightStrength * float(!shadowed);
     }
     curStrength += strength;
