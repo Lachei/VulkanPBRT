@@ -18,8 +18,6 @@ const float alphaThresh = .01f;
 
 // shader checks if alpha is higher than a threshold
 void main(){
-  ignoreIntersectionEXT;
-  return;
   ObjectInstance instance = instances.i[gl_InstanceCustomIndexEXT];
   uint objId = int(instance.meshId);
   uint indexStride = int(instances.i[gl_InstanceCustomIndexEXT].indexStride);

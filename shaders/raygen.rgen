@@ -35,7 +35,7 @@ layout(push_constant) uniform PushConstants
 
 layout(location = 1) rayPayloadEXT RayPayload rayPayload;
 
-uint rayFlags = gl_RayFlagsOpaqueEXT;
+uint rayFlags = gl_RayFlagsNoOpaqueEXT | gl_RayFlagsOpaqueEXT;
 uint cullMask = 0xff;
 float tmin = 0.001;
 float tmax = 10000.0;
@@ -175,7 +175,7 @@ void main()
 
 	finalColor = LINEARtoSRGB(vec4(finalColor, 1)).xyz;
 	
-	imageStore(outputImage, ivec2(gl_LaunchIDEXT.xy), vec4(curAlbedo, 1));
+	imageStore(outputImage, ivec2(gl_LaunchIDEXT.xy), vec4(finalColor, 1));
 	imageStore(illumination, ivec2(gl_LaunchIDEXT.xy), vec4(demodulated, 1));
 	imageStore(illuminationSquared, ivec2(gl_LaunchIDEXT.xy), vec4(demodSquared, 1));
 }
