@@ -313,7 +313,7 @@ protected:
         transparenthitShaderGroup->type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
         transparenthitShaderGroup->closestHitShader = 3;
         transparenthitShaderGroup->anyHitShader = 4;
-        auto shaderGroups = vsg::RayTracingShaderGroups{raygenShaderGroup, raymissShaderGroup, shadowMissShaderGroup, closesthitShaderGroup};
+        auto shaderGroups = vsg::RayTracingShaderGroups{raygenShaderGroup, raymissShaderGroup, shadowMissShaderGroup, closesthitShaderGroup, transparenthitShaderGroup};
         shaderBindingTable = vsg::RayTracingShaderBindingTable::create();
         shaderBindingTable->bindingTableEntries.raygenGroups = {raygenShaderGroup};
         shaderBindingTable->bindingTableEntries.raymissGroups = {raymissShaderGroup, shadowMissShaderGroup};
