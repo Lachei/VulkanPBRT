@@ -72,6 +72,7 @@ namespace vsg
         uint32_t mask;
         uint32_t shaderOffset;
         uint32_t flags;
+        VkGeometryFlagsKHR geometryFlags = VK_GEOMETRY_OPAQUE_BIT_KHR;
         ref_ptr<BottomLevelAccelerationStructure> accelerationStructure;
     };
     using GeometryInstances = std::vector<ref_ptr<GeometryInstance>>;

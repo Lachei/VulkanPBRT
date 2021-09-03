@@ -152,6 +152,6 @@ protected:
         renderGraph->clearValues.back().depthStencil = {1,0};
 
         //TODO: maybe create viewer already here, however requires scenen information.
-        // According to my current knowledge this is preferred, as the scene graph has to be transformed anyway to only use this pipeline
+        // According to my current knowledge this is preferred, as the scene graph has to be transformed anyway to only use this graphics pipeline
     }
 };

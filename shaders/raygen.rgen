@@ -35,7 +35,7 @@ layout(push_constant) uniform PushConstants
 
 layout(location = 1) rayPayloadEXT RayPayload rayPayload;
 
-uint rayFlags = gl_RayFlagsOpaqueEXT;
+uint rayFlags = gl_RayFlagsNoOpaqueEXT | gl_RayFlagsOpaqueEXT;
 uint cullMask = 0xff;
 float tmin = 0.001;
 float tmax = 10000.0;
@@ -60,10 +60,7 @@ vec3 indirectLighting(vec3 pos, vec3 v, SurfaceInfo s, int recDepth){
 
   rayPayload.throughput = pathThroughput;
   traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, pos, tmin, l, tmax, 1);
-  for(int i = 0; i < 5 && rayPayload.albedo.a == 0; ++i){
-	pos = rayPayload.position.xyz;
-	traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, pos, tmin, l, tmax, 1);
-  }
+
   return min(rayPayload.color, vec3(c_MaxRadiance));
 }
 
@@ -84,10 +81,6 @@ void main()
 
 	//first hit infos
 	traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, worldSpacePos.xyz, tmin, worldSpaceDir.xyz, tmax, 1);
-	for(int i = 0; i < 5 && rayPayload.albedo.a == 0; ++i){
-		worldSpacePos.xyz = rayPayload.position.xyz;
-		traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, worldSpacePos.xyz, tmin, worldSpaceDir.xyz, tmax, 1);
-	}
 
 	imageStore(depthImage, ivec2(gl_LaunchIDEXT.xy), vec4(distance(rayPayload.position, worldSpacePos.xyz)));
 	vec2 compressedNormal;

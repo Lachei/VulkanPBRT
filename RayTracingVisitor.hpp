@@ -89,10 +89,11 @@ public:
         sg.traverse(*this);
     }
 
-    //getting the texture samplers of the descriptor sets
+    //getting the texture samplers of the descriptor sets and checking for opaqueness
     void apply(vsg::BindDescriptorSet &bds){
         // TODO: every material that is not set should get a default material assigned
         std::set<int> setTextures;
+        isOpaque.push_back(true);
         for(const auto& descriptor: bds.descriptorSet->descriptors)
         {
             if(descriptor->descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) //pbr material
@@ -122,6 +123,23 @@ public:
                 texture = vsg::DescriptorImage::create(d->imageInfoList, 6, _diffuse.size());
                 _diffuse.push_back(texture);
                 setTextures.insert(6);
+                // check for opaqueness
+                {
+                    auto data = d->imageInfoList[0].imageView->image->data;
+                    //int amt = data->dataSize() / data->stride();
+                    for(int i = 0; i < data->dataSize() / data->stride() && isOpaque.back(); ++i){
+                        void* d = static_cast<char*>(data->dataPointer()) + i * data->stride();
+                        switch(data->getLayout().format){
+                            case VK_FORMAT_R32G32B32A32_SFLOAT:
+                                if(static_cast<float*>(d)[3] < .01f) isOpaque.back() = false;
+                                break;
+                            case VK_FORMAT_R8G8B8A8_UNORM:
+                            case VK_FORMAT_B8G8R8A8_UNORM:
+                                if(static_cast<uint8_t*>(d)[3] < .01f * 255) isOpaque.back() = false;
+                                break;
+                        }
+                    }
+                }
                 break;
             case 1: //metall roughness map
                 texture = vsg::DescriptorImage::create(d->imageInfoList, 7, _mr.size());
@@ -297,6 +315,8 @@ public:
 
     //holds the binding command for the raytracing decriptor
     std::vector<vsg::Light::PackedLight> packedLights;
+    //holds information about each geometry if it is opaque
+    std::vector<bool> isOpaque;
 protected:
     struct ObjectInstance{
         vsg::mat4 objectMat;
