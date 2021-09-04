@@ -5,8 +5,8 @@
 // Further the spacial features used for feature fitting are in screen space to reduce calculation efforts.
 
 #include <vsg/all.h>
-#include "PBRTPipeline.hpp"
-#include "TAA/taa.hpp"
+#include "../PBRTPipeline.hpp"
+#include "../TAA/taa.hpp"
 
 class BMFR: public vsg::Inherit<vsg::Object, BMFR>{
 public:
@@ -22,7 +22,7 @@ public:
     vsg::ref_ptr<vsg::BindDescriptorSet> bindDescriptorSet;
     vsg::ref_ptr<Taa> taaPipeline;
 
-    BMFR(uint width, uint height, uint workWidth, uint workHeight, vsg::ref_ptr<PBRTPipeline> pbrtPipeline, uint fittingKernel = 256):
+    BMFR(uint width, uint height, uint workWidth, uint workHeight, vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<IlluminationBuffer> illuBuffer, vsg::ref_ptr<AccumulationBuffer> accBuffer, uint fittingKernel = 256):
     width(width),
     height(height),
     workWidth(workWidth),
@@ -30,11 +30,11 @@ public:
     fittingKernel(fittingKernel),
     widthPadded((width / workWidth + 1) * workWidth),
     heightPadded((height / workHeight + 1) * workHeight),
-    gBuffer(pbrtPipeline->gBuffer),
+    gBuffer(gBuffer),
     sampler(vsg::Sampler::create())
     {
-        if(!pbrtPipeline->illuminationBuffer.cast<IlluminationBufferFinalDemodulated>()) return;        //demodulated illumination needed 
-        auto illumination = pbrtPipeline->illuminationBuffer;
+        if(!illuBuffer.cast<IlluminationBufferFinalDemodulated>()) return;        //demodulated illumination needed 
+        auto illumination = illuBuffer;
         std::string preShaderPath = "shaders/bmfrPre.comp.spv";
         std::string fitShaderPath = "shaders/bmfrFit.comp.spv";
         std::string postShaderPath = "shaders/bmfrPost.comp.spv";
@@ -160,8 +160,8 @@ public:
             vsg::DescriptorImage::create(gBuffer->normal->imageInfoList[0], normalBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
             vsg::DescriptorImage::create(gBuffer->material->imageInfoList[0], materialBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
             vsg::DescriptorImage::create(gBuffer->albedo->imageInfoList[0], albedoBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
-            vsg::DescriptorImage::create(gBuffer->motion->imageInfoList[0], motionBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
-            vsg::DescriptorImage::create(gBuffer->sample->imageInfoList[0], sampleBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
+            vsg::DescriptorImage::create(accBuffer->motion->imageInfoList[0], motionBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
+            vsg::DescriptorImage::create(accBuffer->spp->imageInfoList[0], sampleBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
             vsg::DescriptorImage::create(illumination->illuminationImages[1]->imageInfoList[0], noisyBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
             accumulatedIllumination,
             finalIllumination,
@@ -181,12 +181,12 @@ public:
         bindFitPipeline = vsg::BindComputePipeline::create(bmfrFitPipeline);
         bindPostPipeline = vsg::BindComputePipeline::create(bmfrPostPipeline);
 
-        taaPipeline = Taa::create(width, height, workWidth, workHeight, gBuffer, finalIllumination);
+        taaPipeline = Taa::create(width, height, workWidth, workHeight, gBuffer, accBuffer, finalIllumination);
     }
 
     void addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants){
         auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT);
-        uint dispatchX = uint(ceil(float(width) / float(workWidth))), dispatchY = uint(ceil(float(height) / float(workHeight)));
+        uint dispatchX = widthPadded / workWidth, dispatchY = heightPadded / workHeight;
         // pre pipeline
         commandGraph->addChild(bindPrePipeline);
         commandGraph->addChild(bindDescriptorSet);
@@ -232,6 +232,6 @@ public:
         auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
             accIlluLayout, finalIluLayout, featureBufferLayout, weightsLayout);
         context.commands.push_back(pipelineBarrier);
-        taaPipeline->updateImageLayout(context);
+        taaPipeline->updateImageLayouts(context);
     }
 };

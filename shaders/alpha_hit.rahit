@@ -16,7 +16,7 @@ hitAttributeEXT vec2 attribs;
 // alpha threshold used to reject intersection
 const float alphaThresh = .01f;
 
-// shader checks if alpha is higher than a threshold
+// shader checks if alpha is higher than a threshold, rejects surface points with too low alpha
 void main(){
   ObjectInstance instance = instances.i[gl_InstanceCustomIndexEXT];
   uint objId = int(instance.meshId);

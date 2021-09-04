@@ -5,7 +5,7 @@ class Taa: public vsg::Inherit<vsg::Object, Taa>{
 public:
     uint denoisedBinding = 1, motionBinding = 0, finalImageBinding = 2, accumulationBinding = 3;
 
-    Taa(uint width, uint height, uint workWidth, uint workHeight, vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<vsg::DescriptorImage> denoised):
+    Taa(uint width, uint height, uint workWidth, uint workHeight, vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<AccumulationBuffer> accBuffer, vsg::ref_ptr<vsg::DescriptorImage> denoised):
     width(width),
     height(height),
     workWidth(workWidth),
@@ -67,7 +67,7 @@ public:
         //filling descriptor set
         //vsg::Descriptors descriptors{vsg::DescriptorBuffer::create(vsg::BufferInfoList{vsg::BufferInfo(buffer, 0, bufferSize)}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)};
         auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{
-            vsg::DescriptorImage::create(gBuffer->motion->imageInfoList[0], motionBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
+            vsg::DescriptorImage::create(accBuffer->motion->imageInfoList[0], motionBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
             vsg::DescriptorImage::create(denoised->imageInfoList[0], denoisedBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
             finalImage,
             accumulationImage
@@ -92,7 +92,7 @@ public:
         accumulationImage->compile(context);
     }
 
-    void updateImageLayout(vsg::Context& context){
+    void updateImageLayouts(vsg::Context& context){
         VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0 , 1, 0, 1};
         auto accumulationLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, 0, 0, accumulationImage->imageInfoList[0].imageView->image, resourceRange);
         auto finalLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, 0, 0, finalImage->imageInfoList[0].imageView->image, resourceRange);

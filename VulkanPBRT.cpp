@@ -6,10 +6,10 @@
 #include "RayTracingVisitor.hpp"
 #include "PBRTPipeline.hpp"
 #include "IO/IO.hpp"
-#include "BFR/bfr.hpp"
+#include "Denoiser/BFR.hpp"
 #include "TAA/taa.hpp"
-#include "BFRBlender.hpp"
-#include "BMFR.hpp"
+#include "Denoiser/BFRBlender.hpp"
+#include "Denoiser/BMFR.hpp"
 #include "PipelineStructs.hpp"
 #include "CountTrianglesVisitor.hpp"
  
@@ -220,22 +220,22 @@ int main(int argc, char** argv){
         auto illuminationBuffer = IlluminationBufferFinalDemodulated::create(windowTraits->width, windowTraits->height);
         auto pbrtPipeline = PBRTPipeline::create(windowTraits->width, windowTraits->height, maxRecursionDepth, loaded_scene, illuminationBuffer);
         auto gBuffer = pbrtPipeline->gBuffer;
-        vsg::CompileTraversal imageLayoutCompile(window);
+        auto accumulationBuffer = pbrtPipeline->accumulationBuffer;
         pbrtPipeline->setTlas(tlas);
         
         // -------------------------------------------------------------------------------------
         // creation of all denoising types
-        // Note: only used pipelines will be created. Creation hapens upon call of compile()
+        // Note: only used pipelines will be created. Creation happens upon call of compile()
         // -------------------------------------------------------------------------------------
-        auto bfr8 = BFR::create(windowTraits->width, windowTraits->height, 8, 8, pbrtPipeline);
-        auto bfr16 = BFR::create(windowTraits->width, windowTraits->height, 16, 16, pbrtPipeline);
-        auto bfr32 = BFR::create(windowTraits->width, windowTraits->height, 32, 32, pbrtPipeline);
+        auto bfr8 = BFR::create(windowTraits->width, windowTraits->height, 8, 8, gBuffer, illuminationBuffer, accumulationBuffer);
+        auto bfr16 = BFR::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer, illuminationBuffer, accumulationBuffer);
+        auto bfr32 = BFR::create(windowTraits->width, windowTraits->height, 32, 32, gBuffer, illuminationBuffer, accumulationBuffer);
         auto blender = BFRBlender::create(windowTraits->width, windowTraits->height, 
                                         illuminationBuffer->illuminationImages[1], illuminationBuffer->illuminationImages[2],
                                         bfr8->taaPipeline->finalImage, bfr16->taaPipeline->finalImage, bfr32->taaPipeline->finalImage);
-        auto bmfr32 = BMFR::create(windowTraits->width, windowTraits->height, 32, 32, pbrtPipeline);
+        auto bmfr32 = BMFR::create(windowTraits->width, windowTraits->height, 32, 32, gBuffer, illuminationBuffer, accumulationBuffer);
 
-        guiValues->raysPerPixel = maxRecursionDepth * 2; //for each recursion one next event estimate is done
+        guiValues->raysPerPixel = maxRecursionDepth * 2; //for each depth recursion one next event estimate is done
 
         //state group to bind the pipeline and descriptorset
         auto scenegraph = vsg::Commands::create();
@@ -256,12 +256,9 @@ int main(int argc, char** argv){
         // image layout conversions and correct binding of different denoising tequniques
         // -------------------------------------------------------------------------------------
         vsg::ref_ptr<vsg::CopyImageViewToWindow> copyImageViewToWindow;
-        pbrtPipeline->compileImages(imageLayoutCompile.context);
+        vsg::CompileTraversal imageLayoutCompile(window);
+        pbrtPipeline->compile(imageLayoutCompile.context);
         pbrtPipeline->updateImageLayouts(imageLayoutCompile.context);
-        gBuffer->compile(imageLayoutCompile.context);
-        gBuffer->updateImageLayouts(imageLayoutCompile.context);
-        illuminationBuffer->compile(imageLayoutCompile.context);
-        illuminationBuffer->updateImageLayouts(imageLayoutCompile.context);
         switch(denoisingType){
         case DenoisingType::None:
             copyImageViewToWindow = vsg::CopyImageViewToWindow::create(illuminationBuffer->illuminationImages[0]->imageInfoList[0].imageView, window);
@@ -270,31 +267,31 @@ int main(int argc, char** argv){
             switch(denoisingBlockSize){
             case DenoisingBlockSize::x8:
                 bfr8->compile(imageLayoutCompile.context);
-                bfr8->updateImageLayout(imageLayoutCompile.context);
+                bfr8->updateImageLayouts(imageLayoutCompile.context);
                 bfr8->addDispatchToCommandGraph(scenegraph, computeConstants);
                 copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bfr8->taaPipeline->finalImage->imageInfoList[0].imageView, window);
                 break;
             case DenoisingBlockSize::x16:
                 bfr16->compile(imageLayoutCompile.context);
-                bfr16->updateImageLayout(imageLayoutCompile.context);
+                bfr16->updateImageLayouts(imageLayoutCompile.context);
                 bfr16->addDispatchToCommandGraph(scenegraph, computeConstants);
                 copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bfr16->taaPipeline->finalImage->imageInfoList[0].imageView, window);
                 break;
             case DenoisingBlockSize::x32:
                 bfr32->compile(imageLayoutCompile.context);
-                bfr32->updateImageLayout(imageLayoutCompile.context);
+                bfr32->updateImageLayouts(imageLayoutCompile.context);
                 bfr32->addDispatchToCommandGraph(scenegraph, computeConstants);
                 copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bfr32->taaPipeline->finalImage->imageInfoList[0].imageView, window);
                 break;
             case DenoisingBlockSize::x8x16x32:
                 bfr8->compile(imageLayoutCompile.context);
-                bfr8->updateImageLayout(imageLayoutCompile.context);
+                bfr8->updateImageLayouts(imageLayoutCompile.context);
                 bfr16->compile(imageLayoutCompile.context);
-                bfr16->updateImageLayout(imageLayoutCompile.context);
+                bfr16->updateImageLayouts(imageLayoutCompile.context);
                 bfr32->compile(imageLayoutCompile.context);
-                bfr32->updateImageLayout(imageLayoutCompile.context);
+                bfr32->updateImageLayouts(imageLayoutCompile.context);
                 blender->compile(imageLayoutCompile.context);
-                blender->updateImageLayout(imageLayoutCompile.context);
+                blender->updateImageLayouts(imageLayoutCompile.context);
                 bfr8->addDispatchToCommandGraph(scenegraph, computeConstants);
                 bfr16->addDispatchToCommandGraph(scenegraph, computeConstants);
                 bfr32->addDispatchToCommandGraph(scenegraph, computeConstants);
@@ -329,10 +326,7 @@ int main(int argc, char** argv){
 
         imageLayoutCompile.context.record();
 
-        illuminationBuffer->copyImage(scenegraph, 1, pbrtPipeline->demodAcc->imageInfoList[0].imageView->image);
-        illuminationBuffer->copyImage(scenegraph, 2, pbrtPipeline->demodAccSquared->imageInfoList[0].imageView->image);
-        gBuffer->copySampleImage(scenegraph, pbrtPipeline->sampleAcc->imageInfoList[0].imageView->image);
-        gBuffer->copyToPrevImages(scenegraph);
+        pbrtPipeline->cmdCopyToAccImages(scenegraph);
 
         auto viewport = vsg::ViewportState::create(0, 0, windowTraits->width, windowTraits->height);
         auto camera = vsg::Camera::create(perspective, lookAt, viewport);

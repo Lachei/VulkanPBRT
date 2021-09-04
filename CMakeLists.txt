@@ -15,7 +15,7 @@ set(vsg_glslang_DIR ${CMAKE_SOURCE_DIR}/vsg)
 find_dependency(vsg_glslang)
 
 add_subdirectory(vsg)
-add_subdirectory(BFR)
+add_subdirectory(Denoiser)
 add_subdirectory(TAA)
 set(IMGUI_HEADER
     vsg/src/imgui/)

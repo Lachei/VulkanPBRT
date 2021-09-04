@@ -69,29 +69,34 @@ void main()
 	rayPayload.re = rEInit(gl_LaunchIDEXT.xy, camParams.frameNumber);
 	rayPayload.throughput = vec3(1);
 	
-	const vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(.5);
+	vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(.5);
+	//pixelCenter += randomVec2(rayPayload.re) - .5;	//can not be done when reprojecting
 	const vec2 normalisedPixelCoord = pixelCenter/vec2(gl_LaunchSizeEXT.xy);
 	vec2 clipSpaceCoord = normalisedPixelCoord * 2.0 - 1.0;
-	//clipSpaceCoord += randomVec2(rayPayload.re) * .001;	//can not be done when reprojecting
 
 	vec4 worldSpacePos = camParams.inverseViewMatrix * vec4(0,0,0,1);
 	vec4 viewSpaceDir = camParams.inverseProjectionMatrix * vec4(clipSpaceCoord.x, clipSpaceCoord.y, 1, 1) ;
 	vec4 worldSpaceDir = camParams.inverseViewMatrix * vec4(normalize(viewSpaceDir.xyz), 0) ;
 
-
 	//first hit infos
 	traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, worldSpacePos.xyz, tmin, worldSpaceDir.xyz, tmax, 1);
 
-	imageStore(depthImage, ivec2(gl_LaunchIDEXT.xy), vec4(distance(rayPayload.position, worldSpacePos.xyz)));
+	// --------------------------------------------------------------------
+	// storing GBuffer information
+	// --------------------------------------------------------------------
+	float depth = distance(rayPayload.position, worldSpacePos.xyz);
+	imageStore(depthImage, ivec2(gl_LaunchIDEXT.xy), vec4(depth));
 	vec2 compressedNormal;
 	compressedNormal.x = acos(rayPayload.si.normal.z);
-	compressedNormal.y = atan(rayPayload.si.normal.y / rayPayload.si.normal.x);
+	compressedNormal.y = atan(rayPayload.si.normal.y, rayPayload.si.normal.x);
 	imageStore(normalImage, ivec2(gl_LaunchIDEXT.xy), vec4(compressedNormal, 1, 1));
 	imageStore(materialImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.reflector));
 	vec3 curAlbedo = rayPayload.albedo.xyz;
 	imageStore(albedoImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.albedo));
 
-	//accumulation with previous frames
+	// --------------------------------------------------------------------
+	// accumulation information
+	// --------------------------------------------------------------------
 	mat4 prevProj = inverse(camParams.inverseProjectionMatrix);
 	bool reprojected = false;
 	vec4 p = vec4(rayPayload.position, 1);
@@ -131,14 +136,10 @@ void main()
 		imageStore(motion, ivec2(gl_LaunchIDEXT.xy), vec4(-1));
 	}
 	imageStore(sampleCounts, ivec2(gl_LaunchIDEXT.xy), vec4(pixelSpp));
-
-	//final image color 
-	vec3 prevFrameColor = vec3(1.0/0);
-	if(camParams.steadyCamFrame > 0){
-		prevFrameColor = imageLoad(outputImage, ivec2(gl_LaunchIDEXT.xy)).xyz;
-	}
 	
+	// --------------------------------------------------------------------
 	//depth recursion
+	// --------------------------------------------------------------------
 	vec3 finalColor = rayPayload.color;
 	if(rayPayload.position != vec3(1.0/0)){
 		for(int i = 0; i < infos.maxRecursionDepth; ++i){
@@ -150,15 +151,23 @@ void main()
 		}
 	}
 
+	// --------------------------------------------------------------------
+	// final color calculations
+	// --------------------------------------------------------------------
 	finalColor = clamp(finalColor, 0, c_MaxRadiance);
 	vec3 demodulated = finalColor;
 	if(!isinf(rayPayload.position.x))
-		demodulated /= (curAlbedo.xyz + vec3(EPSILON));
+		demodulated /= (curAlbedo.xyz + vec3(EPSILON));	// epsilon added to avoid divion by 0 (when color is remodulated, epsilon is added to albedo)
 	vec3 demodSquared = demodulated * demodulated;
 	if(reprojected){
 		float blendAlpha = max(1.f / (pixelSpp * 256.0), BLEND_ALPHA);
 		demodulated = mix(prevColor, demodulated, blendAlpha);
 		demodSquared = mix(prevColorSquared, demodSquared, blendAlpha);
+	}
+
+	vec3 prevFrameColor = vec3(1.0/0);
+	if(camParams.steadyCamFrame > 0){
+		prevFrameColor = imageLoad(outputImage, ivec2(gl_LaunchIDEXT.xy)).xyz;
 	}
 
 	if(prevFrameColor != vec3(1.0/0)){
