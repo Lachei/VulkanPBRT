@@ -47,7 +47,7 @@ public:
         vsg::ImageInfo imageInfo = {nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
         accumulatedIllumination = vsg::DescriptorImage::create(imageInfo, denoisedIlluBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
         imageInfo.sampler = sampler;
-        auto sampledAccIllu = vsg::DescriptorImage::create(imageInfo, sampledDenIlluBinding, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        sampledAccIllu = vsg::DescriptorImage::create(imageInfo, sampledDenIlluBinding, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
         image = vsg::Image::create();
         image->imageType = VK_IMAGE_TYPE_2D;
@@ -116,6 +116,7 @@ public:
 
     void compile(vsg::Context& context){
         accumulatedIllumination->compile(context);
+        sampledAccIllu->compile(context);
         finalIllumination->compile(context);
         taaPipeline->compile(context);
     }
@@ -136,7 +137,7 @@ public:
     vsg::ref_ptr<vsg::BindComputePipeline> bindBfrPipeline;
     vsg::ref_ptr<vsg::BindDescriptorSet> bindDescriptorSet;
 
-    vsg::ref_ptr<vsg::DescriptorImage> accumulatedIllumination, finalIllumination;
+    vsg::ref_ptr<vsg::DescriptorImage> accumulatedIllumination, sampledAccIllu, finalIllumination;
     vsg::ref_ptr<Taa> taaPipeline;
 
     vsg::ref_ptr<vsg::Sampler> sampler;

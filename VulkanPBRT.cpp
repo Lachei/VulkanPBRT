@@ -59,7 +59,7 @@ int main(int argc, char** argv){
 
 #ifdef _DEBUG
         // overwriting command line options for debug
-        //windowTraits->debugLayer = true;
+        windowTraits->debugLayer = true;
         windowTraits->width = 1800;
         filename = getUserDirectory() + "Downloads/glTF-Sample-Models-master/2.0/Sponza/glTF/Sponza.gltf";//"/Downloads/teapot.obj";
 #endif
