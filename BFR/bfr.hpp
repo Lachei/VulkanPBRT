@@ -10,16 +10,16 @@ class BFR: public vsg::Inherit<vsg::Object, BFR>{
 public:
     uint depthBinding = 0, normalBinding = 1, materialBinding = 2, albedoBinding = 3, prevDepthBinding = -1, prevNormalBinding = -1, motionBinding = 4, sampleBinding = 5, sampledDenIlluBinding = 6, denoisedIlluBinding = 9, finalBinding = 7, noisyBinding = 8, denoisedBinding = 9;
     
-    BFR(uint width, uint height, uint workWidth, uint workHeight, vsg::ref_ptr<PBRTPipeline> pbrtPipeline):
+    BFR(uint width, uint height, uint workWidth, uint workHeight, vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<IlluminationBuffer> illuBuffer, vsg::ref_ptr<AccumulationBuffer> accBuffer):
     width(width),
     height(height),
     workWidth(workWidth),
     workHeight(workHeight),
-    gBuffer(pbrtPipeline->gBuffer),
+    gBuffer(gBuffer),
     sampler(vsg::Sampler::create())
     {
-        if(!pbrtPipeline->illuminationBuffer.cast<IlluminationBufferFinalDemodulated>()) return;        //demodulated illumination needed 
-        auto illumination = pbrtPipeline->illuminationBuffer;
+        if(!illuBuffer.cast<IlluminationBufferFinalDemodulated>()) return;        //demodulated illumination needed 
+        auto illumination = illuBuffer;
         std::string shaderPath = "shaders/bfr.comp.spv";
         auto computeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", shaderPath);
         computeStage->specializationConstants = vsg::ShaderStage::SpecializationConstants{
@@ -86,8 +86,8 @@ public:
             vsg::DescriptorImage::create(gBuffer->normal->imageInfoList[0], normalBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
             vsg::DescriptorImage::create(gBuffer->material->imageInfoList[0], materialBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
             vsg::DescriptorImage::create(gBuffer->albedo->imageInfoList[0], albedoBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
-            vsg::DescriptorImage::create(gBuffer->motion->imageInfoList[0], motionBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
-            vsg::DescriptorImage::create(gBuffer->sample->imageInfoList[0], sampleBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
+            vsg::DescriptorImage::create(accBuffer->motion->imageInfoList[0], motionBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
+            vsg::DescriptorImage::create(accBuffer->spp->imageInfoList[0], sampleBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
             vsg::DescriptorImage::create(illumination->illuminationImages[1]->imageInfoList[0], noisyBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
             accumulatedIllumination,
             finalIllumination,
@@ -101,7 +101,7 @@ public:
         bfrPipeline = vsg::ComputePipeline::create(pipelineLayout, computeStage);
         bindBfrPipeline = vsg::BindComputePipeline::create(bfrPipeline);
 
-        taaPipeline = Taa::create(width, height, workWidth, workHeight, gBuffer, finalIllumination);
+        taaPipeline = Taa::create(width, height, workWidth, workHeight, gBuffer, accBuffer, finalIllumination);
     }
 
     void addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants){
@@ -120,7 +120,7 @@ public:
         taaPipeline->compile(context);
     }
 
-    void updateImageLayout(vsg::Context& context){
+    void updateImageLayouts(vsg::Context& context){
         VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0 , 1, 0, 2};
         auto accIlluLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, 0, 0, accumulatedIllumination->imageInfoList[0].imageView->image, resourceRange);
         resourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0 , 1, 0, 1};
@@ -129,7 +129,7 @@ public:
         auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
             accIlluLayout, finalIluLayout);
         context.commands.push_back(pipelineBarrier);
-        taaPipeline->updateImageLayout(context);
+        taaPipeline->updateImageLayouts(context);
     }
 
     vsg::ref_ptr<vsg::ComputePipeline> bfrPipeline;
