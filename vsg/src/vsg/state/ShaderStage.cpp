@@ -179,7 +179,7 @@ void ShaderStage::_createReflectData()
     for (SpvReflectDescriptorSet* reflectDescriptorSet: descriptorSets) {
         uint32_t setIdx = reflectDescriptorSet->set;
         for (uint32_t bindingIdx = 0; bindingIdx < reflectDescriptorSet->binding_count; bindingIdx++) {
-            VkDescriptorSetLayoutBinding descriptorInfo;
+            VkDescriptorSetLayoutBinding descriptorInfo{};
             descriptorInfo.binding = reflectDescriptorSet->bindings[bindingIdx]->binding;
             descriptorInfo.descriptorType = VkDescriptorType(reflectDescriptorSet->bindings[bindingIdx]->descriptor_type);
             if (reflectDescriptorSet->bindings[bindingIdx]->type_description
