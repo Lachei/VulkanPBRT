@@ -5,8 +5,8 @@
 // Further the spacial features used for feature fitting are in screen space to reduce calculation efforts.
 
 #include <vsg/all.h>
-#include "PBRTPipeline.hpp"
-#include "TAA/taa.hpp"
+#include "../PBRTPipeline.hpp"
+#include "../TAA/taa.hpp"
 
 class BMFR: public vsg::Inherit<vsg::Object, BMFR>{
 public:

@@ -6,10 +6,10 @@
 #include "RayTracingVisitor.hpp"
 #include "PBRTPipeline.hpp"
 #include "IO/IO.hpp"
-#include "BFR/bfr.hpp"
+#include "Denoiser/BFR.hpp"
 #include "TAA/taa.hpp"
-#include "BFRBlender.hpp"
-#include "BMFR.hpp"
+#include "Denoiser/BFRBlender.hpp"
+#include "Denoiser/BMFR.hpp"
 #include "PipelineStructs.hpp"
 #include "CountTrianglesVisitor.hpp"
  
