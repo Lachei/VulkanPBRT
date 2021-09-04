@@ -84,5 +84,5 @@ void main(){
     //remodulate albedo and tone map
     vec3 albedo = imageLoad(albedo, curImagePos).xyz + vec3(EPS);
     vec3 toneMappedColor = clamp(pow(max(vec3(0),albedo * denoisedColor),vec3(.454545f)),0,1);
-    imageStore(finalImage, ivec2(curImagePos), vec4(vec3(toneMappedColor), 1));
+    imageStore(finalImage, ivec2(curImagePos), vec4(toneMappedColor, 1));
 }
