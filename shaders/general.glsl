@@ -202,10 +202,11 @@ float pow5(const in float value)
 // or from the interpolated mesh normal and tangent attributes.
 vec3 getNormal(mat3 TBN, sampler2D normalMap, vec2 uv)
 {
-  if(textureSize(normalMap, 0) == ivec2(1,1)) return TBN[2];
+  if(textureSize(normalMap, 0) == ivec2(1,1)) 
+    return TBN[2];
   // Perturb normal, see http://www.thetenthplanet.de/archives/1180
   vec3 tangentNormal = texture(normalMap, uv).xyz * 2.0 - 1.0;
-
+  
   return normalize(TBN * tangentNormal);
 }
 

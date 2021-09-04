@@ -258,7 +258,7 @@ int main(int argc, char** argv){
         vsg::ref_ptr<vsg::CopyImageViewToWindow> copyImageViewToWindow;
         vsg::CompileTraversal imageLayoutCompile(window);
         pbrtPipeline->compile(imageLayoutCompile.context);
-        pbrtPipeline->updateImageLayouts(imageLayoutCompile.context);;
+        pbrtPipeline->updateImageLayouts(imageLayoutCompile.context);
         switch(denoisingType){
         case DenoisingType::None:
             copyImageViewToWindow = vsg::CopyImageViewToWindow::create(illuminationBuffer->illuminationImages[0]->imageInfoList[0].imageView, window);
