@@ -186,7 +186,7 @@ public:
 
     void addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants){
         auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT);
-        uint dispatchX = uint(ceil(float(width) / float(workWidth))), dispatchY = uint(ceil(float(height) / float(workHeight)));
+        uint dispatchX = widthPadded / workWidth, dispatchY = heightPadded / workHeight;
         // pre pipeline
         commandGraph->addChild(bindPrePipeline);
         commandGraph->addChild(bindDescriptorSet);

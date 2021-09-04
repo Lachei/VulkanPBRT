@@ -84,7 +84,8 @@ void main()
 	// --------------------------------------------------------------------
 	// storing GBuffer information
 	// --------------------------------------------------------------------
-	imageStore(depthImage, ivec2(gl_LaunchIDEXT.xy), vec4(distance(rayPayload.position, worldSpacePos.xyz)));
+	float depth = distance(rayPayload.position, worldSpacePos.xyz);
+	imageStore(depthImage, ivec2(gl_LaunchIDEXT.xy), vec4(depth));
 	vec2 compressedNormal;
 	compressedNormal.x = acos(rayPayload.si.normal.z);
 	compressedNormal.y = atan(rayPayload.si.normal.y, rayPayload.si.normal.x);
