@@ -18,7 +18,7 @@ void main(){
             const int index = id + subVector * BLOCK_WIDTH;     //holds the linearized pixel index in the block
             const ivec2 pixelCoords = ivec2(index / PIXEL_BLOCK_WIDTH, index % PIXEL_BLOCK_WIDTH) + basePixel;
             float tmp = imageLoad(featureBuffer, ivec3(pixelCoords, col)).x;
-            if(col > 0 && col < ALPHA_SIZE - 3) tmp = addRandom(tmp, id, subVector, col, int(camParams.frameNumber));
+            if(col < ALPHA_SIZE - 3) tmp = addRandom(tmp, id, subVector, col, int(camParams.frameNumber));
             features[subVector][col] = tmp;
         }
     }
@@ -62,7 +62,7 @@ void main(){
             for(int subVector = 0; subVector < PIXEL_BLOCK / BLOCK_WIDTH; ++subVector){
                 const int index = id + subVector * BLOCK_WIDTH;
                 if(index >= col){
-                    features[subVector][f] -= 1 * u[subVector] * v / uLengthSquared;
+                    features[subVector][f] -= 2 * u[subVector] * v / uLengthSquared;
                 }
             }
         }
@@ -83,6 +83,7 @@ void main(){
     // store weights
     if(id < ALPHA_SIZE - 3){
         vec3 weight = ws[id];
+        if(uLengthSquared == 0) weight = vec3(.2);
         
         imageStore(weights, ivec3(gl_WorkGroupID.xy, id * 3), vec4(weight.x));
         imageStore(weights, ivec3(gl_WorkGroupID.xy, id * 3 + 1), vec4(weight.y));

@@ -37,7 +37,7 @@ void main(){
         float max_val = parallel_reduction_max(screenDepth);
         screenDepth -= min_val;
         screenDepth /= max_val - min_val + EPS;
-        screenDepth = screenDepth * 2 - 1;
+        screenDepth = screenDepth;
     }
     vec2 screenPos = vec2(gl_LocalInvocationID.xy) / (vec2(BLOCK_WIDTH, BLOCK_HEIGHT) - vec2(1));
 

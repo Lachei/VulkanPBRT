@@ -206,6 +206,9 @@ void main()
   }
   vec3 normal = normalize(v0.normal * bar.x + v1.normal * bar.y + v2.normal * bar.z).xzy;
   //normal = normalize((instance.objectMat * vec4(normal, 0)).xyz);
+  if(v0.uv == v1.uv) v1.uv += vec2(epsilon);
+  if(v0.uv == v2.uv) v2.uv += vec2(2 * epsilon);
+  if(v1.uv == v2.uv) v2.uv += vec2(epsilon);
   vec3 T = getTangent(v0.pos, v1.pos, v2.pos, v0.uv, v1.uv, v2.uv).xzy;
   //T = (instance.objectMat * vec4(T, 0)).xyz;
   vec3 B = getBitangent(v0.pos, v1.pos, v2.pos, v0.uv, v1.uv, v2.uv).xzy;

@@ -32,7 +32,7 @@ void main(){
         float max_val = parallel_reduction_max(screenDepth);
         screenDepth -= min_val;
         screenDepth /= max_val - min_val + EPS;
-        screenDepth = screenDepth * 2 - 1;
+        screenDepth = screenDepth;
     }
     //only calculating for pixels inside the image domain
     if(curAbsolutPos != curImagePos) return;
@@ -63,13 +63,14 @@ void main(){
 
     //denoisedColor = max(denoisedColor, vec3(0));
     if(isinf(denoisedColor.x)) denoisedColor = vec3(1,0,0);
-    if(isnan(denoisedColor.x)) denoisedColor = vec3(0,1,0);
+    denoisedColor = clamp(denoisedColor, vec3(0), vec3(1));
+
     //--------------------------------------------------------------------------
     //  Data accumulation
     //--------------------------------------------------------------------------
     vec3 prevAccColor = vec3(0);
     float blendAlpha = 1;
-    if( false && camParams.frameNumber > 0 && pixelAccept){
+    if( camParams.frameNumber > 0 && pixelAccept){
         prevAccColor += texture(denoisedSampled, vec3(prevFrameUv.xy, camParams.frameNumber & 1)).xyz;
         blendAlpha = max(1.f / pixelSpp, SECOND_BLEND_ALPHA);
     }
