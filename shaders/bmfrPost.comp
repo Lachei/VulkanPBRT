@@ -69,7 +69,7 @@ void main(){
     //--------------------------------------------------------------------------
     vec3 prevAccColor = vec3(0);
     float blendAlpha = 1;
-    if( camParams.frameNumber > 0 && pixelAccept){
+    if( false && camParams.frameNumber > 0 && pixelAccept){
         prevAccColor += texture(denoisedSampled, vec3(prevFrameUv.xy, camParams.frameNumber & 1)).xyz;
         blendAlpha = max(1.f / pixelSpp, SECOND_BLEND_ALPHA);
     }

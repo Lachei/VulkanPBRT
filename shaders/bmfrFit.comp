@@ -2,145 +2,87 @@
 
 #include "bmfrGeneral.comp" //includes all layout declarations and common functions
 
-shared float uVec[PIXEL_BLOCK];
-shared vec3 rMat[(ALPHA_SIZE - 2) * (ALPHA_SIZE - 1) / 2];
+shared vec3 ws[ALPHA_SIZE - 3];
 shared float uLengthSquared;
-shared vec3 divider;
 void main(){
     //note: this kernel always runs in a one dimensional block, so local_size_x,y = 1
-
-    float prod = 0;
-
     const int groupId = int(gl_WorkGroupID.x * gl_NumWorkGroups.y + gl_WorkGroupID.y);
     const int id = int(gl_LocalInvocationIndex);
     const ivec2 basePixel = ivec2(gl_WorkGroupID.xy) * ivec2(PIXEL_BLOCK_WIDTH, PIXEL_BLOCK_WIDTH);
 
-    // Computing R matrix
+
+    //load features and add noise
+    float features[PIXEL_BLOCK / BLOCK_WIDTH][ALPHA_SIZE];
     for(int col = 0; col < int(ALPHA_SIZE); ++col){
-        int colLimited = min(col, int(ALPHA_SIZE) - 3); // not needed as the last three columns are never processed
-        //load column
-        float tmpSum = 0;
         for(int subVector = 0; subVector < PIXEL_BLOCK / BLOCK_WIDTH; ++subVector){
             const int index = id + subVector * BLOCK_WIDTH;     //holds the linearized pixel index in the block
             const ivec2 pixelCoords = ivec2(index / PIXEL_BLOCK_WIDTH, index % PIXEL_BLOCK_WIDTH) + basePixel;
             float tmp = imageLoad(featureBuffer, ivec3(pixelCoords, col)).x;
-
-            //if(isnan(tmp)) tmp = 1;
-            tmp = clamp(tmp, -1e6, 1e6);
-            uVec[index] = tmp;
-            if(index > col){
-                tmpSum += tmp * tmp;
-            }
-        }
-
-        // Length of vecto in A's column with reduction sum
-        float vecLength = parallel_reduction_sum(tmpSum);
-
-        float rValue;
-        if((id < col)){
-            rValue = uVec[id];
-        }
-        else if(id == col){
-            uLengthSquared = vecLength;
-            vecLength = sqrt(vecLength + uVec[colLimited] * uVec[colLimited]);
-            uVec[colLimited] -= vecLength;
-            uLengthSquared += uVec[colLimited] * uVec[colLimited];
-            // uLengthSquared is now updated length squared
-            rValue = vecLength;
-        }
-        else if(id > col){
-            // entries below the diagonal are always 0
-            rValue = 0;
-        }
-
-        int idLimited = min(id, int(ALPHA_SIZE) - 3);
-        int ind = rIndex(colLimited, idLimited);
-        if(col < ALPHA_SIZE - 3){
-            // broadcasting the value accross all entries
-            rMat[ind] = vec3(rValue);
-        }
-        else{
-            // storing only a single channel
-            rMat[ind][col - int(ALPHA_SIZE) + 3] = rValue;
-        }
-        barrier();
-
-        // Transformation of the columns to the right of the current column
-        // Note: The last 3 columns are the color channels, which
-        // are also transformed
-        for(int feature = colLimited + 1; feature < ALPHA_SIZE; ++feature){
-            // Used to cache the entries for each column
-            float tmpDataCache[PIXEL_BLOCK / BLOCK_WIDTH];
-
-            float tmpSum = .0f;
-            for(int subVector = 0; subVector < PIXEL_BLOCK / BLOCK_WIDTH; ++subVector){
-                const int index = id + subVector * BLOCK_WIDTH;
-                if(index >= colLimited){
-                    const ivec2 pixelCoords = ivec2(index / PIXEL_BLOCK_WIDTH, index % PIXEL_BLOCK_WIDTH) + basePixel;
-                    float tmp = imageLoad(featureBuffer, ivec3(pixelCoords, feature)).x;
-
-                    // adding noise the first time values are loaded
-                    if(col == 0 && feature < ALPHA_SIZE - 3){
-                        tmp = addRandom(tmp, id, subVector, feature, int(camParams.frameNumber));
-                    }
-
-                    tmpDataCache[subVector] = tmp;
-                    
-                    tmpSum += tmp * uVec[index];
-                }
-            }
-
-            float dotProd = parallel_reduction_sum(tmpSum);
-
-            for(int subVector = 0; subVector < PIXEL_BLOCK / BLOCK_WIDTH; ++subVector){
-                const int index = id + subVector * BLOCK_WIDTH;
-                if(index >= colLimited){
-                    float storeValue = tmpDataCache[subVector];
-
-                    storeValue -= 2 * uVec[index] * dotProd / uLengthSquared;
-                    const ivec2 pixelCoords = ivec2(index / PIXEL_BLOCK_WIDTH, index % PIXEL_BLOCK_WIDTH) + basePixel;
-                    imageStore(featureBuffer, ivec3(pixelCoords, feature), vec4(storeValue));
-                }
-            }
-            barrier();
+            if(col > 0 && col < ALPHA_SIZE - 3) tmp = addRandom(tmp, id, subVector, col, int(camParams.frameNumber));
+            features[subVector][col] = tmp;
         }
     }
 
-    // Back substitution
-    for(int i = R_EDGE - 2; i >= 0; --i){
-        if(id == 0){
-            int index = rIndex(i, i);
-            divider = rMat[index];
+    //compute r
+    for(int col = 0; col < int(ALPHA_SIZE - 3); ++col){
+        float u[PIXEL_BLOCK / BLOCK_WIDTH];
+        float val2 = 0; //corresponds to tmpSum in standard BMFR implementation
+        for(int subVector = 0; subVector < PIXEL_BLOCK / BLOCK_WIDTH; ++subVector){
+            const int index = id + subVector * BLOCK_WIDTH;
+            u[subVector] = features[subVector][col];
+            if(index > col) val2 += u[subVector] * u[subVector];
         }
-        barrier();
-        if(id < R_EDGE && id >= i){
-            int index = rIndex(id, i);
-            vec3 value = rMat[index];
-            value = value / divider;
-            //if(isnan(value.x)) value = vec3(0);
-            rMat[index] = value;
+
+        float vecLenSqu = parallel_reduction_sum(val2);    // corresponds to vecLength (is the length squared)
+        float vecLen = 0;
+        if(id < col)
+            u[0] = 0;
+        else if(id == col){
+            vecLen = sqrt(vecLenSqu + u[0] * u[0]);
+            u[0] -= vecLen;
+            vecLenSqu += u[0] * u[0];
+            uLengthSquared = vecLenSqu;
+            features[0][col] = vecLen;
         }
-        barrier();
-        if(id == 0){
-            for(int j = i + 1; j < R_EDGE - 1; ++j){
-                int index = rIndex(R_EDGE - 1, i);
-                int index2 = rIndex(j, i);
-                rMat[index] = rMat[index] - rMat[index2];
+        else{
+            features[0][col] = 0;
+        }
+        barrier();          //synchronizing so that every thread has uLenghtSquared available
+
+        //transformation of all other columns in the feature matrix
+        for(int f = col + 1; f < int(ALPHA_SIZE); ++f){
+            float v = 0; // tmpSum in original implementaion
+            for(int subVector = 0; subVector < PIXEL_BLOCK / BLOCK_WIDTH; ++subVector){
+                const int index = id + subVector * BLOCK_WIDTH;
+                if(index >= col){
+                    v += features[subVector][f] * u[subVector];
+                }
+            }
+            v = parallel_reduction_sum(v);
+            for(int subVector = 0; subVector < PIXEL_BLOCK / BLOCK_WIDTH; ++subVector){
+                const int index = id + subVector * BLOCK_WIDTH;
+                if(index >= col){
+                    features[subVector][f] -= 1 * u[subVector] * v / uLengthSquared;
+                }
             }
         }
-        barrier();
-        if(id < R_EDGE && i >= id){
-            int index = rIndex(i, id);
-            int index2 = rIndex(R_EDGE - 1, i);
-            rMat[index] = rMat[index] * rMat[index2];
+    }
+
+    //back substitution
+    for(int i = int(ALPHA_SIZE - 4); i >= 0; --i){
+        if(id == i){
+            ws[i] = vec3(features[0][ALPHA_SIZE - 3], features[0][ALPHA_SIZE - 2], features[0][ALPHA_SIZE - 1]);
+            for(int x = i + 1; x < int(ALPHA_SIZE - 3); ++x){
+                ws[i] -= ws[x] * features[0][x];
+            }
+            ws[i] /= features[0][i];
         }
         barrier();
     }
 
     // store weights
     if(id < ALPHA_SIZE - 3){
-        int index = rIndex(R_EDGE - 1, id);
-        const vec3 weight = rMat[index]; // load from r matrix
+        vec3 weight = ws[id];
         
         imageStore(weights, ivec3(gl_WorkGroupID.xy, id * 3), vec4(weight.x));
         imageStore(weights, ivec3(gl_WorkGroupID.xy, id * 3 + 1), vec4(weight.y));
