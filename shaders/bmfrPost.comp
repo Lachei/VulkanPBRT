@@ -28,10 +28,8 @@ void main(){
     //--------------------------------------------------------------------------
     // normalizing world depth
     {
-        //screenDepth = clamp(screenDepth, 0, 1);
         float min_val = parallel_reduction_min(screenDepth);
         float max_val = parallel_reduction_max(screenDepth);
-        //screenDepth /= 100;
         screenDepth -= min_val;
         screenDepth /= max_val - min_val + EPS;
         screenDepth = screenDepth * 2 - 1;
