@@ -43,6 +43,7 @@ set(SHADERS
     bfrBlender.comp
     bmfrPre.comp
     bmfrFit.comp
+    bmfrFitLegacy.comp
     bmfrPost.comp
 )
 

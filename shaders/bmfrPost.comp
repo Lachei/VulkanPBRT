@@ -28,13 +28,11 @@ void main(){
     //--------------------------------------------------------------------------
     // normalizing world depth
     {
-        //screenDepth = clamp(screenDepth, 0, 1);
         float min_val = parallel_reduction_min(screenDepth);
         float max_val = parallel_reduction_max(screenDepth);
-        //screenDepth /= 100;
         screenDepth -= min_val;
         screenDepth /= max_val - min_val + EPS;
-        screenDepth = screenDepth * 2 - 1;
+        screenDepth = screenDepth;
     }
     //only calculating for pixels inside the image domain
     if(curAbsolutPos != curImagePos) return;
@@ -65,7 +63,8 @@ void main(){
 
     //denoisedColor = max(denoisedColor, vec3(0));
     if(isinf(denoisedColor.x)) denoisedColor = vec3(1,0,0);
-    if(isnan(denoisedColor.x)) denoisedColor = vec3(0,1,0);
+    denoisedColor = clamp(denoisedColor, vec3(0), vec3(1));
+
     //--------------------------------------------------------------------------
     //  Data accumulation
     //--------------------------------------------------------------------------
