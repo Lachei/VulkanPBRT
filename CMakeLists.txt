@@ -8,8 +8,7 @@ project(VulkanPBRT
 
 find_package(Vulkan REQUIRED)
 find_package(Threads REQUIRED)
-find_package(PkgConfig)
-pkg_check_modules(xcb REQUIRED IMPORTED_TARGET xcb)
+find_package(assimp CONFIG REQUIRED)
 include(CMakeFindDependencyMacro)
 set(vsg_glslang_DIR ${CMAKE_SOURCE_DIR}/vsg)
 find_dependency(vsg_glslang)
@@ -20,15 +19,13 @@ add_subdirectory(TAA)
 set(IMGUI_HEADER
     vsg/src/imgui/)
 include_directories(vsg/include ${glslang_INCLUDE_DIRS} ${IMGUI_HEADER})
-
 set(CMAKE_CXX_STANDARD 17)
-
 file(GLOB SOURCES
     "*.h"
     "*.hpp"
     "*.cpp"
 )
-
+list(FILTER GLOB EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/vsg/.*" )
 set(SHADERS
     pbr_closesthit.rchit
     miss.rmiss
@@ -49,9 +46,12 @@ set(SHADERS
 
 add_executable(VulkanPBRT ${SOURCES} ${VSG_ALL} ${BFR_SRC} ${TAA_SRC})
 
-target_link_libraries(VulkanPBRT Vulkan::Vulkan glslang::glslang Threads::Threads xcb assimp)
+target_link_libraries(VulkanPBRT Vulkan::Vulkan glslang::glslang Threads::Threads assimp::assimp)
+if(UNIX)
+    target_link_libraries(VulkanPBRT xcb)
+endif(UNIX)
 
-## compilaiton of shader files
+## compilation of shader files
 function(add_shader TARGET SHADER)
     find_program(GLSLC glslc)
 

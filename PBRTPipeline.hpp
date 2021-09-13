@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Defines.hpp"
 #include <vsg/all.h>
 #include "GBuffer.hpp"
 #include "IlluminationBuffer.hpp"
