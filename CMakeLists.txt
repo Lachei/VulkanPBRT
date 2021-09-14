@@ -46,7 +46,7 @@ set(SHADERS
 
 add_executable(VulkanPBRT ${SOURCES} ${VSG_ALL} ${BFR_SRC} ${TAA_SRC})
 
-target_link_libraries(VulkanPBRT Vulkan::Vulkan glslang::glslang Threads::Threads assimp::assimp)
+target_link_libraries(VulkanPBRT Vulkan::Vulkan glslang::glslang Threads::Threads ${ASSIMP_LIBRARIES})
 if(UNIX)
     target_link_libraries(VulkanPBRT xcb)
 endif(UNIX)
