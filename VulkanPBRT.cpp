@@ -1,5 +1,6 @@
 #include <iostream>
 #include <set>
+#include "Defines.hpp"
 #include <vsg/all.h>
 #include <vsgXchange/models.h>
 #include <vsgXchange/images.h>

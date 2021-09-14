@@ -10,15 +10,16 @@
 
 std::string getUserDirectory() {
 #ifdef __unix__
-    return std::string() + getenv("HOME") + "/";
+	return std::string() + getenv("HOME") + "/";
 #else
-    // Use WinAPI to query the user directory.
-    char userDirPath[MAX_PATH];
-    SHGetSpecialFolderPathA(NULL, userDirPath, CSIDL_PROFILE, true);
-    std::string userDir = std::string() + userDirPath + "/";
-    for (std::string::iterator it = dir.begin(); it != dir.end(); ++it) {
-        if (*it == '\\') *it = '/';
-    }
-    return userDir;
+	// Use WinAPI to query the user directory.
+	WCHAR path[MAX_PATH + 1];
+	if (SHGetSpecialFolderPathW(NULL, path, CSIDL_PROFILE, FALSE)) {
+		std::wstring ws(path);
+		std::string str(ws.begin(), ws.end());
+		return str + '/';
+	} else { 
+		return NULL;
+	}
 #endif
 }

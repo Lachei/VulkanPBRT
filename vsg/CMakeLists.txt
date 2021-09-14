@@ -1,5 +1,4 @@
 # cmake file to get all src files for compilation and to add include to include directories
-
 file(GLOB_RECURSE VSG_SRC src/
     *.cpp
     +.h
@@ -16,17 +15,24 @@ file(GLOB IMGUI_SRC src/imgui/imgui.cpp
 file(GLOB ANDROID_PLATFORM src/vsg/platform/android/Android_Window.cpp)
 file(GLOB MAC_PLATFORM src/vsg/platform/macos/MacOS_Window.mm)
 file(GLOB WIN_PLATFORM src/vsg/platform/win32/Win32_Window.cpp)
-file(GLOB UINX_PLATFORM src/vsg/platform/unix/Xcb_Window.cpp)
-
+file(GLOB UNIX_PLATFORM src/vsg/platform/unix/Xcb_Window.cpp)
+include(src/vsgXchange/assimp/build_vars.cmake)
 #exclude wrong platfrom things
 if (ANDROID)
-    list(REMOVE_ITEM VSG_SRC "${MAC_PLATFORM}${WIN_PLATFORM}${UINX_PLATFORM}")
-
+    list(REMOVE_ITEM VSG_SRC "${MAC_PLATFORM}")
+    list(REMOVE_ITEM VSG_SRC "${UNIX_PLATFORM}")
+    list(REMOVE_ITEM VSG_SRC "${WIN_PLATFORM}")
 elseif (WIN32)
-    list(REMOVE_ITEM VSG_SRC "${MAC_PLATFORM}${ANDROID_PLATFORM}${UINX_PLATFORM}")
+    list(REMOVE_ITEM VSG_SRC "${MAC_PLATFORM}")
+    list(REMOVE_ITEM VSG_SRC "${UNIX_PLATFORM}")
+    list(REMOVE_ITEM VSG_SRC "${ANDROID_PLATFORM}")
 elseif (APPLE)
-    list(REMOVE_ITEM VSG_SRC "${ANDROID_PLATFORM}${WIN_PLATFORM}${UINX_PLATFORM}")
+     list(REMOVE_ITEM VSG_SRC "${ANDROID_PLATFORM}")
+    list(REMOVE_ITEM VSG_SRC "${UNIX_PLATFORM}")
+    list(REMOVE_ITEM VSG_SRC "${WIN_PLATFORM}")
 else()
+	find_package(PkgConfig)
+	pkg_check_modules(xcb REQUIRED IMPORTED_TARGET xcb)
     list(REMOVE_ITEM VSG_SRC "${MAC_PLATFORM}")
     list(REMOVE_ITEM VSG_SRC "${WIN_PLATFORM}")
     list(REMOVE_ITEM VSG_SRC "${ANDROID_PLATFORM}")

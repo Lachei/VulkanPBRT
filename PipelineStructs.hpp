@@ -1,4 +1,5 @@
 #pragma once
+#include "Defines.hpp"
 #include <vsg/all.h>
 
 struct RayTracingPushConstants{
