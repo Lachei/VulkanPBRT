@@ -2,6 +2,7 @@
 
 #include "Defines.hpp"
 #include <vsg/all.h>
+#include <vsgXchange/glsl.h>
 #include "GBuffer.hpp"
 #include "IlluminationBuffer.hpp"
 #include "RayTracingVisitor.hpp"
@@ -144,13 +145,14 @@ protected:
         std::string closesthitPath = "shaders/pbr_closesthit.rchit.spv";
         std::string anyHitPath = "shaders/alpha_hit.rahit.spv";
 
-        raygenShader = vsg::ShaderStage::read(VK_SHADER_STAGE_RAYGEN_BIT_KHR, "main", raygenPath);
-        auto raymissShader = vsg::ShaderStage::read(VK_SHADER_STAGE_MISS_BIT_KHR, "main", raymissPath);
-        auto shadowMissShader = vsg::ShaderStage::read(VK_SHADER_STAGE_MISS_BIT_KHR, "main", shadowMissPath);
-        auto closesthitShader = vsg::ShaderStage::read(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, "main", closesthitPath);
-        auto anyHitShader = vsg::ShaderStage::read(VK_SHADER_STAGE_ANY_HIT_BIT_KHR, "main", anyHitPath);
+        auto options = vsg::Options::create(vsgXchange::glsl::create());
+        raygenShader = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_RAYGEN_BIT_KHR, "main", raygenPath);
+        auto raymissShader = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_MISS_BIT_KHR, "main", raymissPath);
+        auto shadowMissShader = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_MISS_BIT_KHR, "main", shadowMissPath);
+        auto closesthitShader = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, "main", closesthitPath);
+        auto anyHitShader = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_ANY_HIT_BIT_KHR, "main", anyHitPath);
         if(!raygenShader || !raymissShader || !closesthitShader || !shadowMissShader || !anyHitShader){
-            throw vsg::Exception{"Error: vcreate PBRTPipeline(...) failed to create shader stages."};
+            throw vsg::Exception{"Error: PBRTPipeline::PBRTPipeline(...) failed to create shader stages."};
         }
         bindingMap = vsg::ShaderStage::mergeBindingMaps(
             {raygenShader->getDescriptorSetLayoutBindingsMap(), 
