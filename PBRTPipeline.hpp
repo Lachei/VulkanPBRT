@@ -37,51 +37,6 @@ public:
         accumulationBuffer->compile(context);
     }
 
-    //handles setup of the raygen shader.
-    //curently does nothing as only one raygen shader exists
-    void setupRaygenShader(){
-        auto final = illuminationBuffer.cast<IlluminationBufferFinal>();
-        auto finalDirIndir = illuminationBuffer.cast<IlluminationBufferFinalDirIndir>();
-        auto finalDemod = illuminationBuffer.cast<IlluminationBufferFinalDemodulated>();
-        //set different raygen shaders according to state of external gbuffer and illumination buffer type
-        //TODO: create different shaders for correct model
-        std::string raygenPath = "shaders/raygen.rgen.spv";
-        if(useExternalGBuffer){
-            if(final){
-                raygenPath = "shaders/raygen.rgen.spv";
-            }
-            else if(finalDirIndir){
-                raygenPath = "shaders/raygen.rgen.spv";
-            }
-            else{
-                raygenPath = "shaders/raygen.rgen.spv";
-            }
-        }
-        else{
-            if(final){
-                raygenPath = "shaders/raygen.rgen.spv";
-            }
-            else if(finalDirIndir){
-                raygenPath = "shaders/raygen.rgen.spv";
-            }
-            else{
-                raygenPath = "shaders/raygen.rgen.spv";
-            }
-        }
-        //raygenShader->module = vsg::ShaderModule::read(raygenPath);
-
-        //create additional accumulation images dependant on illumination buffer type
-        if(final){
-
-        }
-        else if(finalDirIndir){
-
-        }
-        else if(finalDemod){
-                   
-        }
-    }
-
     void setTlas(vsg::ref_ptr<vsg::AccelerationStructure> as){
         auto tlas = as.cast<vsg::TopLevelAccelerationStructure>();
         assert(tlas);
@@ -133,10 +88,56 @@ protected:
 
     bool useExternalGBuffer;
 
+    //handles setup of the raygen shader.
+    //curently does nothing as only one raygen shader exists
+    void setupRaygenShader(){
+        auto final = illuminationBuffer.cast<IlluminationBufferFinal>();
+        auto finalDirIndir = illuminationBuffer.cast<IlluminationBufferFinalDirIndir>();
+        auto finalDemod = illuminationBuffer.cast<IlluminationBufferFinalDemodulated>();
+        //set different raygen shaders according to state of external gbuffer and illumination buffer type
+        //TODO: create different shaders for correct model
+        std::string raygenPath = "shaders/raygen.rgen.spv";
+        if(useExternalGBuffer){
+            if(final){
+                raygenPath = "shaders/raygen.rgen.spv";
+            }
+            else if(finalDirIndir){
+                raygenPath = "shaders/raygen.rgen.spv";
+            }
+            else{
+                raygenPath = "shaders/raygen.rgen.spv";
+            }
+        }
+        else{
+            if(final){
+                raygenPath = "shaders/raygen.rgen.spv";
+            }
+            else if(finalDirIndir){
+                raygenPath = "shaders/raygen.rgen.spv";
+            }
+            else{
+                raygenPath = "shaders/raygen.rgen.spv";
+            }
+        }
+        //raygenShader->module = vsg::ShaderModule::read(raygenPath);
+
+        //create additional accumulation images dependant on illumination buffer type
+        if(final){
+
+        }
+        else if(finalDirIndir){
+
+        }
+        else if(finalDemod){
+                   
+        }
+        auto shaderCompiler = vsg::ShaderCompiler::create();
+        shaderCompiler->compile(raygenShader);
+    }
+
     void setupPipeline(vsg::Node* scene){
         accumulationBuffer = AccumulationBuffer::create(width, height);
 
-        setupRaygenShader();    //currently doesnt do anything, only main raygenshader exists
 
         //creating the shader stages and shader binding table
         std::string raygenPath = "shaders/raygen.rgen.spv";     //default reaygen shader
@@ -147,6 +148,7 @@ protected:
 
         auto options = vsg::Options::create(vsgXchange::glsl::create());
         raygenShader = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_RAYGEN_BIT_KHR, "main", raygenPath);
+        setupRaygenShader();    //currently doesnt do anything, only main raygenshader exists
         auto raymissShader = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_MISS_BIT_KHR, "main", raymissPath);
         auto shadowMissShader = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_MISS_BIT_KHR, "main", shadowMissPath);
         auto closesthitShader = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, "main", closesthitPath);

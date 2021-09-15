@@ -44,7 +44,7 @@ set(VSG_ALL ${VSG_SRC} ${IMGUI_SRC} ${SPIRV_REFLECT_SRC} PARENT_SCOPE)
 
 if (glslang_FOUND)
     message("-- glslang defines added to compilation")
-    set(LIBRARIES ${LIBRARIES} PUBLIC ${glslang_LIBRARIES})
+    set(LIBRARIES ${LIBRARIES} PUBLIC ${glslang_LIBRARIES} PARENT_SCOPE)
 
     set(EXTRA_DEFINES ${EXTRA_DEFINES} HAS_GLSLANG)
 
@@ -68,7 +68,7 @@ if (glslang_FOUND)
 
     # check whether glslang/build_info.h exists
     if (GLSLANG_ResourceLimits_maxDualSourceDrawBuffersEXT)
-        set(EXTRA_DEFINES ${EXTRA_DEFINES} "GLSLANG_ResourceLimits_maxDualSourceDrawBuffersEXT")
+        set(EXTRA_DEFINES ${EXTRA_DEFINES} "GLSLANG_ResourceLimits_maxDualSourceDrawBuffersEXT" PARENT_SCOPE)
     endif()
 
     install(
