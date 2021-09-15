@@ -44,6 +44,10 @@ set(SHADERS
     bmfrPost.comp
 )
 
+set(UNCOMPILED_SHADERS
+    raygen.rgen
+)
+
 add_executable(VulkanPBRT ${SOURCES} ${VSG_ALL} ${BFR_SRC} ${TAA_SRC})
 
 target_compile_definitions(VulkanPBRT PRIVATE ${EXTRA_DEFINES})
@@ -81,4 +85,25 @@ endfunction(add_shader)
 
 foreach(S IN LISTS SHADERS)
     add_shader(VulkanPBRT ${S})
+endforeach()
+
+foreach(S IN LISTS UNCOMPILED_SHADERS)
+    set(current-shader-path ${CMAKE_CURRENT_SOURCE_DIR}/shaders/${S})
+    set(current-output-path ${CMAKE_BINARY_DIR}/shaders/${S})
+
+    get_filename_component(current-output-dir ${current-output-path} DIRECTORY)
+    file(MAKE_DIRECTORY ${current-output-dir})
+
+    message(${current-shader-path})
+    message(${current-output-path})
+
+    add_custom_command(
+           OUTPUT ${current-output-path}
+           COMMAND ${CMAKE_COMMAND} -E copy ${current-shader-path} ${current-output-path}
+           DEPENDS ${current-shader-path}
+           VERBATIM)
+
+    # Make sure our build depends on this output.
+    add_custom_target(copyShader DEPENDS ${current-output-path})
+    add_dependencies(VulkanPBRT copyShader)
 endforeach()
