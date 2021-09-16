@@ -542,7 +542,7 @@ std::string ShaderCompiler::readShaderSource(const Path& filename, const Paths& 
     Path foundFile = findFile(filename, paths);
     if (foundFile.empty()) return std::string();
 
-    std::ifstream fin(foundFile);
+    std::ifstream fin(foundFile, std::ios::ate);
     if (!fin) return std::string();
 
     size_t fileSize = fin.tellg();

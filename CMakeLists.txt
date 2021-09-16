@@ -46,6 +46,7 @@ set(SHADERS
 
 set(UNCOMPILED_SHADERS
     raygen.rgen
+    general.glsl
 )
 
 add_executable(VulkanPBRT ${SOURCES} ${VSG_ALL} ${BFR_SRC} ${TAA_SRC})
@@ -94,9 +95,6 @@ foreach(S IN LISTS UNCOMPILED_SHADERS)
     get_filename_component(current-output-dir ${current-output-path} DIRECTORY)
     file(MAKE_DIRECTORY ${current-output-dir})
 
-    message(${current-shader-path})
-    message(${current-output-path})
-
     add_custom_command(
            OUTPUT ${current-output-path}
            COMMAND ${CMAKE_COMMAND} -E copy ${current-shader-path} ${current-output-path}
@@ -104,6 +102,6 @@ foreach(S IN LISTS UNCOMPILED_SHADERS)
            VERBATIM)
 
     # Make sure our build depends on this output.
-    add_custom_target(copyShader DEPENDS ${current-output-path})
-    add_dependencies(VulkanPBRT copyShader)
+    add_custom_target("copyShader_${S}" DEPENDS ${current-output-path})
+    add_dependencies(VulkanPBRT "copyShader_${S}")
 endforeach()
