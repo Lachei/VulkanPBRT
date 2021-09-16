@@ -63,6 +63,7 @@ int main(int argc, char** argv){
         windowTraits->debugLayer = true;
         windowTraits->width = 1800;
         filename = getUserDirectory() + "Downloads/glTF-Sample-Models-master/2.0/Sponza/glTF/Sponza.gltf";//"/Downloads/teapot.obj";
+        //filename = getUserDirectory() + "Downloads/cornell_box/scene.gltf";//"/Downloads/teapot.obj";
 #endif
 
         //viewer creation
@@ -201,7 +202,7 @@ int main(int argc, char** argv){
             loaded_scene->accept(buildAccelStruct);
             tlas = buildAccelStruct.tlas;
 
-            lookAt = vsg::LookAt::create(vsg::dvec3(0.0, 1.0, -5.0), vsg::dvec3(0.0, 0.5, 0.0), vsg::dvec3(0.0, 0.0, 1.0));
+            lookAt = vsg::LookAt::create(vsg::dvec3(0.0, -5, 1), vsg::dvec3(0.0, 0.0, 1), vsg::dvec3(0.0, 0.0, 1.0));
             CountTrianglesVisitor counter;
             loaded_scene->accept(counter);
             guiValues->triangleCount = counter.triangleCount;
