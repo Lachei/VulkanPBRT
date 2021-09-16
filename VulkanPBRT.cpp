@@ -1,5 +1,6 @@
 #include <iostream>
 #include <set>
+#include "Defines.hpp"
 #include <vsg/all.h>
 #include <vsgXchange/models.h>
 #include <vsgXchange/images.h>
@@ -211,13 +212,21 @@ int main(int argc, char** argv){
         lookAt->get_inverse(rayTracingPushConstantsValue->value().viewInverse);
         lookAt->get(rayTracingPushConstantsValue->value().prevView);
         rayTracingPushConstantsValue->value().frameNumber = 0;
-        rayTracingPushConstantsValue->value().steadyCamFrame = 0;
+        rayTracingPushConstantsValue->value().sampleNumber = 0;
         auto pushConstants = vsg::PushConstants::create(VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, rayTracingPushConstantsValue);
         auto computeConstants = vsg::PushConstants::create(VK_SHADER_STAGE_COMPUTE_BIT, 0, rayTracingPushConstantsValue);
 
         // raytracing pipelin setup
         uint maxRecursionDepth = 2;
-        auto illuminationBuffer = IlluminationBufferFinalDemodulated::create(windowTraits->width, windowTraits->height);
+        vsg::ref_ptr<IlluminationBuffer> illuminationBuffer;
+        switch(denoisingType){
+        case::DenoisingType::None:
+            illuminationBuffer = IlluminationBufferFinal::create(windowTraits->width, windowTraits->height);
+            break;
+        default:
+            illuminationBuffer = IlluminationBufferDemodulated::create(windowTraits->width, windowTraits->height);
+            break;
+        }
         auto pbrtPipeline = PBRTPipeline::create(windowTraits->width, windowTraits->height, maxRecursionDepth, loaded_scene, illuminationBuffer);
         auto gBuffer = pbrtPipeline->gBuffer;
         auto accumulationBuffer = pbrtPipeline->accumulationBuffer;
@@ -368,9 +377,9 @@ int main(int argc, char** argv){
             lookAt->get_inverse(rayTracingPushConstantsValue->value().viewInverse);
 
             rayTracingPushConstantsValue->value().frameNumber++;
-            rayTracingPushConstantsValue->value().steadyCamFrame++;
-            if(viewer->getEvents().size() > 1) rayTracingPushConstantsValue->value().steadyCamFrame = 0;
-            guiValues->steadyCamFrame = rayTracingPushConstantsValue->value().steadyCamFrame;
+            rayTracingPushConstantsValue->value().sampleNumber++;
+            if(viewer->getEvents().size() > 1) rayTracingPushConstantsValue->value().sampleNumber = 0;
+            guiValues->sampleNumber = rayTracingPushConstantsValue->value().sampleNumber;
 
             viewer->update();
             viewer->recordAndSubmit();

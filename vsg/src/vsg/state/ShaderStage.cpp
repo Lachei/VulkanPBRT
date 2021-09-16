@@ -12,6 +12,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 #include <vsg/core/Exception.h>
 #include <vsg/io/Options.h>
+#include <vsg/io/read.h>
 #include <vsg/state/ShaderStage.h>
 #include <vsg/traversals/CompileTraversal.h>
 #include <SPIRV-Reflect/spirv_reflect.h>
@@ -29,9 +30,9 @@ ShaderStage::ShaderStage(VkShaderStageFlagBits in_stage, const std::string& in_e
 {
 }
 
-ShaderStage::ShaderStage(VkShaderStageFlagBits in_stage, const std::string& in_entryPointName, const std::string& source) :
+ShaderStage::ShaderStage(VkShaderStageFlagBits in_stage, const std::string& in_entryPointName, const std::string& source, ref_ptr<ShaderCompileSettings> hints) :
     stage(in_stage),
-    module(ShaderModule::create(source)),
+    module(ShaderModule::create(source, hints)),
     entryPointName(in_entryPointName)
 {
 }
@@ -54,8 +55,43 @@ ShaderStage::~ShaderStage()
 {
 }
 
-ref_ptr<ShaderStage> ShaderStage::read(VkShaderStageFlagBits in_stage, const std::string& in_entryPointName, const std::string& filename)
+ref_ptr<ShaderStage> ShaderStage::read(VkShaderStageFlagBits stage, const std::string& entryPointName, const std::string& filename, ref_ptr<const Options> options)
 {
+    auto ext = vsg::fileExtension(filename);
+
+    auto object = vsg::read(filename, options);
+    if (!object) return {};
+
+    auto st = object.cast<vsg::ShaderStage>();
+    if (!st)
+    {
+        auto sm = object.cast<vsg::ShaderModule>();
+        return ShaderStage::create_if(sm.valid(), stage, entryPointName, sm);
+    }
+
+    st->stage = stage;
+    st->entryPointName = entryPointName;
+    return st;
+}
+
+ref_ptr<ShaderStage> ShaderStage::read(VkShaderStageFlagBits stage, const std::string& entryPointName, std::istream& fin, ref_ptr<const Options> options)
+{
+    auto object = vsg::read(fin, options);
+    if (!object) return {};
+
+    auto st = object.cast<vsg::ShaderStage>();
+    if (!st)
+    {
+        auto sm = object.cast<vsg::ShaderModule>();
+        return ShaderStage::create_if(sm.valid(), stage, entryPointName, sm);
+    }
+
+    st->stage = stage;
+    st->entryPointName = entryPointName;
+    return st;
+}
+
+ref_ptr<ShaderStage> ShaderStage::readSpv(VkShaderStageFlagBits in_stage, const std::string& in_entryPointName, const std::string& filename){
     return ShaderStage::create(in_stage, in_entryPointName, ShaderModule::read(filename));
 }
 
@@ -63,16 +99,33 @@ void ShaderStage::read(Input& input)
 {
     Object::read(input);
 
-    input.readValue<int32_t>("Stage", stage);
-    input.read("EntryPoint", entryPointName);
-    input.readObject("ShaderModule", module);
-
-    specializationConstants.clear();
-    uint32_t numValues = input.readValue<uint32_t>("NumSpecializationConstants");
-    for (uint32_t i = 0; i < numValues; ++i)
+    if (input.version_greater_equal(0, 1, 4))
     {
-        uint32_t id = input.readValue<uint32_t>("constantID");
-        input.readObject("data", specializationConstants[id]);
+        input.readValue<int32_t>("stage", stage);
+        input.read("entryPointName", entryPointName);
+        input.read("module", module);
+
+        specializationConstants.clear();
+        uint32_t numValues = input.readValue<uint32_t>("NumSpecializationConstants");
+        for (uint32_t i = 0; i < numValues; ++i)
+        {
+            uint32_t id = input.readValue<uint32_t>("id");
+            input.read("data", specializationConstants[id]);
+        }
+    }
+    else
+    {
+        input.readValue<int32_t>("Stage", stage);
+        input.read("EntryPoint", entryPointName);
+        input.readObject("ShaderModule", module);
+
+        specializationConstants.clear();
+        uint32_t numValues = input.readValue<uint32_t>("NumSpecializationConstants");
+        for (uint32_t i = 0; i < numValues; ++i)
+        {
+            uint32_t id = input.readValue<uint32_t>("constantID");
+            input.readObject("data", specializationConstants[id]);
+        }
     }
 }
 
@@ -80,15 +133,31 @@ void ShaderStage::write(Output& output) const
 {
     Object::write(output);
 
-    output.writeValue<int32_t>("Stage", stage);
-    output.write("EntryPoint", entryPointName);
-    output.writeObject("ShaderModule", module);
-
-    output.writeValue<uint32_t>("NumSpecializationConstants", specializationConstants.size());
-    for (auto& [id, data] : specializationConstants)
+    if (output.version_greater_equal(0, 1, 4))
     {
-        output.writeValue<uint32_t>("constantID", id);
-        output.writeObject("data", data);
+        output.writeValue<int32_t>("stage", stage);
+        output.write("entryPointName", entryPointName);
+        output.write("module", module);
+
+        output.writeValue<uint32_t>("NumSpecializationConstants", specializationConstants.size());
+        for (auto& [id, data] : specializationConstants)
+        {
+            output.writeValue<uint32_t>("id", id);
+            output.write("data", data);
+        }
+    }
+    else
+    {
+        output.writeValue<int32_t>("Stage", stage);
+        output.write("EntryPoint", entryPointName);
+        output.write("ShaderModule", module);
+
+        output.writeValue<uint32_t>("NumSpecializationConstants", specializationConstants.size());
+        for (auto& [id, data] : specializationConstants)
+        {
+            output.writeValue<uint32_t>("constantID", id);
+            output.write("data", data);
+        }
     }
 }
 

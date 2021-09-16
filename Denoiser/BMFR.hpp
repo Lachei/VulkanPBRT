@@ -38,9 +38,9 @@ public:
         std::string preShaderPath = "shaders/bmfrPre.comp.spv";
         std::string fitShaderPath = "shaders/bmfrFit.comp.spv";
         std::string postShaderPath = "shaders/bmfrPost.comp.spv";
-        auto preComputeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", preShaderPath);
-        auto fitComputeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", fitShaderPath);
-        auto postComputeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", postShaderPath);
+        auto preComputeStage = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_COMPUTE_BIT, "main", preShaderPath);
+        auto fitComputeStage = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_COMPUTE_BIT, "main", fitShaderPath);
+        auto postComputeStage = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_COMPUTE_BIT, "main", postShaderPath);
         preComputeStage->specializationConstants = vsg::ShaderStage::SpecializationConstants{
             {0, vsg::intValue::create(width)},
             {1, vsg::intValue::create(height)},
