@@ -542,18 +542,10 @@ std::string ShaderCompiler::readShaderSource(const Path& filename, const Paths& 
     Path foundFile = findFile(filename, paths);
     if (foundFile.empty()) return std::string();
 
-    std::ifstream fin(foundFile, std::ios::ate);
-    if (!fin) return std::string();
-
-    size_t fileSize = fin.tellg();
-    std::string source;
-    source.resize(fileSize);
-
-    fin.seekg(0);
-    fin.read(reinterpret_cast<char*>(source.data()), fileSize);
-    fin.close();
-
-    return source;
+    std::ifstream fin(foundFile);
+    std::stringstream buffer;
+    buffer << fin.rdbuf();
+    return buffer.str();
 }
 
 void ShaderCompiler::apply(Node& node)
