@@ -41,3 +41,38 @@ endif()
 file(GLOB SPIRV_REFLECT_SRC src/SPIRV-Reflect/spirv_reflect.c)
 
 set(VSG_ALL ${VSG_SRC} ${IMGUI_SRC} ${SPIRV_REFLECT_SRC} PARENT_SCOPE)
+
+if (glslang_FOUND)
+    message("-- glslang defines added to compilation")
+    set(LIBRARIES ${LIBRARIES} PUBLIC ${glslang_LIBRARIES} PARENT_SCOPE)
+
+    set(EXTRA_DEFINES ${EXTRA_DEFINES} HAS_GLSLANG)
+
+    include(CheckCXXSourceRuns)
+
+    set(CMAKE_REQUIRED_LIBRARIES ${glslang_LIBRARY})
+    set(CMAKE_REQUIRED_INCLUDES ${glslang_INCLUDE_DIR})
+
+    if (NOT GLSLANG_ResourceLimits_maxDualSourceDrawBuffersEXT)
+        check_cxx_source_runs("
+            #include <glslang/Include/ResourceLimits.h>
+
+            int main()
+            {
+                TBuiltInResource resource;
+                resource.maxDualSourceDrawBuffersEXT = 0;
+                return 0;
+            }
+        " GLSLANG_ResourceLimits_maxDualSourceDrawBuffersEXT)
+    endif()
+
+    # check whether glslang/build_info.h exists
+    if (GLSLANG_ResourceLimits_maxDualSourceDrawBuffersEXT)
+        set(EXTRA_DEFINES ${EXTRA_DEFINES} "GLSLANG_ResourceLimits_maxDualSourceDrawBuffersEXT" PARENT_SCOPE)
+    endif()
+
+    install(
+        FILES vsg_glslangConfig.cmake
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/vsg_glslang
+    )
+endif()

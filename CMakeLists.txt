@@ -44,9 +44,17 @@ set(SHADERS
     bmfrPost.comp
 )
 
+set(UNCOMPILED_SHADERS
+    raygen.rgen
+    general.glsl
+)
+
 add_executable(VulkanPBRT ${SOURCES} ${VSG_ALL} ${BFR_SRC} ${TAA_SRC})
 
-target_link_libraries(VulkanPBRT Vulkan::Vulkan glslang::glslang Threads::Threads)
+target_compile_definitions(VulkanPBRT PRIVATE ${EXTRA_DEFINES})
+target_link_libraries(VulkanPBRT Vulkan::Vulkan 
+    glslang::glslang glslang::MachineIndependent glslang::OSDependent glslang::OGLCompiler glslang::SPIRV glslang::GenericCodeGen glslang::SPIRV-Tools-opt glslang::SPIRV-Tools
+     Threads::Threads)
 if(UNIX)
     target_link_libraries(VulkanPBRT xcb ${ASSIMP_LIBRARIES})
 elseif(WIN32)
@@ -78,4 +86,22 @@ endfunction(add_shader)
 
 foreach(S IN LISTS SHADERS)
     add_shader(VulkanPBRT ${S})
+endforeach()
+
+foreach(S IN LISTS UNCOMPILED_SHADERS)
+    set(current-shader-path ${CMAKE_CURRENT_SOURCE_DIR}/shaders/${S})
+    set(current-output-path ${CMAKE_BINARY_DIR}/shaders/${S})
+
+    get_filename_component(current-output-dir ${current-output-path} DIRECTORY)
+    file(MAKE_DIRECTORY ${current-output-dir})
+
+    add_custom_command(
+           OUTPUT ${current-output-path}
+           COMMAND ${CMAKE_COMMAND} -E copy ${current-shader-path} ${current-output-path}
+           DEPENDS ${current-shader-path}
+           VERBATIM)
+
+    # Make sure our build depends on this output.
+    add_custom_target("copyShader_${S}" DEPENDS ${current-output-path})
+    add_dependencies(VulkanPBRT "copyShader_${S}")
 endforeach()

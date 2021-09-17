@@ -14,7 +14,7 @@ public:
         sampler = vsg::Sampler::create();
 
         std::string shaderPath = "shaders/taa.comp.spv";
-        auto computeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", shaderPath);
+        auto computeStage = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_COMPUTE_BIT, "main", shaderPath);
         computeStage->specializationConstants = vsg::ShaderStage::SpecializationConstants{
             {0, vsg::intValue::create(width)},
             {1, vsg::intValue::create(height)},

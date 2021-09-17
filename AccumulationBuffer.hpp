@@ -144,7 +144,12 @@ public:
         commands->addChild(pipelineBarrier);
 
         // illumination
-        srcImage = illuminationBuffer->illuminationImages[1]->imageInfoList[0].imageView->image;
+        if(illuminationBuffer.cast<IlluminationBufferFinalDemodulated>())
+            srcImage = illuminationBuffer->illuminationImages[1]->imageInfoList[0].imageView->image;
+        else if(illuminationBuffer.cast<IlluminationBufferDemodulated>())
+            srcImage = illuminationBuffer->illuminationImages[0]->imageInfoList[0].imageView->image; 
+        else
+            throw vsg::Exception{"Error: AccumulationBuffer::copyToBackImages(...) Illumination buffer not supported."};
         dstImage = prevIllu->imageInfoList[0].imageView->image;
 
         srcBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0, srcImage, resourceRange);
@@ -168,7 +173,12 @@ public:
         commands->addChild(pipelineBarrier);
 
         // illumination squared
-        srcImage = illuminationBuffer->illuminationImages[2]->imageInfoList[0].imageView->image;
+        if(illuminationBuffer.cast<IlluminationBufferFinalDemodulated>())
+            srcImage = illuminationBuffer->illuminationImages[2]->imageInfoList[0].imageView->image;
+        else if(illuminationBuffer.cast<IlluminationBufferDemodulated>())
+            srcImage = illuminationBuffer->illuminationImages[1]->imageInfoList[0].imageView->image;
+        else
+            throw vsg::Exception{"Error: AccumulationBuffer::copyToBackImages(...) Illumination buffer not supported."};
         dstImage = prevIlluSquared->imageInfoList[0].imageView->image;
 
         srcBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0, srcImage, resourceRange);

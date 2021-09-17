@@ -7,5 +7,5 @@ struct RayTracingPushConstants{
     vsg::mat4 projInverse;
     vsg::mat4 prevView;
     uint frameNumber;
-    uint steadyCamFrame;
+    uint sampleNumber;
 };
