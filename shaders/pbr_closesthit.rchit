@@ -93,6 +93,8 @@ vec3 sampleLight(vec3 pos, vec3 n, out vec3 l, out float pdf)
     float strength = 0;
     vec3 lightStrength = lights.l[i].colAmbient.xyz + lights.l[i].colDiffuse.xyz + lights.l[i].colSpecular.xyz;
     float d = 0, attenuation = 0;
+    float tmax = 1000.0;
+    float tmin = 0.001;
     switch(uint(lights.l[i].v0Type.w)){
       case lst_directional:
         d = distance(pos, lights.l[i].v0Type.xyz);
@@ -131,14 +133,14 @@ vec3 sampleLight(vec3 pos, vec3 n, out vec3 l, out float pdf)
         strength = max(dot(n, lightDir) * abs(dot(lightDir, lightNormal)), 0) * lightPower * attenuation * triangleArea;
         lightStrength *= dot(n, lightDir) * abs(dot(lightDir, lightNormal)) * attenuation * triangleArea;
         l = lightDir;
+        tmax = d - tmin;
         break;
     }
     if(curStrength + strength >= lightVal){   //correct light found
       pdf = strength / strengthSum;
       shadowed = true;
       vec3 origin = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
-      float tmin = 0.001;
-	    float tmax = 1000.0;
+	    
       traceRayEXT(tlas, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsNoOpaqueEXT, 0xFF, 0, 0, 1, origin, tmin, l, tmax, 0);
       return lightStrength * float(!shadowed);
     }
@@ -196,18 +198,13 @@ void main()
 
   const vec3 bar = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
   vec2 texCoord = v0.uv * bar.x + v1.uv * bar.y + v2.uv * bar.z;
-  vec4 diffuse = texture(diffuseMap[nonuniformEXT(objId)], texCoord);
+  vec4 diffuse = SRGBtoLINEAR(texture(diffuseMap[nonuniformEXT(objId)], texCoord));
   vec3 position = v0.pos * bar.x + v1.pos * bar.y + v2.pos * bar.z;
   position = (instance.objectMat * vec4(position, 1)).xyz;
-  if(diffuse.a == 0){ //skip transparent surfaces
-    rayPayload.albedo = diffuse;
-    rayPayload.position = position;
-    return;
-  }
-  vec3 normal = normalize(v0.normal * bar.x + v1.normal * bar.y + v2.normal * bar.z).xzy;
-  //normal = normalize((instance.objectMat * vec4(normal, 0)).xyz);
-  if(v0.uv == v1.uv) v1.uv += vec2(epsilon);
-  if(v0.uv == v2.uv) v2.uv += vec2(2 * epsilon);
+  vec3 normal = normalize(v0.normal * bar.x + v1.normal * bar.y + v2.normal * bar.z).xyz;//.xzy;
+  normal = normalize((transpose(inverse(instance.objectMat)) * vec4(normal, 0)).xyz);
+  if(v0.uv == v1.uv) v1.uv += vec2(epsilon,0);
+  if(v0.uv == v2.uv) v2.uv += vec2(0,2 * epsilon);
   if(v1.uv == v2.uv) v2.uv += vec2(epsilon);
   vec3 T = getTangent(v0.pos, v1.pos, v2.pos, v0.uv, v1.uv, v2.uv).xzy;
   //T = (instance.objectMat * vec4(T, 0)).xyz;
@@ -215,26 +212,18 @@ void main()
   //B = (instance.objectMat * vec4(B, 0)).xyz;
   mat3 TBN = gramSchmidt(T, B, normal);
   normal = getNormal(TBN, normalMap[nonuniformEXT(objId)], texCoord);
-  normal.y *= -1;
 
   WaveFrontMaterial mat = unpack(materials.m[objId]);
   float perceptualRoughness = 0;
   float metallic;
-  vec4 baseColor = SRGBtoLINEAR(diffuse) * vec4(mat.ambient, 1);
+  vec4 baseColor = diffuse * vec4(mat.ambient, 1);
+  vec4 albedo = baseColor;
 
   vec3 f0 = vec3(.04);
 
-  if(mat.dissolve == 1.0f){
-    if(baseColor.a < mat.alphaCutoff){
-      //todo:: trace ray ot retrieve second hit
-      rayPayload.color = vec3(0);
-      return;
-    }
-  }
-
   vec4 specular;
   if(textureSize(specularMap[nonuniformEXT(objId)], 0) == ivec2(1,1))
-    specular = vec4(0,0,0,1);
+    specular = vec4(0,0,0,0);
   else
     SRGBtoLINEAR(texture(specularMap[nonuniformEXT(objId)], texCoord));
   perceptualRoughness = 1.0 - specular.a;
@@ -243,7 +232,7 @@ void main()
 
   metallic = convertMetallic(diffuse.rgb, specular.rgb, maxSpecular);
 
-  vec3 baseColorDiffusePart = diffuse.rgb * ((1.0 - maxSpecular) / (1 - c_MinRoughness) / max(1 - metallic, epsilon)) * mat.diffuse.rgb;
+  vec3 baseColorDiffusePart = diffuse.rgb * ((1.0 - maxSpecular) / (1 - c_MinRoughness) / max(1 - metallic, epsilon)) * mat.ambient.rgb;
   vec3 baseColorSpecularPart = specular.rgb - (vec3(c_MinRoughness) * (1 - metallic) * (1 / max(metallic, epsilon))) * mat.specular.rgb;
   baseColor = vec4(mix(baseColorDiffusePart, baseColorSpecularPart, metallic * metallic), diffuse.a);
 
@@ -259,14 +248,14 @@ void main()
   vec3 specularEnvironmentR0 = specularColor.rgb;
   vec3 specularEnvironmentR90 = vec3(1) * reflectance90;
   vec3 v = normalize(-gl_WorldRayDirectionEXT);
-  vec3 emissive = vec3(0);
-  if(textureSize(emissiveMap[nonuniformEXT(objId)], 0) != ivec2(1,1))
-      vec3 emissive = SRGBtoLINEAR(texture(emissiveMap[nonuniformEXT(objId)], texCoord)).rgb * mat.emission;
 
-  rayPayload.si = SurfaceInfo(perceptualRoughness, metallic, specularEnvironmentR0, specularEnvironmentR90, alphaRoughness, diffuseColor, specularColor, emissive, normal, mat3(TBN[0], TBN[2], TBN[1]));
+  rayPayload.si = SurfaceInfo(perceptualRoughness, metallic, specularEnvironmentR0, specularEnvironmentR90, alphaRoughness, diffuseColor, specularColor, normal, TBN);
 
   //direct illumination
   rayPayload.color = nextEventEsitmation(position, v, rayPayload.si);
+  //surface emission
+  vec3 emissive = mat.emission;// * SRGBtoLINEAR(texture(emissiveMap[nonuniformEXT(objId)], texCoord)).rgb;
+  rayPayload.color += emissive;
 
   rayPayload.albedo = diffuse;
   rayPayload.position = position;
