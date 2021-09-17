@@ -92,7 +92,6 @@ struct SurfaceInfo{
     float alphaRoughness;         // roughness mapped to a more linear change in the roughness (proposed by [2])
     vec3 diffuseColor;            // color contribution from diffuse lighting
     vec3 specularColor;           // color contribution from specular lighting
-    vec3 emission;
     vec3 normal;
     mat3 basis;                   // tbn matrix for converting form object to world space
 };

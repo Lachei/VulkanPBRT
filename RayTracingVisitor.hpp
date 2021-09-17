@@ -62,13 +62,57 @@ public:
             _positions.push_back(positions);
             auto normals = vsg::DescriptorBuffer::create(vid.arrays[1], 3, _normals.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
             _normals.push_back(normals);
-            auto texCoords = vsg::DescriptorBuffer::create(vid.arrays[2], 4, _texCoords.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+            // auto fill up tex coords if not provided
+            vsg::ref_ptr<vsg::DescriptorBuffer> texCoords;
+            int v = vid.arrays[2]->valueCount();
+            if(vid.arrays[2]->valueCount() == 0){
+                auto data = vsg::vec2Array::create(vid.arrays[0]->valueCount());
+                for(int i = 0; i < vid.indices->valueCount() / 3; ++i){
+                    uint index = 0;
+                    if(vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3];
+                    else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3];
+                    data->at(index) = vsg::vec2(0, 0);
+                    if(vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3 + 1];
+                    else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3 + 1];
+                    data->at(index) = vsg::vec2(0, 1);
+                    if(vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3 + 2];
+                    else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3 + 2];
+                    data->at(index) = vsg::vec2(1, 0);
+                }
+                vid.arrays[2] = data;
+            }
+            else texCoords = vsg::DescriptorBuffer::create(vid.arrays[2], 4, _texCoords.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
             _texCoords.push_back(texCoords);
             auto indices = vsg::DescriptorBuffer::create(vid.indices, 5, _indices.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
             _indices.push_back(indices);
             instance.indexStride = vid.indices->stride();
         }
         _instancesArray.push_back(instance);
+
+        //if emissive mesh create a mesh light for each triangle
+        if(meshEmissive){
+            for(int i = 0; i < vid.indices->valueCount() / 3; ++i){
+                vsg::Light l{};
+                l.radius = 0;
+                l.type = vsg::LightSourceType::Area;
+                l.colorAmbient = {_materialArray.back().emissionTextureId.r, _materialArray.back().emissionTextureId.g, _materialArray.back().emissionTextureId.b};
+                l.colorDiffuse = l.colorAmbient;
+                l.colorSpecular = l.colorAmbient;
+                l.strengths = vsg::vec3(0,0,1);
+
+                uint index = 0;
+                if(vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3];
+                else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3];
+                l.v0 = ((vsg::vec3*)vid.arrays[0]->dataPointer())[index];
+                if(vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3 + 1];
+                else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3 + 1];
+                l.v1 = ((vsg::vec3*)vid.arrays[0]->dataPointer())[index];
+                if(vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3 + 2];
+                else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3 + 2];
+                l.v2 = ((vsg::vec3*)vid.arrays[0]->dataPointer())[index];
+                packedLights.push_back(l.getPacked());
+            }
+        }
     }
 
     //traversing the states and the group
@@ -107,6 +151,9 @@ public:
                 std::memcpy(&mat.ambientShininess, &vsgMat.baseColorFactor, sizeof(vsg::vec4));
                 std::memcpy(&mat.specularDissolve, &vsgMat.specularFactor, sizeof(vsg::vec4));
                 std::memcpy(&mat.diffuseIor, &vsgMat.diffuseFactor, sizeof(vsg::vec4));
+                std::memcpy(&mat.emissionTextureId, &vsgMat.emissiveFactor, sizeof(vsg::vec4));
+                if(vsgMat.emissiveFactor.r + vsgMat.emissiveFactor.g + vsgMat.emissiveFactor.b != 0) meshEmissive = true;
+                else meshEmissive = false;
                 mat.ambientShininess.w = vsgMat.roughnessFactor;
                 mat.diffuseIor.w = 1;
                 mat.specularDissolve.w = vsgMat.alphaMask;
@@ -213,12 +260,12 @@ public:
                 vsg::Light l;
                 l.radius = 0;
                 l.type = vsg::LightSourceType::Directional;
-                vsg::vec3 col{2.0f,2.0f,2.0f};
+                vsg::vec3 col{2.f,2.f,2.f};
                 l.colorAmbient = col;
                 l.colorDiffuse = col;
                 l.colorSpecular = {0,0,0};
                 l.strengths = vsg::vec3(.5f,.0f,.0f);
-                l.dir = vsg::normalize(vsg::vec3(0.1f, 1, -10.1f));
+                l.dir = vsg::normalize(vsg::vec3(0.1f, 1, -5.1f));
                 packedLights.push_back(l.getPacked());
             }
             if(!_lights)
@@ -369,4 +416,5 @@ protected:
 
     vsg::ref_ptr<vsg::DescriptorImage> _defaultTexture;   //the default image is used for each texture that is not available
     bool firstStageGroup = true;                        //the first state group contains the default state which should be skipped
+    bool meshEmissive = false;                          //set to true by a descriptor set that has emission
 };
