@@ -104,9 +104,9 @@ public:
                 VsgPbrMaterial vsgMat;
                 std::memcpy(&vsgMat, d->bufferInfoList[0].data->dataPointer(), sizeof(VsgPbrMaterial));
                 WaveFrontMaterialPacked mat;
-                std::memcpy(&mat.ambientShininess, &vsgMat.baseColorFactor, sizeof(vsg::vec3));
-                std::memcpy(&mat.specularDissolve, &vsgMat.specularFactor, sizeof(vsg::vec3));
-                std::memcpy(&mat.diffuseIor, &vsgMat.diffuseFactor, sizeof(vsg::vec3));
+                std::memcpy(&mat.ambientShininess, &vsgMat.baseColorFactor, sizeof(vsg::vec4));
+                std::memcpy(&mat.specularDissolve, &vsgMat.specularFactor, sizeof(vsg::vec4));
+                std::memcpy(&mat.diffuseIor, &vsgMat.diffuseFactor, sizeof(vsg::vec4));
                 mat.ambientShininess.w = vsgMat.roughnessFactor;
                 mat.diffuseIor.w = 1;
                 mat.specularDissolve.w = vsgMat.alphaMask;
@@ -213,12 +213,12 @@ public:
                 vsg::Light l;
                 l.radius = 0;
                 l.type = vsg::LightSourceType::Directional;
-                vsg::vec3 col{1.0f,1.0f,1.0f};
-                l.colorAmbient = {0,0,0};
+                vsg::vec3 col{2.0f,2.0f,2.0f};
+                l.colorAmbient = col;
                 l.colorDiffuse = col;
                 l.colorSpecular = {0,0,0};
                 l.strengths = vsg::vec3(.5f,.0f,.0f);
-                l.dir = vsg::vec3(-.2f, -.2f, -1.0f);
+                l.dir = vsg::normalize(vsg::vec3(0.1f, 1, -10.1f));
                 packedLights.push_back(l.getPacked());
             }
             if(!_lights)

@@ -72,6 +72,7 @@ vec3 indirectLighting(vec3 pos, vec3 v, SurfaceInfo s, int recDepth){
   rayPayload.throughput = pathThroughput;
   traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, pos, tmin, l, tmax, 1);
 
+	//TODO: better firefly suppression (see nvpro samples for a good one)
   return min(rayPayload.color, vec3(c_MaxRadiance));
 }
 
@@ -172,7 +173,6 @@ void main()
 			vec3 v = normalize(worldSpacePos.xyz - rayPayload.position);
 			worldSpacePos = vec4(rayPayload.position, 1);
 			vec3 indir = indirectLighting(worldSpacePos.xyz, v, rayPayload.si, i);
-			if(rayPayload.position == vec3(1.0/0)) break;
 			finalColor += indir;
 		}
 	}
@@ -204,9 +204,6 @@ void main()
 	vec3 prevFrameColor = vec3(1.0/0);
 	if(camParams.sampleNumber > 0){
 		prevFrameColor = imageLoad(outputImage, ivec2(gl_LaunchIDEXT.xy)).xyz;
-	}
-
-	if(prevFrameColor != vec3(1.0/0)){
 		float alpha = 1.0 / (camParams.sampleNumber + 1);
 		finalColor = mix(SRGBtoLINEAR(vec4(prevFrameColor,1)).xyz, finalColor, alpha);
 	}
