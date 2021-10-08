@@ -257,7 +257,7 @@ void main()
   vec3 emissive = mat.emission;// * SRGBtoLINEAR(texture(emissiveMap[nonuniformEXT(objId)], texCoord)).rgb;
   rayPayload.color += emissive;
 
-  rayPayload.albedo = diffuse;
+  rayPayload.albedo = vec4(diffuseColor, 1);
   rayPayload.position = position;
   rayPayload.reflector = 1;
 }

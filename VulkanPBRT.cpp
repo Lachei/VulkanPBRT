@@ -29,7 +29,7 @@ enum class DenoisingType{
     BFR,
     SVG
 };
-DenoisingType denoisingType = DenoisingType::None;
+DenoisingType denoisingType = DenoisingType::BMFR;
 
 enum class DenoisingBlockSize{
     x8,
@@ -322,11 +322,23 @@ int main(int argc, char** argv){
         case DenoisingType::BMFR:
             switch(denoisingBlockSize){
             case DenoisingBlockSize::x8:
-                std::cout << "Not yet implemented" << std::endl;
+            {
+                auto bmfr8 = BMFR::create(windowTraits->width, windowTraits->height, 8, 8, gBuffer, illuminationBuffer, accumulationBuffer, 64);
+                bmfr8->compileImages(imageLayoutCompile.context);
+                bmfr8->updateImageLayouts(imageLayoutCompile.context);
+                bmfr8->addDispatchToCommandGraph(scenegraph, computeConstants);
+                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bmfr8->taaPipeline->finalImage->imageInfoList[0].imageView, window);
                 break;
+            }
             case DenoisingBlockSize::x16:
-                std::cout << "Not yet implemented" << std::endl;
+            {
+                auto bmfr16 = BMFR::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer, illuminationBuffer, accumulationBuffer);
+                bmfr16->compileImages(imageLayoutCompile.context);
+                bmfr16->updateImageLayouts(imageLayoutCompile.context);
+                bmfr16->addDispatchToCommandGraph(scenegraph, computeConstants);
+                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bmfr16->taaPipeline->finalImage->imageInfoList[0].imageView, window);
                 break;
+            }
             case DenoisingBlockSize::x32:
             {
                 auto bmfr32 = BMFR::create(windowTraits->width, windowTraits->height, 32, 32, gBuffer, illuminationBuffer, accumulationBuffer);

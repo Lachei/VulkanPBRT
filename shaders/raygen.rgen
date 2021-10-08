@@ -102,7 +102,7 @@ void main()
 	// --------------------------------------------------------------------
 	// storing GBuffer information
 	// --------------------------------------------------------------------
-	vec3 curAlbedo = rayPayload.albedo.xyz;
+	vec3 curAlbedo = LINEARtoSRGB(rayPayload.albedo).xyz;
 	float depth = distance(rayPayload.position, worldSpacePos.xyz);
 #ifdef GBUFFER
 	imageStore(depthImage, ivec2(gl_LaunchIDEXT.xy), vec4(depth));
@@ -111,7 +111,7 @@ void main()
 	compressedNormal.y = atan(rayPayload.si.normal.y, rayPayload.si.normal.x);
 	imageStore(normalImage, ivec2(gl_LaunchIDEXT.xy), vec4(compressedNormal, 1, 1));
 	imageStore(materialImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.reflector));
-	imageStore(albedoImage, ivec2(gl_LaunchIDEXT.xy), vec4(rayPayload.albedo));
+	imageStore(albedoImage, ivec2(gl_LaunchIDEXT.xy), vec4(curAlbedo, 1));
 #endif
 
 	// --------------------------------------------------------------------
@@ -185,7 +185,7 @@ void main()
 #if defined DEMOD_ILLUMINATION || defined DEMOD_ILLUMINATION_SQUARED
 	vec3 demodulated = finalColor;
 	if(!isinf(rayPayload.position.x))
-		demodulated /= (curAlbedo.xyz + vec3(EPSILON));	// epsilon added to avoid divion by 0 (when color is remodulated, epsilon is added to albedo)
+		demodulated /= (curAlbedo + vec3(EPSILON));	// epsilon added to avoid divion by 0 (when color is remodulated, epsilon is added to albedo)
 	vec3 demodSquared = demodulated * demodulated;
 	if(reprojected){
 		float blendAlpha = max(1.f / (pixelSpp * 256.0), BLEND_ALPHA);
