@@ -60,6 +60,57 @@ public:
             _vertexIndexDrawMap[&vid] = instance;
             auto positions = vsg::DescriptorBuffer::create(vid.arrays[0], 2, _positions.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
             _positions.push_back(positions);
+            std::vector<vsg::vec3> nors(1);
+            std::memcpy(nors.data(), vid.arrays[1]->dataPointer(), sizeof(vsg::vec3));
+            if(vsg::length2(nors[0]) == 0){ //normals have to be computed
+                nors.resize(vid.arrays[1]->dataSize() / sizeof(nors[0]));
+                std::memcpy(nors.data(), vid.arrays[1]->dataPointer(), vid.arrays[1]->dataSize());
+                std::vector<float> weightSum(nors.size(), 0);
+                std::vector<vsg::vec3> positions(vid.arrays[0]->dataSize() / sizeof(vsg::vec3));
+                std::memcpy(positions.data(), vid.arrays[0]->dataPointer(), vid.arrays[0]->dataSize());
+                if(vid.indices->stride() == 4){ //integer indices
+                    std::vector<uint32_t> indices(vid.indices->dataSize() / sizeof(uint32_t));
+                    std::memcpy(indices.data(), vid.indices->dataPointer(), vid.indices->dataSize());
+                    for(int tri = 0; tri < indices.size() / 3; ++tri){
+                        uint32_t indA = indices[3 * tri], indB = indices[3 * tri + 1], indC = indices[3 * tri + 2];
+                        vsg::vec3 &a = positions[indA], &b = positions[indB], &c = positions[indC];
+                        vsg::vec3 faceNormal = vsg::cross(b - a, c - a);
+                        float w = vsg::length(faceNormal); //the weight is proportional to the area of the face
+                        faceNormal /= w;
+                        float newW = w + weightSum[indA];
+                        nors[indA] = nors[indA] * (weightSum[indA] / newW) + faceNormal * (w / newW);
+                        weightSum[indA] = newW;
+                        newW = w + weightSum[indB];
+                        nors[indB] = nors[indB] * (weightSum[indB] / newW) + faceNormal * (w / newW);
+                        weightSum[indB] = newW;
+                        newW = w + weightSum[indC];
+                        nors[indC] = nors[indC] * (weightSum[indC] / newW) + faceNormal * (w / newW);
+                        weightSum[indC] = newW;
+                    }
+                }
+                else{   //short indices
+                    std::vector<uint16_t> indices(vid.indices->dataSize() / sizeof(uint16_t));
+                    std::memcpy(indices.data(), vid.indices->dataPointer(), vid.indices->dataSize());
+                    for(int tri = 0; tri < indices.size() / 3; ++tri){
+                        uint32_t indA = indices[3 * tri], indB = indices[3 * tri + 1], indC = indices[3 * tri + 2];
+                        vsg::vec3 &a = positions[indA], &b = positions[indB], &c = positions[indC];
+                        vsg::vec3 faceNormal = vsg::cross(b - a, c - a);
+                        float w = vsg::length(faceNormal); //the weight is proportional to the area of the face
+                        faceNormal /= w;
+                        float newW = w + weightSum[indA];
+                        nors[indA] = nors[indA] * (weightSum[indA] / newW) + faceNormal * (w / newW);
+                        weightSum[indA] = newW;
+                        newW = w + weightSum[indB];
+                        nors[indB] = nors[indB] * (weightSum[indB] / newW) + faceNormal * (w / newW);
+                        weightSum[indB] = newW;
+                        newW = w + weightSum[indC];
+                        nors[indC] = nors[indC] * (weightSum[indC] / newW) + faceNormal * (w / newW);
+                        weightSum[indC] = newW;
+                    }
+                }
+                //for(auto& normal: nors) normal = vsg::normalize(normal);
+                std::memcpy(vid.arrays[1]->dataPointer(), nors.data(), vid.arrays[1]->dataSize());
+            }
             auto normals = vsg::DescriptorBuffer::create(vid.arrays[1], 3, _normals.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
             _normals.push_back(normals);
             // auto fill up tex coords if not provided
@@ -143,22 +194,39 @@ public:
         {
             if(descriptor->descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) //pbr material
             {
-                //TODO change to automatically detect pbr and normal vsg mat via data stride
-                vsg::ref_ptr<vsg::DescriptorBuffer> d = descriptor.cast<vsg::DescriptorBuffer>();
-                VsgPbrMaterial vsgMat;
-                std::memcpy(&vsgMat, d->bufferInfoList[0].data->dataPointer(), sizeof(VsgPbrMaterial));
-                WaveFrontMaterialPacked mat;
-                std::memcpy(&mat.ambientShininess, &vsgMat.baseColorFactor, sizeof(vsg::vec4));
-                std::memcpy(&mat.specularDissolve, &vsgMat.specularFactor, sizeof(vsg::vec4));
-                std::memcpy(&mat.diffuseIor, &vsgMat.diffuseFactor, sizeof(vsg::vec4));
-                std::memcpy(&mat.emissionTextureId, &vsgMat.emissiveFactor, sizeof(vsg::vec4));
-                if(vsgMat.emissiveFactor.r + vsgMat.emissiveFactor.g + vsgMat.emissiveFactor.b != 0) meshEmissive = true;
-                else meshEmissive = false;
-                mat.ambientShininess.w = vsgMat.roughnessFactor;
-                mat.diffuseIor.w = 1;
-                mat.specularDissolve.w = vsgMat.alphaMask;
-                mat.emissionTextureId.w = vsgMat.alphaMaskCutoff;
-                _materialArray.push_back(mat);
+                auto d = descriptor.cast<vsg::DescriptorBuffer>();
+                if(d->bufferInfoList[0].data->dataSize() == sizeof(VsgPbrMaterial)){ // pbr material
+                    VsgPbrMaterial vsgMat;
+                    std::memcpy(&vsgMat, d->bufferInfoList[0].data->dataPointer(), sizeof(VsgPbrMaterial));
+                    WaveFrontMaterialPacked mat;
+                    std::memcpy(&mat.ambientShininess, &vsgMat.baseColorFactor, sizeof(vsg::vec4));
+                    std::memcpy(&mat.specularDissolve, &vsgMat.specularFactor, sizeof(vsg::vec4));
+                    std::memcpy(&mat.diffuseIor, &vsgMat.diffuseFactor, sizeof(vsg::vec4));
+                    std::memcpy(&mat.emissionTextureId, &vsgMat.emissiveFactor, sizeof(vsg::vec4));
+                    if(vsgMat.emissiveFactor.r + vsgMat.emissiveFactor.g + vsgMat.emissiveFactor.b != 0) meshEmissive = true;
+                    else meshEmissive = false;
+                    mat.ambientShininess.w = vsgMat.roughnessFactor;
+                    mat.diffuseIor.w = vsgMat.indexOfRefraction;
+                    mat.specularDissolve.w = vsgMat.alphaMask;
+                    mat.emissionTextureId.w = vsgMat.alphaMaskCutoff;
+                    _materialArray.push_back(mat);
+                }
+                else{   // normal material
+                    VsgMaterial vsgMat;
+                    std::memcpy(&vsgMat, d->bufferInfoList[0].data->dataPointer(), sizeof(VsgMaterial));
+                    WaveFrontMaterialPacked mat;
+                    std::memcpy(&mat.ambientShininess, &vsgMat.ambient, sizeof(vsg::vec4));
+                    std::memcpy(&mat.specularDissolve, &vsgMat.specular, sizeof(vsg::vec4));
+                    std::memcpy(&mat.diffuseIor, &vsgMat.diffuse, sizeof(vsg::vec4));
+                    std::memcpy(&mat.emissionTextureId, &vsgMat.emissive, sizeof(vsg::vec4));
+                    if(vsgMat.emissive.r + vsgMat.emissive.g + vsgMat.emissive.b != 0) meshEmissive = true;
+                    else meshEmissive = false;
+                    mat.ambientShininess.w = vsgMat.shininess;
+                    mat.diffuseIor.w = 1;
+                    mat.specularDissolve.w = vsgMat.alphaMask;
+                    mat.emissionTextureId.w = vsgMat.alphaMaskCutoff;
+                    _materialArray.push_back(mat);
+                }
                 continue;
             }
 
@@ -372,6 +440,17 @@ protected:
         uint32_t indexStride;
         int pad[2];
     };
+    //structs taken from vsgXChange/assimp.cpp
+    struct VsgMaterial
+    {
+        vsg::vec4 ambient{0.0f, 0.0f, 0.0f, 1.0f};
+        vsg::vec4 diffuse{1.0f, 1.0f, 1.0f, 1.0f};
+        vsg::vec4 specular{0.0f, 0.0f, 0.0f, 1.0f};
+        vsg::vec4 emissive{0.0f, 0.0f, 0.0f, 1.0f};
+        float shininess{0.0f};
+        float alphaMask{1.0};
+        float alphaMaskCutoff{0.5};
+    };
     struct VsgPbrMaterial
     {
         vsg::vec4 baseColorFactor{1.0, 1.0, 1.0, 1.0};
@@ -382,6 +461,7 @@ protected:
         float roughnessFactor{1.0f};
         float alphaMask{1.0f};
         float alphaMaskCutoff{0.5f};
+        float indexOfRefraction{1.0f};
     };
     struct WaveFrontMaterialPacked
     {

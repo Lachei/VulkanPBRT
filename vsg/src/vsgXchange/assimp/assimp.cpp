@@ -72,6 +72,7 @@ namespace
         float roughnessFactor{1.0f};
         float alphaMask{1.0f};
         float alphaMaskCutoff{0.5f};
+        float indexOfRefraction{1.0f};
 
         vsg::ref_ptr<vsg::Data> toData()
         {
@@ -647,6 +648,7 @@ assimp::Implementation::BindState assimp::Implementation::processMaterials(const
 
             material->Get(AI_MATKEY_COLOR_EMISSIVE, pbr.emissiveFactor);
             material->Get(AI_MATKEY_GLTF_ALPHACUTOFF, pbr.alphaMaskCutoff);
+            material->Get(AI_MATKEY_REFRACTI, pbr.indexOfRefraction);
 
             if (material->Get(AI_MATKEY_TWOSIDED, isTwoSided); isTwoSided)
                 defines.push_back("VSG_TWOSIDED");
