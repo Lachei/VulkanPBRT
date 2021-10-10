@@ -29,7 +29,7 @@ enum class DenoisingType{
     BFR,
     SVG
 };
-DenoisingType denoisingType = DenoisingType::BMFR;
+DenoisingType denoisingType = DenoisingType::None;
 
 enum class DenoisingBlockSize{
     x8,
