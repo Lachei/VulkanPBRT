@@ -63,7 +63,7 @@ void main(){
 
     //denoisedColor = max(denoisedColor, vec3(0));
     if(isinf(denoisedColor.x)) denoisedColor = vec3(1,0,0);
-    denoisedColor = clamp(denoisedColor, vec3(0), vec3(1));
+    denoisedColor = clamp(denoisedColor, vec3(0), vec3(100));
 
     //--------------------------------------------------------------------------
     //  Data accumulation
