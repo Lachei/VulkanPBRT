@@ -88,6 +88,10 @@ int main(int argc, char** argv){
 
         auto numFrames = arguments.value(-1, "-f");
         auto filename = arguments.value(std::string(), "-i");
+		if (filename.empty())
+		{
+			std::cout << "Missing input parameter \"-i <path_to_model>\"." << std::endl;
+		}
         if(arguments.read("m")) filename = "models/raytracing_scene.vsgt";
         if(arguments.errors()) return arguments.writeErrorMessages(std::cerr);
 
@@ -194,50 +198,22 @@ int main(int argc, char** argv){
         auto guiValues = Gui::Values::create();
         guiValues->width = windowTraits->width;
         guiValues->height = windowTraits->height;
-        if(filename.empty()){
-            //no extern geometry
-            //acceleration structures
-            auto vertices = vsg::vec3Array::create(
-                {{-1.0f, -1.0f, 0.0f},
-                {1.0f, -1.0f, 0.0f},
-                {0.0f, 1.0f, 0.0f}}
-            );
-            auto indices = vsg::uintArray::create({0,1,2});
 
-            auto accelGeometry = vsg::AccelerationGeometry::create();
-            accelGeometry->verts = vertices;
-            accelGeometry->indices = indices;
-
-            auto blas = vsg::BottomLevelAccelerationStructure::create(device);
-            blas->geometries.push_back(accelGeometry);
-
-            tlas = vsg::TopLevelAccelerationStructure::create(device);
-
-            auto geominstance = vsg::GeometryInstance::create();
-            geominstance->accelerationStructure = blas;
-            geominstance->transform = vsg::mat4();
-
-            tlas->geometryInstances.push_back(geominstance);
-
-            lookAt = vsg::LookAt::create(vsg::dvec3(0,0,-2.5), vsg::dvec3(0,0,0), vsg::dvec3(0,1,0));
-            guiValues->triangleCount = 1;
+    	// load scene
+        auto options = vsg::Options::create(vsgXchange::assimp::create(), vsgXchange::dds::create(), vsgXchange::stbi::create()); //using the assimp loader
+        loaded_scene = vsg::read_cast<vsg::Node>(filename, options);
+        if(!loaded_scene){
+            std::cout << "Scene not found: " << filename << std::endl;
+            return 1;
         }
-        else{
-            auto options = vsg::Options::create(vsgXchange::assimp::create(), vsgXchange::dds::create(), vsgXchange::stbi::create()); //using the assimp loader
-            loaded_scene = vsg::read_cast<vsg::Node>(filename, options);
-            if(!loaded_scene){
-                std::cout << "Scene not found: " << filename << std::endl;
-                return 1;
-            }
-            vsg::BuildAccelerationStructureTraversal buildAccelStruct(device);
-            loaded_scene->accept(buildAccelStruct);
-            tlas = buildAccelStruct.tlas;
+        vsg::BuildAccelerationStructureTraversal buildAccelStruct(device);
+        loaded_scene->accept(buildAccelStruct);
+        tlas = buildAccelStruct.tlas;
 
-            lookAt = vsg::LookAt::create(vsg::dvec3(0.0, -3, 1), vsg::dvec3(0.0, 0.0, 1), vsg::dvec3(0.0, 0.0, 1.0));
-            CountTrianglesVisitor counter;
-            loaded_scene->accept(counter);
-            guiValues->triangleCount = counter.triangleCount;
-        }
+        lookAt = vsg::LookAt::create(vsg::dvec3(0.0, -3, 1), vsg::dvec3(0.0, 0.0, 1), vsg::dvec3(0.0, 0.0, 1.0));
+        CountTrianglesVisitor counter;
+        loaded_scene->accept(counter);
+        guiValues->triangleCount = counter.triangleCount;
         
         auto rayTracingPushConstantsValue = RayTracingPushConstantsValue::create();
         perspective->get_inverse(rayTracingPushConstantsValue->value().projInverse);
