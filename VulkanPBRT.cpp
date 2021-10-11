@@ -94,8 +94,7 @@ int main(int argc, char** argv){
 #ifdef _DEBUG
         // overwriting command line options for debug
         windowTraits->debugLayer = true;
-        windowTraits->width = 1800;
-        filename = getUserDirectory() + "Downloads/glTF-Sample-Models-master/2.0/Sponza/glTF/Sponza.gltf";//"/Downloads/teapot.obj";
+		windowTraits->width = 1800;
 #endif
 
         //viewer creation
@@ -268,7 +267,7 @@ int main(int argc, char** argv){
         // -------------------------------------------------------------------------------------
         // creation of scene graph for ray tracing
         // -------------------------------------------------------------------------------------
-        guiValues->raysPerPixel = maxRecursionDepth * 2; //for each depth recursion one next event estimate is done
+        guiValues->raysPerPixel = maxRecursionDepth; //for each depth recursion one next event estimate is done
 
         //state group to bind the pipeline and descriptorset
         auto scenegraph = vsg::Commands::create();
