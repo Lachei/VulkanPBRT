@@ -60,15 +60,110 @@ public:
             _vertexIndexDrawMap[&vid] = instance;
             auto positions = vsg::DescriptorBuffer::create(vid.arrays[0], 2, _positions.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
             _positions.push_back(positions);
+            std::vector<vsg::vec3> nors(1);
+            std::memcpy(nors.data(), vid.arrays[1]->dataPointer(), sizeof(vsg::vec3));
+            if(vsg::length2(nors[0]) == 0){ //normals have to be computed
+                nors.resize(vid.arrays[1]->dataSize() / sizeof(nors[0]));
+                std::memcpy(nors.data(), vid.arrays[1]->dataPointer(), vid.arrays[1]->dataSize());
+                std::vector<float> weightSum(nors.size(), 0);
+                std::vector<vsg::vec3> positions(vid.arrays[0]->dataSize() / sizeof(vsg::vec3));
+                std::memcpy(positions.data(), vid.arrays[0]->dataPointer(), vid.arrays[0]->dataSize());
+                if(vid.indices->stride() == 4){ //integer indices
+                    std::vector<uint32_t> indices(vid.indices->dataSize() / sizeof(uint32_t));
+                    std::memcpy(indices.data(), vid.indices->dataPointer(), vid.indices->dataSize());
+                    for(int tri = 0; tri < indices.size() / 3; ++tri){
+                        uint32_t indA = indices[3 * tri], indB = indices[3 * tri + 1], indC = indices[3 * tri + 2];
+                        vsg::vec3 &a = positions[indA], &b = positions[indB], &c = positions[indC];
+                        vsg::vec3 faceNormal = vsg::cross(b - a, c - a);
+                        float w = vsg::length(faceNormal); //the weight is proportional to the area of the face
+                        faceNormal /= w;
+                        float newW = w + weightSum[indA];
+                        nors[indA] = nors[indA] * (weightSum[indA] / newW) + faceNormal * (w / newW);
+                        weightSum[indA] = newW;
+                        newW = w + weightSum[indB];
+                        nors[indB] = nors[indB] * (weightSum[indB] / newW) + faceNormal * (w / newW);
+                        weightSum[indB] = newW;
+                        newW = w + weightSum[indC];
+                        nors[indC] = nors[indC] * (weightSum[indC] / newW) + faceNormal * (w / newW);
+                        weightSum[indC] = newW;
+                    }
+                }
+                else{   //short indices
+                    std::vector<uint16_t> indices(vid.indices->dataSize() / sizeof(uint16_t));
+                    std::memcpy(indices.data(), vid.indices->dataPointer(), vid.indices->dataSize());
+                    for(int tri = 0; tri < indices.size() / 3; ++tri){
+                        uint32_t indA = indices[3 * tri], indB = indices[3 * tri + 1], indC = indices[3 * tri + 2];
+                        vsg::vec3 &a = positions[indA], &b = positions[indB], &c = positions[indC];
+                        vsg::vec3 faceNormal = vsg::cross(b - a, c - a);
+                        float w = vsg::length(faceNormal); //the weight is proportional to the area of the face
+                        faceNormal /= w;
+                        float newW = w + weightSum[indA];
+                        nors[indA] = nors[indA] * (weightSum[indA] / newW) + faceNormal * (w / newW);
+                        weightSum[indA] = newW;
+                        newW = w + weightSum[indB];
+                        nors[indB] = nors[indB] * (weightSum[indB] / newW) + faceNormal * (w / newW);
+                        weightSum[indB] = newW;
+                        newW = w + weightSum[indC];
+                        nors[indC] = nors[indC] * (weightSum[indC] / newW) + faceNormal * (w / newW);
+                        weightSum[indC] = newW;
+                    }
+                }
+                //for(auto& normal: nors) normal = vsg::normalize(normal);
+                std::memcpy(vid.arrays[1]->dataPointer(), nors.data(), vid.arrays[1]->dataSize());
+            }
             auto normals = vsg::DescriptorBuffer::create(vid.arrays[1], 3, _normals.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
             _normals.push_back(normals);
-            auto texCoords = vsg::DescriptorBuffer::create(vid.arrays[2], 4, _texCoords.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+            // auto fill up tex coords if not provided
+            vsg::ref_ptr<vsg::DescriptorBuffer> texCoords;
+            int v = vid.arrays[2]->valueCount();
+            if(vid.arrays[2]->valueCount() == 0){
+                auto data = vsg::vec2Array::create(vid.arrays[0]->valueCount());
+                for(int i = 0; i < vid.indices->valueCount() / 3; ++i){
+                    uint index = 0;
+                    if(vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3];
+                    else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3];
+                    data->at(index) = vsg::vec2(0, 0);
+                    if(vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3 + 1];
+                    else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3 + 1];
+                    data->at(index) = vsg::vec2(0, 1);
+                    if(vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3 + 2];
+                    else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3 + 2];
+                    data->at(index) = vsg::vec2(1, 0);
+                }
+                vid.arrays[2] = data;
+            }
+            else texCoords = vsg::DescriptorBuffer::create(vid.arrays[2], 4, _texCoords.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
             _texCoords.push_back(texCoords);
             auto indices = vsg::DescriptorBuffer::create(vid.indices, 5, _indices.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
             _indices.push_back(indices);
             instance.indexStride = vid.indices->stride();
         }
         _instancesArray.push_back(instance);
+
+        //if emissive mesh create a mesh light for each triangle
+        if(meshEmissive){
+            for(int i = 0; i < vid.indices->valueCount() / 3; ++i){
+                vsg::Light l{};
+                l.radius = 0;
+                l.type = vsg::LightSourceType::Area;
+                l.colorAmbient = {_materialArray.back().emissionTextureId.r, _materialArray.back().emissionTextureId.g, _materialArray.back().emissionTextureId.b};
+                l.colorDiffuse = l.colorAmbient;
+                l.colorSpecular = l.colorAmbient;
+                l.strengths = vsg::vec3(0,0,1);
+
+                uint index = 0;
+                if(vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3];
+                else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3];
+                l.v0 = ((vsg::vec3*)vid.arrays[0]->dataPointer())[index];
+                if(vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3 + 1];
+                else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3 + 1];
+                l.v1 = ((vsg::vec3*)vid.arrays[0]->dataPointer())[index];
+                if(vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3 + 2];
+                else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3 + 2];
+                l.v2 = ((vsg::vec3*)vid.arrays[0]->dataPointer())[index];
+                packedLights.push_back(l.getPacked());
+            }
+        }
     }
 
     //traversing the states and the group
@@ -99,19 +194,39 @@ public:
         {
             if(descriptor->descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) //pbr material
             {
-                //TODO change to automatically detect pbr and normal vsg mat via data stride
-                vsg::ref_ptr<vsg::DescriptorBuffer> d = descriptor.cast<vsg::DescriptorBuffer>();
-                VsgPbrMaterial vsgMat;
-                std::memcpy(&vsgMat, d->bufferInfoList[0].data->dataPointer(), sizeof(VsgPbrMaterial));
-                WaveFrontMaterialPacked mat;
-                std::memcpy(&mat.ambientShininess, &vsgMat.baseColorFactor, sizeof(vsg::vec3));
-                std::memcpy(&mat.specularDissolve, &vsgMat.specularFactor, sizeof(vsg::vec3));
-                std::memcpy(&mat.diffuseIor, &vsgMat.diffuseFactor, sizeof(vsg::vec3));
-                mat.ambientShininess.w = vsgMat.roughnessFactor;
-                mat.diffuseIor.w = 1;
-                mat.specularDissolve.w = vsgMat.alphaMask;
-                mat.emissionTextureId.w = vsgMat.alphaMaskCutoff;
-                _materialArray.push_back(mat);
+                auto d = descriptor.cast<vsg::DescriptorBuffer>();
+                if(d->bufferInfoList[0].data->dataSize() == sizeof(VsgPbrMaterial)){ // pbr material
+                    VsgPbrMaterial vsgMat;
+                    std::memcpy(&vsgMat, d->bufferInfoList[0].data->dataPointer(), sizeof(VsgPbrMaterial));
+                    WaveFrontMaterialPacked mat;
+                    std::memcpy(&mat.ambientShininess, &vsgMat.baseColorFactor, sizeof(vsg::vec4));
+                    std::memcpy(&mat.specularDissolve, &vsgMat.specularFactor, sizeof(vsg::vec4));
+                    std::memcpy(&mat.diffuseIor, &vsgMat.diffuseFactor, sizeof(vsg::vec4));
+                    std::memcpy(&mat.emissionTextureId, &vsgMat.emissiveFactor, sizeof(vsg::vec4));
+                    if(vsgMat.emissiveFactor.r + vsgMat.emissiveFactor.g + vsgMat.emissiveFactor.b != 0) meshEmissive = true;
+                    else meshEmissive = false;
+                    mat.ambientShininess.w = vsgMat.roughnessFactor;
+                    mat.diffuseIor.w = vsgMat.indexOfRefraction;
+                    mat.specularDissolve.w = vsgMat.alphaMask;
+                    mat.emissionTextureId.w = vsgMat.alphaMaskCutoff;
+                    _materialArray.push_back(mat);
+                }
+                else{   // normal material
+                    VsgMaterial vsgMat;
+                    std::memcpy(&vsgMat, d->bufferInfoList[0].data->dataPointer(), sizeof(VsgMaterial));
+                    WaveFrontMaterialPacked mat;
+                    std::memcpy(&mat.ambientShininess, &vsgMat.ambient, sizeof(vsg::vec4));
+                    std::memcpy(&mat.specularDissolve, &vsgMat.specular, sizeof(vsg::vec4));
+                    std::memcpy(&mat.diffuseIor, &vsgMat.diffuse, sizeof(vsg::vec4));
+                    std::memcpy(&mat.emissionTextureId, &vsgMat.emissive, sizeof(vsg::vec4));
+                    if(vsgMat.emissive.r + vsgMat.emissive.g + vsgMat.emissive.b != 0) meshEmissive = true;
+                    else meshEmissive = false;
+                    mat.ambientShininess.w = vsgMat.shininess;
+                    mat.diffuseIor.w = 1;
+                    mat.specularDissolve.w = vsgMat.alphaMask;
+                    mat.emissionTextureId.w = vsgMat.alphaMaskCutoff;
+                    _materialArray.push_back(mat);
+                }
                 continue;
             }
 
@@ -213,12 +328,12 @@ public:
                 vsg::Light l;
                 l.radius = 0;
                 l.type = vsg::LightSourceType::Directional;
-                vsg::vec3 col{1.0f,1.0f,1.0f};
-                l.colorAmbient = {0,0,0};
+                vsg::vec3 col{2.f,2.f,2.f};
+                l.colorAmbient = col;
                 l.colorDiffuse = col;
                 l.colorSpecular = {0,0,0};
                 l.strengths = vsg::vec3(.5f,.0f,.0f);
-                l.dir = vsg::vec3(-.2f, -.2f, -1.0f);
+                l.dir = vsg::normalize(vsg::vec3(0.1f, 1, -5.1f));
                 packedLights.push_back(l.getPacked());
             }
             if(!_lights)
@@ -325,6 +440,17 @@ protected:
         uint32_t indexStride;
         int pad[2];
     };
+    //structs taken from vsgXChange/assimp.cpp
+    struct VsgMaterial
+    {
+        vsg::vec4 ambient{0.0f, 0.0f, 0.0f, 1.0f};
+        vsg::vec4 diffuse{1.0f, 1.0f, 1.0f, 1.0f};
+        vsg::vec4 specular{0.0f, 0.0f, 0.0f, 1.0f};
+        vsg::vec4 emissive{0.0f, 0.0f, 0.0f, 1.0f};
+        float shininess{0.0f};
+        float alphaMask{1.0};
+        float alphaMaskCutoff{0.5};
+    };
     struct VsgPbrMaterial
     {
         vsg::vec4 baseColorFactor{1.0, 1.0, 1.0, 1.0};
@@ -335,6 +461,7 @@ protected:
         float roughnessFactor{1.0f};
         float alphaMask{1.0f};
         float alphaMaskCutoff{0.5f};
+        float indexOfRefraction{1.0f};
     };
     struct WaveFrontMaterialPacked
     {
@@ -369,4 +496,5 @@ protected:
 
     vsg::ref_ptr<vsg::DescriptorImage> _defaultTexture;   //the default image is used for each texture that is not available
     bool firstStageGroup = true;                        //the first state group contains the default state which should be skipped
+    bool meshEmissive = false;                          //set to true by a descriptor set that has emission
 };

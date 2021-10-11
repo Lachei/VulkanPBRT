@@ -7,7 +7,7 @@ const float RECIPROCAL_PI2 = 0.15915494;
 const float EPSILON = 1e-6;
 const float BLEND_ALPHA = .2f;
 const float c_MinRoughness = 0.04;
-const float c_MaxRadiance = 1e5;
+const float c_MaxRadiance = 1e1;
 const float c_MinTermination = 0.05;
 
 float pow2(float f){
@@ -92,9 +92,8 @@ struct SurfaceInfo{
     float alphaRoughness;         // roughness mapped to a more linear change in the roughness (proposed by [2])
     vec3 diffuseColor;            // color contribution from diffuse lighting
     vec3 specularColor;           // color contribution from specular lighting
-    vec3 emission;
     vec3 normal;
-    mat3 basis;                   // tnb matrix for converting form object to world space
+    mat3 basis;                   // tbn matrix for converting form object to world space
 };
 
 struct PBRInfo
@@ -329,8 +328,6 @@ float microfacetDistribution(PBRInfo pbrInputs)
 vec3 BRDF(vec3 v, vec3 l, vec3 h, SurfaceInfo s)
 {
     vec3 n = s.normal;
-    vec3 reflection = -normalize(reflect(v, n));
-    reflection.y *= -1.0f;
 
     float NdotL = clamp(dot(n, l), 0.001, 1.0);
     float NdotV = clamp(abs(dot(n, v)), 0.001, 1.0);

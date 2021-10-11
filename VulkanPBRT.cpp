@@ -29,7 +29,7 @@ enum class DenoisingType{
     BFR,
     SVG
 };
-DenoisingType denoisingType = DenoisingType::BMFR;
+DenoisingType denoisingType = DenoisingType::None;
 
 enum class DenoisingBlockSize{
     x8,
@@ -233,7 +233,7 @@ int main(int argc, char** argv){
             loaded_scene->accept(buildAccelStruct);
             tlas = buildAccelStruct.tlas;
 
-            lookAt = vsg::LookAt::create(vsg::dvec3(0.0, 1.0, -5.0), vsg::dvec3(0.0, 0.5, 0.0), vsg::dvec3(0.0, 0.0, 1.0));
+            lookAt = vsg::LookAt::create(vsg::dvec3(0.0, -3, 1), vsg::dvec3(0.0, 0.0, 1), vsg::dvec3(0.0, 0.0, 1.0));
             CountTrianglesVisitor counter;
             loaded_scene->accept(counter);
             guiValues->triangleCount = counter.triangleCount;
@@ -352,11 +352,23 @@ int main(int argc, char** argv){
         case DenoisingType::BMFR:
             switch(denoisingBlockSize){
             case DenoisingBlockSize::x8:
-                std::cout << "Not yet implemented" << std::endl;
+            {
+                auto bmfr8 = BMFR::create(windowTraits->width, windowTraits->height, 8, 8, gBuffer, illuminationBuffer, accumulationBuffer, 64);
+                bmfr8->compileImages(imageLayoutCompile.context);
+                bmfr8->updateImageLayouts(imageLayoutCompile.context);
+                bmfr8->addDispatchToCommandGraph(scenegraph, computeConstants);
+                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bmfr8->taaPipeline->finalImage->imageInfoList[0].imageView, window);
                 break;
+            }
             case DenoisingBlockSize::x16:
-                std::cout << "Not yet implemented" << std::endl;
+            {
+                auto bmfr16 = BMFR::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer, illuminationBuffer, accumulationBuffer);
+                bmfr16->compileImages(imageLayoutCompile.context);
+                bmfr16->updateImageLayouts(imageLayoutCompile.context);
+                bmfr16->addDispatchToCommandGraph(scenegraph, computeConstants);
+                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bmfr16->taaPipeline->finalImage->imageInfoList[0].imageView, window);
                 break;
+            }
             case DenoisingBlockSize::x32:
             {
                 auto bmfr32 = BMFR::create(windowTraits->width, windowTraits->height, 32, 32, gBuffer, illuminationBuffer, accumulationBuffer);
