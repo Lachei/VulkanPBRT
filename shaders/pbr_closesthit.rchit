@@ -32,83 +32,38 @@ hitAttributeEXT vec2 attribs;
 
 //return light color(area foreshortening already included)
 //only light which can contribute are considered, priority sampling over light strength
+//uses weighted reservoir sampling to only have to go through the lights once
 vec3 sampleLight(vec3 pos, vec3 n, out vec3 l, out float pdf)
 {
-  pdf = 1.0f;
+  pdf = 0;
+  l = vec3(0);
   float strengthSum = 0; //holds the summed up light contributions
+  float pickedStrength = 0;
+  vec3 pickedLightStrength;
+  float tmax = 1000.0;
+  float tmin = 0.001;
   //summing up all light strengths
-  for(int i = 0; i < infos.lightCount; ++i){
-    float lightPower = dot(lights.l[i].colAmbient.xyz + lights.l[i].colDiffuse.xyz + lights.l[i].colSpecular.xyz, vec3(1));
-    float d = 0, attenuation = 0;
-    switch(int(lights.l[i].v0Type.w)){
-      case lst_directional:
-        d = distance(pos, lights.l[i].v0Type.xyz);
-        attenuation = 1.0f / (lights.l[i].strengths.x + lights.l[i].strengths.y * d + lights.l[i].strengths.z * d * d);
-        strengthSum += max(dot(n, -lights.l[i].dirAngle2.xyz), 0) * lightPower * attenuation;
-        break;
-      case lst_point:
-        d = distance(pos, lights.l[i].v0Type.xyz);
-        attenuation = 1.0f / (lights.l[i].strengths.x + lights.l[i].strengths.y * d + lights.l[i].strengths.z * d * d);
-        strengthSum += max(dot(n, normalize(lights.l[i].v0Type.xyz - pos)), 0) * lightPower * attenuation;
-        break;
-      case lst_spot:
-
-        break;
-      case lst_ambient:
-
-        break;
-      case lst_area:
-        //sample triangle position
-        vec2 barycentrics = sampleTriangle(randomVec2(rayPayload.re));
-        vec3 p1 = lights.l[i].v0Type.xyz;
-        vec3 p2 = lights.l[i].v1Strength.xyz;
-        vec3 p3 = lights.l[i].v2Angle.xyz;
-        vec3 lightP = blerp(barycentrics, p1, p2, p3);
-        vec3 lightDir = lightP - pos;
-        vec3 lightNormal = cross(p2 - p1, p3 - p1);
-        float triangleArea = .5f * length(lightNormal);
-        lightNormal = normalize(lightNormal);
-        d = length(lightDir);
-        lightDir /= d;
-        attenuation = 1.0f / (lights.l[i].strengths.x + lights.l[i].strengths.y * d + lights.l[i].strengths.z * d * d);
-        strengthSum += max(dot(n, lightDir) * abs(dot(lightDir, lightNormal)), 0) * lightPower * attenuation * triangleArea;
-
-        break;
-    }
-  }
-
-  if(strengthSum == 0){   //surface is not directly lit
-    pdf = 0;
-    l = vec3(0);
-    return vec3(0);
-  }
-
-  //sampling in the light strengths
-  float lightVal = randomFloat(rayPayload.re) * strengthSum;
-  float curStrength = 0;
-  
-  //getting the light to the sampled light strength
   for(int i = 0; i < infos.lightCount; ++i){
     float lightPower = dot(lights.l[i].colAmbient + lights.l[i].colDiffuse + lights.l[i].colSpecular, vec4(1));
     float strength = 0;
     vec3 lightStrength = lights.l[i].colAmbient.xyz + lights.l[i].colDiffuse.xyz + lights.l[i].colSpecular.xyz;
     float d = 0, attenuation = 0;
-    float tmax = 1000.0;
-    float tmin = 0.001;
-    switch(uint(lights.l[i].v0Type.w)){
+    float curTmax = 1000.0;
+    vec3 curL;
+    switch(int(lights.l[i].v0Type.w)){
       case lst_directional:
         d = distance(pos, lights.l[i].v0Type.xyz);
         attenuation = 1.0f / (lights.l[i].strengths.x + lights.l[i].strengths.y * d + lights.l[i].strengths.z * d * d);
         strength = max(dot(n, -lights.l[i].dirAngle2.xyz), 0) * lightPower * attenuation;
         lightStrength *= dot(n, -lights.l[i].dirAngle2.xyz) * attenuation;
-        l = normalize(-lights.l[i].dirAngle2.xyz);
+        curL = normalize(-lights.l[i].dirAngle2.xyz);
         break;
       case lst_point:
         d = distance(pos, lights.l[i].v0Type.xyz);
         attenuation = 1.0f / (lights.l[i].strengths.x + lights.l[i].strengths.y * d + lights.l[i].strengths.z * d * d);
         strength = max(dot(n, normalize(lights.l[i].v0Type.xyz - pos)), 0) * lightPower * attenuation;
         lightStrength *= dot(n, normalize(lights.l[i].v0Type.xyz - pos)) * attenuation;
-        l = normalize(lights.l[i].v0Type.xyz - pos);
+        curL = normalize(lights.l[i].v0Type.xyz - pos);
         break;
       case lst_spot:
 
@@ -132,20 +87,30 @@ vec3 sampleLight(vec3 pos, vec3 n, out vec3 l, out float pdf)
         attenuation = 1.0f / (lights.l[i].strengths.x + lights.l[i].strengths.y * d + lights.l[i].strengths.z * d * d);
         strength = max(dot(n, lightDir) * abs(dot(lightDir, lightNormal)), 0) * lightPower * attenuation * triangleArea;
         lightStrength *= dot(n, lightDir) * abs(dot(lightDir, lightNormal)) * attenuation * triangleArea;
-        l = lightDir;
-        tmax = d - tmin;
+        curL = lightDir;
+        curTmax = d - tmin;
         break;
     }
-    if(curStrength + strength >= lightVal){   //correct light found
-      pdf = strength / strengthSum;
-      shadowed = true;
-      vec3 origin = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
-	    
-      traceRayEXT(tlas, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsNoOpaqueEXT, 0xFF, 0, 0, 1, origin, tmin, l, tmax, 0);
-      return lightStrength * float(!shadowed);
+    strengthSum += strength;
+    if(randomFloat(rayPayload.re) < strength / strengthSum){   //update selected light
+      pickedStrength = strength;
+      pickedLightStrength = lightStrength;
+      tmax = curTmax;
+      l = curL;
     }
-    curStrength += strength;
   }
+
+  if(strengthSum == 0){   //surface is not directly lit
+    pdf = 0;
+    l = vec3(0);
+    return vec3(0);
+  }
+
+  pdf = pickedStrength / strengthSum;
+  vec3 origin = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
+  shadowed = true;
+  traceRayEXT(tlas, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT | gl_RayFlagsNoOpaqueEXT, 0xFF, 0, 0, 1, origin, tmin, l, tmax, 0);
+  return pickedLightStrength * float(!shadowed);
 }
 
 //calculates direct lighting on the surface point at pos
