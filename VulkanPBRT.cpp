@@ -40,10 +40,43 @@ enum class DenoisingBlockSize{
 };
 DenoisingBlockSize denoisingBlockSize = DenoisingBlockSize::x32;
 
+
+class LoggingRedirectSentry
+{
+public:
+	LoggingRedirectSentry(std::ostream* outStream, std::streambuf* originalBuffer)
+		: outStream(outStream), originalBuffer(originalBuffer)
+	{
+	}
+	~LoggingRedirectSentry()
+	{
+		//reset to standard output
+		outStream->rdbuf(originalBuffer); 
+	}
+private:
+	std::ostream* outStream;
+	std::streambuf* originalBuffer;
+};
+
 int main(int argc, char** argv){
     try{
         // command line parsing
         vsg::CommandLine arguments(&argc, argv);
+
+		std::ofstream out("out_log.txt");
+		std::streambuf *coutBuf = std::cout.rdbuf();
+		std::ofstream err_log("err_log.txt");
+		std::streambuf *cerrBuf = std::cerr.rdbuf();
+		if (arguments.read({ "--log", "-l" }))
+		{
+			// redirect cout and cerr to log files
+			std::cout.rdbuf(out.rdbuf());
+			std::cerr.rdbuf(err_log.rdbuf());
+		}
+    	// ensure that cout and cerr are reset to their standard output when main() is exited
+		LoggingRedirectSentry coutSentry(&std::cout, coutBuf);
+		LoggingRedirectSentry cerrSenry(&std::cerr, cerrBuf);
+		
 
         auto windowTraits = vsg::WindowTraits::create();
         windowTraits->windowTitle = "VulkanPBRT";
@@ -51,7 +84,7 @@ int main(int argc, char** argv){
         windowTraits->apiDumpLayer = arguments.read({"--api", "-a"});
         if(arguments.read({"--fullscreen", "-fs"})) windowTraits->fullscreen = true;
         if(arguments.read({"--window", "-w"}, windowTraits->width, windowTraits->height)) windowTraits->fullscreen = false;
-        arguments.read("--screen", windowTraits->screenNum);
+        arguments.read("--screen", windowTraits->screenNum);	
 
         auto numFrames = arguments.value(-1, "-f");
         auto filename = arguments.value(std::string(), "-i");
