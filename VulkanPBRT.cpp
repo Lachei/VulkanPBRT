@@ -63,20 +63,17 @@ int main(int argc, char** argv){
         // command line parsing
         vsg::CommandLine arguments(&argc, argv);
 
+        // ensure that cout and cerr are reset to their standard output when main() is exited
+        LoggingRedirectSentry coutSentry(&std::cout, std::cout.rdbuf());
+        LoggingRedirectSentry cerrSenry(&std::cerr, std::cerr.rdbuf());
         std::ofstream out("out_log.txt");
-        std::streambuf *coutBuf = std::cout.rdbuf();
         std::ofstream err_log("err_log.txt");
-        std::streambuf *cerrBuf = std::cerr.rdbuf();
         if (arguments.read({ "--log", "-l" }))
         {
             // redirect cout and cerr to log files
             std::cout.rdbuf(out.rdbuf());
             std::cerr.rdbuf(err_log.rdbuf());
         }
-        // ensure that cout and cerr are reset to their standard output when main() is exited
-        LoggingRedirectSentry coutSentry(&std::cout, coutBuf);
-        LoggingRedirectSentry cerrSenry(&std::cerr, cerrBuf);
-		
 
         auto windowTraits = vsg::WindowTraits::create();
         windowTraits->windowTitle = "VulkanPBRT";
@@ -107,7 +104,7 @@ int main(int argc, char** argv){
 #ifdef _DEBUG
         // overwriting command line options for debug
         windowTraits->debugLayer = true;
-		windowTraits->width = 1800;
+        windowTraits->width = 1800;
 #endif
 
         //viewer creation
