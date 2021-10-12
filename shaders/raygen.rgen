@@ -168,11 +168,12 @@ void main()
 	// --------------------------------------------------------------------
 	vec3 finalColor = rayPayload.color;
 #if defined FINAL_IMAGE || defined DEMOD_ILLUMINATION || defined DEMOD_ILLUMINATION_SQUARED
-	if(rayPayload.position != vec3(1.0/0)){
+	if(rayPayload.si.normal != vec3(1)){
 		for(int i = 0; i < infos.maxRecursionDepth; ++i){
 			vec3 v = normalize(worldSpacePos.xyz - rayPayload.position);
 			worldSpacePos = vec4(rayPayload.position, 1);
 			vec3 indir = indirectLighting(worldSpacePos.xyz, v, rayPayload.si, i);
+			if(rayPayload.si.normal == vec3(1)) break;	//stop recursion when sky was hit
 			finalColor += indir;
 		}
 	}

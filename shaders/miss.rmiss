@@ -10,6 +10,6 @@ void main()
     rayPayload.color = vec3(0);
     rayPayload.albedo = vec4(0);
     rayPayload.position = vec3(1.0e10);
-    rayPayload.si.normal = vec3(0,0,1);
+    rayPayload.si.normal = vec3(1);
     rayPayload.reflector = 0;
 }
