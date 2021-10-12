@@ -95,6 +95,15 @@ int main(int argc, char** argv){
         if(arguments.read("m")) filename = "models/raytracing_scene.vsgt";
         if(arguments.errors()) return arguments.writeErrorMessages(std::cerr);
 
+        std::string denoising;
+        if(arguments.read("--denoiser", denoising)){
+            if(denoising == "bmfr")     denoisingType = DenoisingType::BMFR;
+            else if(denoising == "bfr") denoisingType = DenoisingType::BFR;
+            else if(denoising == "svgf")denoisingType = DenoisingType::SVG;
+            else if(denoising == "none"){}
+            else std::cout << "Unknown denoising type: " << denoising << std::endl;
+        }
+
 #ifdef _DEBUG
         // overwriting command line options for debug
         windowTraits->debugLayer = true;
