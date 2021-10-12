@@ -40,10 +40,43 @@ enum class DenoisingBlockSize{
 };
 DenoisingBlockSize denoisingBlockSize = DenoisingBlockSize::x32;
 
+
+class LoggingRedirectSentry
+{
+public:
+    LoggingRedirectSentry(std::ostream* outStream, std::streambuf* originalBuffer)
+    	: outStream(outStream), originalBuffer(originalBuffer)
+    {
+    }
+    ~LoggingRedirectSentry()
+    {
+        //reset to standard output
+        outStream->rdbuf(originalBuffer); 
+    }
+private:
+    std::ostream* outStream;
+    std::streambuf* originalBuffer;
+};
+
 int main(int argc, char** argv){
     try{
         // command line parsing
         vsg::CommandLine arguments(&argc, argv);
+
+        std::ofstream out("out_log.txt");
+        std::streambuf *coutBuf = std::cout.rdbuf();
+        std::ofstream err_log("err_log.txt");
+        std::streambuf *cerrBuf = std::cerr.rdbuf();
+        if (arguments.read({ "--log", "-l" }))
+        {
+            // redirect cout and cerr to log files
+            std::cout.rdbuf(out.rdbuf());
+            std::cerr.rdbuf(err_log.rdbuf());
+        }
+        // ensure that cout and cerr are reset to their standard output when main() is exited
+        LoggingRedirectSentry coutSentry(&std::cout, coutBuf);
+        LoggingRedirectSentry cerrSenry(&std::cerr, cerrBuf);
+		
 
         auto windowTraits = vsg::WindowTraits::create();
         windowTraits->windowTitle = "VulkanPBRT";
@@ -51,20 +84,21 @@ int main(int argc, char** argv){
         windowTraits->apiDumpLayer = arguments.read({"--api", "-a"});
         if(arguments.read({"--fullscreen", "-fs"})) windowTraits->fullscreen = true;
         if(arguments.read({"--window", "-w"}, windowTraits->width, windowTraits->height)) windowTraits->fullscreen = false;
-        arguments.read("--screen", windowTraits->screenNum);
+        arguments.read("--screen", windowTraits->screenNum);	
 
         auto numFrames = arguments.value(-1, "-f");
         auto filename = arguments.value(std::string(), "-i");
+        if (filename.empty())
+        {
+            std::cout << "Missing input parameter \"-i <path_to_model>\"." << std::endl;
+        }
         if(arguments.read("m")) filename = "models/raytracing_scene.vsgt";
         if(arguments.errors()) return arguments.writeErrorMessages(std::cerr);
 
 #ifdef _DEBUG
         // overwriting command line options for debug
         windowTraits->debugLayer = true;
-        windowTraits->width = 1800;
-        filename = getUserDirectory() + "Downloads/glTF-Sample-Models-master/2.0/Sponza/glTF/Sponza.gltf";//"/Downloads/teapot.obj";
-        //filename = getUserDirectory() + "/Downloads/teapot.obj";
-        //filename = getUserDirectory() + "Downloads/cornell_box/scene.gltf";//"/Downloads/teapot.obj";
+		windowTraits->width = 1800;
 #endif
 
         //viewer creation
@@ -164,50 +198,22 @@ int main(int argc, char** argv){
         auto guiValues = Gui::Values::create();
         guiValues->width = windowTraits->width;
         guiValues->height = windowTraits->height;
-        if(filename.empty()){
-            //no extern geometry
-            //acceleration structures
-            auto vertices = vsg::vec3Array::create(
-                {{-1.0f, -1.0f, 0.0f},
-                {1.0f, -1.0f, 0.0f},
-                {0.0f, 1.0f, 0.0f}}
-            );
-            auto indices = vsg::uintArray::create({0,1,2});
 
-            auto accelGeometry = vsg::AccelerationGeometry::create();
-            accelGeometry->verts = vertices;
-            accelGeometry->indices = indices;
-
-            auto blas = vsg::BottomLevelAccelerationStructure::create(device);
-            blas->geometries.push_back(accelGeometry);
-
-            tlas = vsg::TopLevelAccelerationStructure::create(device);
-
-            auto geominstance = vsg::GeometryInstance::create();
-            geominstance->accelerationStructure = blas;
-            geominstance->transform = vsg::mat4();
-
-            tlas->geometryInstances.push_back(geominstance);
-
-            lookAt = vsg::LookAt::create(vsg::dvec3(0,0,-2.5), vsg::dvec3(0,0,0), vsg::dvec3(0,1,0));
-            guiValues->triangleCount = 1;
+    	// load scene
+        auto options = vsg::Options::create(vsgXchange::assimp::create(), vsgXchange::dds::create(), vsgXchange::stbi::create()); //using the assimp loader
+        loaded_scene = vsg::read_cast<vsg::Node>(filename, options);
+        if(!loaded_scene){
+            std::cout << "Scene not found: " << filename << std::endl;
+            return 1;
         }
-        else{
-            auto options = vsg::Options::create(vsgXchange::assimp::create(), vsgXchange::dds::create(), vsgXchange::stbi::create()); //using the assimp loader
-            loaded_scene = vsg::read_cast<vsg::Node>(filename, options);
-            if(!loaded_scene){
-                std::cout << "Scene not found: " << filename << std::endl;
-                return 1;
-            }
-            vsg::BuildAccelerationStructureTraversal buildAccelStruct(device);
-            loaded_scene->accept(buildAccelStruct);
-            tlas = buildAccelStruct.tlas;
+        vsg::BuildAccelerationStructureTraversal buildAccelStruct(device);
+        loaded_scene->accept(buildAccelStruct);
+        tlas = buildAccelStruct.tlas;
 
-            lookAt = vsg::LookAt::create(vsg::dvec3(0.0, -3, 1), vsg::dvec3(0.0, 0.0, 1), vsg::dvec3(0.0, 0.0, 1.0));
-            CountTrianglesVisitor counter;
-            loaded_scene->accept(counter);
-            guiValues->triangleCount = counter.triangleCount;
-        }
+        lookAt = vsg::LookAt::create(vsg::dvec3(0.0, -3, 1), vsg::dvec3(0.0, 0.0, 1), vsg::dvec3(0.0, 0.0, 1.0));
+        CountTrianglesVisitor counter;
+        loaded_scene->accept(counter);
+        guiValues->triangleCount = counter.triangleCount;
         
         auto rayTracingPushConstantsValue = RayTracingPushConstantsValue::create();
         perspective->get_inverse(rayTracingPushConstantsValue->value().projInverse);
@@ -237,7 +243,7 @@ int main(int argc, char** argv){
         // -------------------------------------------------------------------------------------
         // creation of scene graph for ray tracing
         // -------------------------------------------------------------------------------------
-        guiValues->raysPerPixel = maxRecursionDepth * 2; //for each depth recursion one next event estimate is done
+        guiValues->raysPerPixel = maxRecursionDepth; //for each depth recursion one next event estimate is done
 
         //state group to bind the pipeline and descriptorset
         auto scenegraph = vsg::Commands::create();

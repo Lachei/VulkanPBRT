@@ -25,7 +25,7 @@ file(GLOB SOURCES
     "*.hpp"
     "*.cpp"
 )
-list(FILTER GLOB EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/vsg/.*" )
+list(FILTER SOURCES EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/vsg/.*" )
 set(SHADERS
     pbr_closesthit.rchit
     miss.rmiss
