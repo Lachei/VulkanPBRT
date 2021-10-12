@@ -44,18 +44,18 @@ DenoisingBlockSize denoisingBlockSize = DenoisingBlockSize::x32;
 class LoggingRedirectSentry
 {
 public:
-	LoggingRedirectSentry(std::ostream* outStream, std::streambuf* originalBuffer)
-		: outStream(outStream), originalBuffer(originalBuffer)
-	{
-	}
-	~LoggingRedirectSentry()
-	{
-		//reset to standard output
-		outStream->rdbuf(originalBuffer); 
-	}
+    LoggingRedirectSentry(std::ostream* outStream, std::streambuf* originalBuffer)
+    	: outStream(outStream), originalBuffer(originalBuffer)
+    {
+    }
+    ~LoggingRedirectSentry()
+    {
+        //reset to standard output
+        outStream->rdbuf(originalBuffer); 
+    }
 private:
-	std::ostream* outStream;
-	std::streambuf* originalBuffer;
+    std::ostream* outStream;
+    std::streambuf* originalBuffer;
 };
 
 int main(int argc, char** argv){
@@ -63,19 +63,19 @@ int main(int argc, char** argv){
         // command line parsing
         vsg::CommandLine arguments(&argc, argv);
 
-		std::ofstream out("out_log.txt");
-		std::streambuf *coutBuf = std::cout.rdbuf();
-		std::ofstream err_log("err_log.txt");
-		std::streambuf *cerrBuf = std::cerr.rdbuf();
-		if (arguments.read({ "--log", "-l" }))
-		{
-			// redirect cout and cerr to log files
-			std::cout.rdbuf(out.rdbuf());
-			std::cerr.rdbuf(err_log.rdbuf());
-		}
-    	// ensure that cout and cerr are reset to their standard output when main() is exited
-		LoggingRedirectSentry coutSentry(&std::cout, coutBuf);
-		LoggingRedirectSentry cerrSenry(&std::cerr, cerrBuf);
+        std::ofstream out("out_log.txt");
+        std::streambuf *coutBuf = std::cout.rdbuf();
+        std::ofstream err_log("err_log.txt");
+        std::streambuf *cerrBuf = std::cerr.rdbuf();
+        if (arguments.read({ "--log", "-l" }))
+        {
+            // redirect cout and cerr to log files
+            std::cout.rdbuf(out.rdbuf());
+            std::cerr.rdbuf(err_log.rdbuf());
+        }
+        // ensure that cout and cerr are reset to their standard output when main() is exited
+        LoggingRedirectSentry coutSentry(&std::cout, coutBuf);
+        LoggingRedirectSentry cerrSenry(&std::cerr, cerrBuf);
 		
 
         auto windowTraits = vsg::WindowTraits::create();
@@ -88,10 +88,10 @@ int main(int argc, char** argv){
 
         auto numFrames = arguments.value(-1, "-f");
         auto filename = arguments.value(std::string(), "-i");
-		if (filename.empty())
-		{
-			std::cout << "Missing input parameter \"-i <path_to_model>\"." << std::endl;
-		}
+        if (filename.empty())
+        {
+            std::cout << "Missing input parameter \"-i <path_to_model>\"." << std::endl;
+        }
         if(arguments.read("m")) filename = "models/raytracing_scene.vsgt";
         if(arguments.errors()) return arguments.writeErrorMessages(std::cerr);
 
