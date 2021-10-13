@@ -361,7 +361,23 @@ int main(int argc, char** argv){
                 break;
             }
             case DenoisingBlockSize::x8x16x32:
-                std::cout << "Not yet implemented" << std::endl;
+                auto bmfr8 = BMFR::create(windowTraits->width, windowTraits->height, 8, 8, gBuffer, illuminationBuffer, accumulationBuffer, 64);
+                auto bmfr16 = BMFR::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer, illuminationBuffer, accumulationBuffer);
+                auto bmfr32 = BMFR::create(windowTraits->width, windowTraits->height, 32, 32, gBuffer, illuminationBuffer, accumulationBuffer);
+                auto blender = BFRBlender::create(windowTraits->width, windowTraits->height, 
+                                        illuminationBuffer->illuminationImages[1], illuminationBuffer->illuminationImages[2],
+                                        bmfr8->taaPipeline->finalImage, bmfr16->taaPipeline->finalImage, bmfr32->taaPipeline->finalImage);
+                bmfr8->compileImages(imageLayoutCompile.context);
+                bmfr8->updateImageLayouts(imageLayoutCompile.context);
+                bmfr16->compileImages(imageLayoutCompile.context);
+                bmfr16->updateImageLayouts(imageLayoutCompile.context);
+                bmfr32->compileImages(imageLayoutCompile.context);
+                bmfr32->updateImageLayouts(imageLayoutCompile.context);
+                bmfr8->addDispatchToCommandGraph(scenegraph, computeConstants);
+                bmfr16->addDispatchToCommandGraph(scenegraph, computeConstants);
+                bmfr32->addDispatchToCommandGraph(scenegraph, computeConstants);
+                blender->addDispatchToCommandGraph(scenegraph);
+                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(blender->finalImage->imageInfoList[0].imageView, window);
                 break;
             }
             break;
