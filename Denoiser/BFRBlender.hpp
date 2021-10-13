@@ -9,13 +9,13 @@ public:
     vsg::ref_ptr<vsg::ComputePipeline> pipeline;
     vsg::ref_ptr<vsg::BindComputePipeline> bindPipeline;
     vsg::ref_ptr<vsg::BindDescriptorSet> bindDescriptorSet;
-    uint width, height, workWidth, workHeight;
+    uint width, height, workWidth, workHeight, filterRadius;
 
     BFRBlender(uint width, uint height, 
         vsg::ref_ptr<vsg::DescriptorImage> averageImage, vsg::ref_ptr<vsg::DescriptorImage> averageSquaredImage,
         vsg::ref_ptr<vsg::DescriptorImage> denoised0, vsg::ref_ptr<vsg::DescriptorImage> denoised1, vsg::ref_ptr<vsg::DescriptorImage> denoised2, 
-        uint workWidth = 16, uint workHeight = 16):
-        width(width), height(height), workWidth(workWidth), workHeight(workHeight)
+        uint workWidth = 16, uint workHeight = 16, uint filterRadius = 2):
+        width(width), height(height), workWidth(workWidth), workHeight(workHeight), filterRadius(filterRadius)
         {
         std::string shaderPath = "shaders/bfrBlender.comp.spv";
         auto computeStage = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_COMPUTE_BIT, "main", shaderPath);
@@ -23,7 +23,8 @@ public:
             {0, vsg::intValue::create(width)},
             {1, vsg::intValue::create(height)},
             {2, vsg::intValue::create(workHeight)},
-            {3, vsg::intValue::create(workWidth)}
+            {3, vsg::intValue::create(workWidth)},
+            {4, vsg::intValue::create(filterRadius)}
         };
 
         //final image

@@ -373,6 +373,8 @@ int main(int argc, char** argv){
                 bmfr16->updateImageLayouts(imageLayoutCompile.context);
                 bmfr32->compileImages(imageLayoutCompile.context);
                 bmfr32->updateImageLayouts(imageLayoutCompile.context);
+                blender->compile(imageLayoutCompile.context);
+                blender->updateImageLayouts(imageLayoutCompile.context);
                 bmfr8->addDispatchToCommandGraph(scenegraph, computeConstants);
                 bmfr16->addDispatchToCommandGraph(scenegraph, computeConstants);
                 bmfr32->addDispatchToCommandGraph(scenegraph, computeConstants);

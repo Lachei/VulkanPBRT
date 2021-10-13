@@ -12,14 +12,18 @@ layout(constant_id = 0) const int IMAGE_WIDTH = 1280;
 layout(constant_id = 1) const int IMAGE_HEIGHT = 720;
 layout(constant_id = 2) const int BLOCK_WIDTH = 16;
 layout(constant_id = 3) const int BLOCK_HEIGHT = 16;
+layout(constant_id = 4) const int FILTER_RADIUS = 1; //spatial radius for variance 
 
 layout (local_size_x_id = 2,local_size_y_id = 3,local_size_z=1) in;
 
-const float stdDevMid = .1f;
+const float stdDevMid = .5f;
+const float maxStdDev = 1.0f;
 
 #include "general.glsl"
 
-float mix3(float a, float b, float c, float t, float mid){
+float mix3(float a, float b, float c, float t, float mid, float maxDev){
+    t /= maxDev;
+    t = min(t, 1);
     float aFac = max(1.0 - (t / mid), 0);
     float bFac = (t < mid) ? t / mid : 1 - (t - mid) / (1.0 - mid);
     float cFac = 1.0 - aFac - bFac;
@@ -28,24 +32,40 @@ float mix3(float a, float b, float c, float t, float mid){
 
 void main(){
     if(gl_GlobalInvocationID.x >= IMAGE_WIDTH || gl_GlobalInvocationID.y >= IMAGE_HEIGHT) return;
+    float sq = 0;
+    float av = 0;
+    int count = 0;
+    for(int y = -FILTER_RADIUS; y <= FILTER_RADIUS; ++y){
+        for(int x = -FILTER_RADIUS; x <= FILTER_RADIUS; ++x){
+            ivec2 off = ivec2(x, y);
+            vec3 aver = imageLoad(average, ivec2(gl_GlobalInvocationID.xy) + off).xyz;
+            float curA = dot(aver, vec3(1.0 / 3.0));
+            ++count;
+            sq = mix(sq, curA * curA, 1.0 / count);
+            av = mix(av, curA, 1.0 / count);
+        }
+    }
     vec3 ave = imageLoad(average, ivec2(gl_GlobalInvocationID.xy)).xyz;
     vec3 aveSquared = imageLoad(averageSquared, ivec2(gl_GlobalInvocationID.xy)).xyz;
-    vec3 den0 = imageLoad(denoised0, ivec2(gl_GlobalInvocationID.xy)).xyz;
+    av = mix(av, dot(ave, vec3(1.0 / 3.0)), .5);
+    sq = mix(sq, dot(aveSquared, vec3(1.0 / 3.0)), .5);
+    vec3 den2 = imageLoad(denoised0, ivec2(gl_GlobalInvocationID.xy)).xyz;
     vec3 den1 = imageLoad(denoised1, ivec2(gl_GlobalInvocationID.xy)).xyz;
-    vec3 den2 = imageLoad(denoised2, ivec2(gl_GlobalInvocationID.xy)).xyz;
+    vec3 den0 = imageLoad(denoised2, ivec2(gl_GlobalInvocationID.xy)).xyz;
     //linearize denoised outputs(averages are in linear space)
-    den0 = LINEARtoSRGB(den0);
-    den1 = LINEARtoSRGB(den1);
-    den2 = LINEARtoSRGB(den2);
+    //den0 = SRGBtoLINEAR(den0);
+    //den1 = SRGBtoLINEAR(den1);
+    //den2 = SRGBtoLINEAR(den2);
 
-    vec3 stdDev = sqrt(aveSquared - (ave * ave));
+    float stdDev = sqrt(sq - (av * av));
 
     //blending according to stdDev. 0 stddev-> den0, medium stddev -> den1, large stddev-> den2
     vec3 finalColor;
-    finalColor.x = mix3(den0.x, den1.x, den2.x, stdDev.x, stdDevMid);
-    finalColor.y = mix3(den0.y, den1.y, den2.y, stdDev.y, stdDevMid);
-    finalColor.z = mix3(den0.z, den1.z, den2.z, stdDev.z, stdDevMid);
+    finalColor.x = mix3(den0.x, den1.x, den2.x, stdDev, stdDevMid, maxStdDev);
+    finalColor.y = mix3(den0.y, den1.y, den2.y, stdDev, stdDevMid, maxStdDev);
+    finalColor.z = mix3(den0.z, den1.z, den2.z, stdDev, stdDevMid, maxStdDev);
+    //finalColor = LINEARtoSRGB(finalColor);
     //finalColor = den2;
 
-    imageStore(final, ivec2(gl_GlobalInvocationID.xy), vec4(finalColor,1));
+    imageStore(final, ivec2(gl_GlobalInvocationID.xy), vec4(finalColor, 1));
 }

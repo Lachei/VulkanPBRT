@@ -184,7 +184,7 @@ void main()
   vec4 baseColor = diffuse * vec4(mat.ambient, 1);
   vec4 albedo = baseColor;
 
-  vec3 f0 = vec3(.04);
+  const vec3 f0 = vec3(.04);
 
   vec4 specular;
   if(textureSize(specularMap[nonuniformEXT(objId)], 0) == ivec2(1,1))
