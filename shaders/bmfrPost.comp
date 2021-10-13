@@ -58,12 +58,13 @@ void main(){
         weight.x = imageLoad(weights, ivec3(gl_WorkGroupID.xy, feature * 3)).x;
         weight.y = imageLoad(weights, ivec3(gl_WorkGroupID.xy, feature * 3 + 1)).x;
         weight.z = imageLoad(weights, ivec3(gl_WorkGroupID.xy, feature * 3 + 2)).x;
+        if(isinf(weight.x) || isnan(weight.x)) weight.x = 0;
+        if(isinf(weight.y) || isnan(weight.y)) weight.y = 0;
+        if(isinf(weight.z) || isnan(weight.z)) weight.z = 0;
         denoisedColor += weight * features[feature];
     }
 
-    //denoisedColor = max(denoisedColor, vec3(0));
-    if(isinf(denoisedColor.x)) denoisedColor = vec3(1,0,0);
-    denoisedColor = clamp(denoisedColor, vec3(0), vec3(100));
+    denoisedColor = clamp(denoisedColor, vec3(0), vec3(10));
 
     //--------------------------------------------------------------------------
     //  Data accumulation
