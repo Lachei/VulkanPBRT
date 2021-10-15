@@ -25,7 +25,7 @@ namespace vsg
     class VSG_DECLSPEC FlyNavigation : public Inherit<Visitor, FlyNavigation>
     {
     public:
-        FlyNavigation(ref_ptr<Camera> camera, ref_ptr<EllipsoidModel> ellipsoidModel = {});
+        FlyNavigation(ref_ptr<Camera> camera);
 
         /// compute non dimensional window coordinate (-1,1) from event coords
         dvec2 ndc(PointerEvent& event);
@@ -34,22 +34,20 @@ namespace vsg
         dvec3 tbc(PointerEvent& event);
 
         void apply(KeyPressEvent& keyPress) override;
+        void apply(KeyReleaseEvent& keyRelease) override;
         void apply(ButtonPressEvent& buttonPress) override;
         void apply(ButtonReleaseEvent& buttonRelease) override;
         void apply(MoveEvent& moveEvent) override;
         void apply(ScrollWheelEvent& scrollWheel) override;
         void apply(FrameEvent& frame) override;
 
-        virtual void rotate(double angle, const dvec3& axis);
+        virtual void rotate(double angleUp, double angleRight);
         virtual void walk(dvec3 dir);
 
         bool withinRenderArea(int32_t x, int32_t y) const;
 
         /// add Key to Viewpoint binding using a LookAt to define the viewpoint
         void addKeyViewpoint(KeySymbol key, ref_ptr<LookAt> lookAt, double duration = 1.0);
-
-        /// add Key to Viewpoint binding using a latitutude, longitude and altitude to define the viewpoint. Requires an EllipsoidModel to be assigned when constructing the Trackball
-        void addKeyViewpoint(KeySymbol key, double latitude, double longitude, double altitude, double duration = 1.0);
 
         /// set the LookAt viewport to the specified lookAt, animating the movments from the current lookAt to the new one.
         /// A value of 0.0 instantly moves the lookAt to the new value.
@@ -79,7 +77,6 @@ namespace vsg
     protected:
         ref_ptr<Camera> _camera;
         ref_ptr<LookAt> _lookAt;
-        ref_ptr<EllipsoidModel> _ellipsoidModel;
 
         bool _hasFocus = false;
         bool _lastPointerEventWithinRenderArea = false;
@@ -91,9 +88,7 @@ namespace vsg
         };
         UpdateMode _updateMode = INACTIVE;
         double _zoomPreviousRatio = 0.0;
-        dvec2 _pan;
-        double _rotateAngle = 0.0;
-        dvec3 _rotateAxis;
+        dvec3 _walkDir{};
 
         time_point _previousTime;
         ref_ptr<PointerEvent> _previousPointerEvent;
