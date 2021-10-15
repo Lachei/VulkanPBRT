@@ -64,7 +64,6 @@ void FlyNavigation::apply(KeyPressEvent& keyPress)
         keyPress.handled = true;
     }
 
-    std::cout << keyPress.keyModifier << std::endl;
     if (keyPress.keyModifier & MODKEY_Alt){  //adding a key Viewpoint
         addKeyViewpoint(keyPress.keyBase, LookAt::create(*_lookAt), 1.0);
         keyPress.handled = true;
@@ -191,7 +190,7 @@ void FlyNavigation::apply(MoveEvent& moveEvent)
     //if (_previousTime > _previousPointerEvent->time) scale = std::chrono::duration<double, std::chrono::seconds::period>(moveEvent.time - _previousTime).count() / dt;
     //    scale *= 2.0;
 
-    _previousTime = moveEvent.time;
+    //_previousTime = moveEvent.time;
 
     if (moveEvent.mask & rotateButtonMask)
     {

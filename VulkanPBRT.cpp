@@ -100,6 +100,8 @@ int main(int argc, char** argv){
             else if(denoising == "none"){}
             else std::cout << "Unknown denoising type: " << denoising << std::endl;
         }
+        bool useFlyNavigation = false;
+        if(arguments.read("--fly")) useFlyNavigation = true;
 
 #ifdef _DEBUG
         // overwriting command line options for debug
@@ -406,7 +408,10 @@ int main(int argc, char** argv){
         //close handler to close and imgui handler to forward to imgui
         viewer->addEventHandler(vsgImGui::SendEventsToImGui::create());
         viewer->addEventHandler(vsg::CloseHandler::create(viewer));
-        viewer->addEventHandler(vsg::Trackball::create(camera));
+        if(useFlyNavigation)
+            viewer->addEventHandler(vsg::FlyNavigation::create(camera));
+        else
+            viewer->addEventHandler(vsg::Trackball::create(camera));
         viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph});
         viewer->compile();
 
