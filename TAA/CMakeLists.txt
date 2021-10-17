@@ -1,9 +1,5 @@
 file(GLOB TAA_SRC
-    "*.h"
-    "*.cpp"
-	"*.hpp"
-	"*.cc"
-    PARENT_SCOPE
+    *.cpp
 )
 
 file(GLOB TAA_SHADER
