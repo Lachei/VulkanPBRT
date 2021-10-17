@@ -1,13 +1,13 @@
 #pragma once
 
 #include "Defines.hpp"
-#include <vsg/all.h>
-#include <vsgXchange/glsl.h>
 #include "GBuffer.hpp"
 #include "IlluminationBuffer.hpp"
 #include "RayTracingVisitor.hpp"
 #include "AccumulationBuffer.hpp"
-#include <fstream>
+
+#include <vsg/all.h>
+#include <vsgXchange/glsl.h>
 
 class PBRTPipeline: public vsg::Inherit<vsg::Object, PBRTPipeline>{
 public:

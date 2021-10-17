@@ -1,8 +1,9 @@
 #pragma once
 
-#include <vsg/all.h>
 #include "GBuffer.hpp"
 #include "IlluminationBuffer.hpp"
+
+#include <vsg/all.h>
 
 // class to holding buffer needed for accumulation. These are:
 // prevIllu, prevDepth, prevNormal, spp, prevSpp, motion

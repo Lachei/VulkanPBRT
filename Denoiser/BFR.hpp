@@ -1,10 +1,11 @@
 #pragma once
-#include <vsg/all.h>
-#include <string>
 #include "../GBuffer.hpp"
 #include "../IlluminationBuffer.hpp"
-#include "../TAA/taa.hpp"
+#include "../TAA/Taa.hpp"
 #include "../PipelineStructs.hpp"
+
+#include <vsg/all.h>
+#include <string>
 
 class BFR: public vsg::Inherit<vsg::Object, BFR>{
 public:

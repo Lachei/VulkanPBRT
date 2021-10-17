@@ -3,7 +3,6 @@
 #include "Defines.hpp"
 #include <vsg/all.h>
 #include <vector>
-#include "PipelineStructs.hpp"
 
 class CreateRayTracingDescriptorTraversal : public vsg::Visitor
 {

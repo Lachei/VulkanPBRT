@@ -1,20 +1,23 @@
-#include <iostream>
-#include <set>
+
+#include "TAA/Taa.hpp"
 #include "Defines.hpp"
-#include <vsg/all.h>
-#include <vsgXchange/models.h>
-#include <vsgXchange/images.h>
+
+
 #include "RayTracingVisitor.hpp"
 #include "PBRTPipeline.hpp"
-#include "IO/IO.hpp"
 #include "Denoiser/BFR.hpp"
-#include "TAA/taa.hpp"
+
 #include "Denoiser/BFRBlender.hpp"
 #include "Denoiser/BMFR.hpp"
 #include "PipelineStructs.hpp"
 #include "CountTrianglesVisitor.hpp"
- 
 #include "gui.hpp"
+
+#include <vsgXchange/models.h>
+#include <vsgXchange/images.h>
+#include <vsg/all.h>
+
+#include <iostream>
 
 #define _DEBUG
 

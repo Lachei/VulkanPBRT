@@ -1,9 +1,10 @@
 #pragma once
 
+#include "Defines.hpp"
+
 #include <vsgImGui/RenderImGui.h>
 #include <vsgImGui/SendEventsToImGui.h>
 #include <imgui.h>
-#include "Defines.hpp"
 #include <vsg/all.h>
 
 class Gui{
