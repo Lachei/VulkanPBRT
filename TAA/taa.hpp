@@ -7,8 +7,6 @@
 #include <vsg/all.h>
 
 
-
-
 class Taa: public vsg::Inherit<vsg::Object, Taa>{
 public:
     uint denoisedBinding = 1, motionBinding = 0, finalImageBinding = 2, accumulationBinding = 3;
@@ -32,7 +30,7 @@ public:
     vsg::ref_ptr<vsg::DescriptorImage> finalImage, accumulationImage;
 
     vsg::ref_ptr<vsg::Sampler> sampler;
-protected:
+private:
     uint width, height, workWidth, workHeight;
 };
 

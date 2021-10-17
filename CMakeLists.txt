@@ -25,7 +25,7 @@ file(GLOB SRC_TOP
        ${PROJECT_SOURCE_DIR}/*.cpp)
 file(GLOB_RECURSE SRC_NESTED
        ${PROJECT_SOURCE_DIR}/TAA/*.cpp
-	    ${PROJECT_SOURCE_DIR}/Denoiser/*.cpp)
+	   ${PROJECT_SOURCE_DIR}/Denoiser/*.cpp)
 set(SRC ${SRC_TOP} ${SRC_NESTED})
 list(FILTER SRC EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/vsg/.*" )
 
@@ -52,7 +52,7 @@ set(UNCOMPILED_SHADERS
     general.glsl
 )
 
-add_executable(VulkanPBRT ${SRC} ${BFR_SRC} ${VSG_ALL})
+add_executable(VulkanPBRT ${SRC} ${VSG_ALL})
 
 target_compile_definitions(VulkanPBRT PRIVATE ${EXTRA_DEFINES})
 target_link_libraries(VulkanPBRT Vulkan::Vulkan 

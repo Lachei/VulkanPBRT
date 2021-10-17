@@ -1,7 +1,6 @@
 
 #include "Defines.hpp"
 
-#include "RayTracingVisitor.hpp"
 #include "PBRTPipeline.hpp"
 #include "Denoiser/BFR.hpp"
 
@@ -15,6 +14,7 @@
 #include <vsgXchange/images.h>
 #include <vsg/all.h>
 
+#include <set>
 #include <iostream>
 
 #define _DEBUG
