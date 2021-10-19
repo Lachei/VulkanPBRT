@@ -41,7 +41,6 @@ enum class DenoisingBlockSize{
 };
 DenoisingBlockSize denoisingBlockSize = DenoisingBlockSize::x32;
 
-
 class LoggingRedirectSentry
 {
 public:
@@ -234,7 +233,7 @@ int main(int argc, char** argv){
         auto computeConstants = vsg::PushConstants::create(VK_SHADER_STAGE_COMPUTE_BIT, 0, rayTracingPushConstantsValue);
 
         // raytracing pipelin setup
-        uint maxRecursionDepth = 2;
+        uint32_t maxRecursionDepth = 2;
         vsg::ref_ptr<IlluminationBuffer> illuminationBuffer;
         switch(denoisingType){
         case::DenoisingType::None:

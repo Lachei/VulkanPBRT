@@ -12,12 +12,12 @@
 class PBRTPipeline: public vsg::Inherit<vsg::Object, PBRTPipeline>{
 public:
     struct ConstantInfos{
-        uint lightCount;
-        uint minRecursionDepth;
-        uint maxRecursionDepth;
+        uint32_t lightCount;
+        uint32_t minRecursionDepth;
+        uint32_t maxRecursionDepth;
     };
 
-    PBRTPipeline(uint width, uint height, uint maxRecursionDepth, vsg::Node* scene, vsg::ref_ptr<IlluminationBuffer> illuminationBuffer): 
+    PBRTPipeline(uint32_t width, uint32_t height, uint32_t maxRecursionDepth, vsg::Node* scene, vsg::ref_ptr<IlluminationBuffer> illuminationBuffer): 
     width(width), height(height), maxRecursionDepth(maxRecursionDepth), illuminationBuffer(illuminationBuffer){
         //GBuffer setup
         useExternalGBuffer = false;
@@ -26,7 +26,7 @@ public:
 
         setupPipeline(scene);
     }
-    PBRTPipeline(uint width, uint height, uint maxRecursionDepth, vsg::Node* scene, vsg::ref_ptr<IlluminationBuffer> illuminationBuffer, vsg::ref_ptr<GBuffer> gBuffer): 
+    PBRTPipeline(uint32_t width, uint32_t height, uint32_t maxRecursionDepth, vsg::Node* scene, vsg::ref_ptr<IlluminationBuffer> illuminationBuffer, vsg::ref_ptr<GBuffer> gBuffer): 
     width(width), height(height), maxRecursionDepth(maxRecursionDepth), illuminationBuffer(illuminationBuffer), gBuffer(gBuffer){
         useExternalGBuffer = true;
 
@@ -68,7 +68,7 @@ public:
             accumulationBuffer->copyToBackImages(commands, gBuffer, illuminationBuffer);
     }
 
-    uint width, height, maxRecursionDepth, samplePerPixel;
+    uint32_t width, height, maxRecursionDepth, samplePerPixel;
     vsg::ref_ptr<GBuffer> gBuffer;
     vsg::ref_ptr<IlluminationBuffer> illuminationBuffer;        //is retrieved in the constructor
     vsg::ref_ptr<AccumulationBuffer> accumulationBuffer;
@@ -217,7 +217,7 @@ protected:
         auto constantInfos = ConstantInfosValue::create();
         constantInfos->value().lightCount = buildDescriptorBinding.packedLights.size();
         constantInfos->value().maxRecursionDepth = maxRecursionDepth;
-        uint uniformBufferBinding = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Infos").second;
+        uint32_t uniformBufferBinding = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Infos").second;
         auto constantInfosDescriptor = vsg::DescriptorBuffer::create(constantInfos, uniformBufferBinding, 0);
         bindRayTracingDescriptorSet->descriptorSet->descriptors.push_back(constantInfosDescriptor);
 

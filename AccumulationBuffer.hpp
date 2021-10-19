@@ -9,7 +9,7 @@
 // prevIllu, prevDepth, prevNormal, spp, prevSpp, motion
 class AccumulationBuffer: public vsg::Inherit<vsg::Object, AccumulationBuffer>{
 public:
-    AccumulationBuffer(uint width, uint height): width(width), height(height){setupImages();}
+    AccumulationBuffer(uint32_t width, uint32_t height): width(width), height(height){setupImages();}
 
     vsg::ref_ptr<vsg::DescriptorImage> prevIllu, prevIlluSquared, prevDepth, prevNormal, spp, prevSpp, motion;
 
@@ -204,7 +204,7 @@ public:
     }
 
 protected:
-    uint width, height;
+    uint32_t width, height;
 
     void setupImages(){
         auto sampler = vsg::Sampler::create();

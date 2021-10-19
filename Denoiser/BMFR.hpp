@@ -11,10 +11,10 @@
 
 class BMFR: public vsg::Inherit<vsg::Object, BMFR>{
 public:
-    uint depthBinding = 0, normalBinding = 1, materialBinding = 2, albedoBinding = 3, motionBinding = 4, sampleBinding = 5, sampledDenIlluBinding = 6, finalBinding = 7, noisyBinding = 8, denoisedBinding = 9, featureBufferBinding = 10, weightsBinding = 11;
-    uint amtOfFeatures = 13;
+    uint32_t depthBinding = 0, normalBinding = 1, materialBinding = 2, albedoBinding = 3, motionBinding = 4, sampleBinding = 5, sampledDenIlluBinding = 6, finalBinding = 7, noisyBinding = 8, denoisedBinding = 9, featureBufferBinding = 10, weightsBinding = 11;
+    uint32_t amtOfFeatures = 13;
     
-    uint width, height, workWidth, workHeight, fittingKernel, widthPadded, heightPadded;
+    uint32_t width, height, workWidth, workHeight, fittingKernel, widthPadded, heightPadded;
     vsg::ref_ptr<GBuffer> gBuffer;
     vsg::ref_ptr<vsg::Sampler> sampler;
     vsg::ref_ptr<vsg::BindComputePipeline> bindPrePipeline, bindFitPipeline, bindPostPipeline;
@@ -23,7 +23,7 @@ public:
     vsg::ref_ptr<vsg::BindDescriptorSet> bindDescriptorSet;
     vsg::ref_ptr<Taa> taaPipeline;
 
-    BMFR(uint width, uint height, uint workWidth, uint workHeight, vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<IlluminationBuffer> illuBuffer, vsg::ref_ptr<AccumulationBuffer> accBuffer, uint fittingKernel = 256):
+    BMFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeight, vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<IlluminationBuffer> illuBuffer, vsg::ref_ptr<AccumulationBuffer> accBuffer, uint32_t fittingKernel = 256):
     width(width),
     height(height),
     workWidth(workWidth),
@@ -187,7 +187,7 @@ public:
 
     void addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants){
         auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT);
-        uint dispatchX = widthPadded / workWidth, dispatchY = heightPadded / workHeight;
+        uint32_t dispatchX = widthPadded / workWidth, dispatchY = heightPadded / workHeight;
         // pre pipeline
         commandGraph->addChild(bindPrePipeline);
         commandGraph->addChild(bindDescriptorSet);

@@ -1,6 +1,6 @@
-#include "Taa.hpp"
+#include "taa.hpp"
 
-Taa::Taa(uint width, uint height, uint workWidth, uint workHeight, vsg::ref_ptr<GBuffer> gBuffer,
+Taa::Taa(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeight, vsg::ref_ptr<GBuffer> gBuffer,
     vsg::ref_ptr<AccumulationBuffer> accBuffer, vsg::ref_ptr<vsg::DescriptorImage> denoised) :
     width(width),
     height(height),
@@ -87,7 +87,7 @@ void Taa::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph)
 {
     commandGraph->addChild(bindPipeline);
     commandGraph->addChild(bindDescriptorSet);
-    commandGraph->addChild(vsg::Dispatch::create(uint(ceil(float(width) / float(workWidth))), uint(ceil(float(height) / float(workHeight))),
+    commandGraph->addChild(vsg::Dispatch::create(uint32_t(ceil(float(width) / float(workWidth))), uint32_t(ceil(float(height) / float(workHeight))),
                                                  1));
     copyFinalImageToAccumulation(commandGraph);
 }

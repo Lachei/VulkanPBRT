@@ -10,7 +10,7 @@ class IlluminationBuffer: public vsg::Inherit<vsg::Object, IlluminationBuffer>{
 public:
     std::vector<std::string> illuminationBindings;
     std::vector<vsg::ref_ptr<vsg::DescriptorImage>> illuminationImages;
-    uint width, height;
+    uint32_t width, height;
 
     void compile(vsg::Context& context){
         for(auto& image: illuminationImages) image->compile(context);
@@ -34,7 +34,7 @@ public:
         context.commands.push_back(pipelineBarrier);
     }
 
-    void copyImage(vsg::ref_ptr<vsg::Commands> commands, uint imageIndex, vsg::ref_ptr<vsg::Image> dstImage){
+    void copyImage(vsg::ref_ptr<vsg::Commands> commands, uint32_t imageIndex, vsg::ref_ptr<vsg::Image> dstImage){
         assert(imageIndex < illuminationImages.size());
         auto srcImage = illuminationImages[imageIndex]->imageInfoList[0].imageView->image;
 
@@ -70,7 +70,7 @@ public:
 
 class IlluminationBufferFinal: public vsg::Inherit<IlluminationBuffer, IlluminationBufferFinal>{
 public:
-    IlluminationBufferFinal(uint width, uint height){
+    IlluminationBufferFinal(uint32_t width, uint32_t height){
         this->width = width;
         this->height = height;
         illuminationBindings.push_back("outputImage");
@@ -99,7 +99,7 @@ public:
 
 class IlluminationBufferFinalDirIndir: public vsg::Inherit<IlluminationBuffer, IlluminationBufferFinalDirIndir>{
 public:
-    IlluminationBufferFinalDirIndir(uint width, uint height){
+    IlluminationBufferFinalDirIndir(uint32_t width, uint32_t height){
         this->width = width;
         this->height = height;
         illuminationBindings.push_back("outputImage");  //TODO change to appropriate value
@@ -164,7 +164,7 @@ public:
 
 class IlluminationBufferFinalDemodulated: public vsg::Inherit<IlluminationBuffer, IlluminationBufferFinalDemodulated>{
 public:
-    IlluminationBufferFinalDemodulated(uint width, uint height){
+    IlluminationBufferFinalDemodulated(uint32_t width, uint32_t height){
         this->width = width;
         this->height = height;
         illuminationBindings.push_back("outputImage");
@@ -229,7 +229,7 @@ public:
 
 class IlluminationBufferDemodulated: public vsg::Inherit<IlluminationBuffer, IlluminationBufferFinalDemodulated>{
 public:
-    IlluminationBufferDemodulated(uint width, uint height){
+    IlluminationBufferDemodulated(uint32_t width, uint32_t height){
         this->width = width;
         this->height = height;
         illuminationBindings.push_back("illumination");

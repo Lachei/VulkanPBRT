@@ -1,5 +1,5 @@
 #pragma once
-#include "../TAA/Taa.hpp"
+#include "../TAA/taa.hpp"
 #include "../AccumulationBuffer.hpp"
 #include "../GBuffer.hpp"
 #include "../IlluminationBuffer.hpp"
@@ -11,9 +11,9 @@
 
 class BFR: public vsg::Inherit<vsg::Object, BFR>{
 public:
-    uint depthBinding = 0, normalBinding = 1, materialBinding = 2, albedoBinding = 3, prevDepthBinding = -1, prevNormalBinding = -1, motionBinding = 4, sampleBinding = 5, sampledDenIlluBinding = 6, denoisedIlluBinding = 9, finalBinding = 7, noisyBinding = 8, denoisedBinding = 9;
+    uint32_t depthBinding = 0, normalBinding = 1, materialBinding = 2, albedoBinding = 3, prevDepthBinding = -1, prevNormalBinding = -1, motionBinding = 4, sampleBinding = 5, sampledDenIlluBinding = 6, denoisedIlluBinding = 9, finalBinding = 7, noisyBinding = 8, denoisedBinding = 9;
 
-    BFR(uint width, uint height, uint workWidth, uint workHeight, vsg::ref_ptr<GBuffer> gBuffer,
+    BFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeight, vsg::ref_ptr<GBuffer> gBuffer,
         vsg::ref_ptr<IlluminationBuffer> illuBuffer, vsg::ref_ptr<AccumulationBuffer> accBuffer);
 
     void addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants);
@@ -31,6 +31,6 @@ public:
 
     vsg::ref_ptr<vsg::Sampler> sampler;
 protected:
-    uint width, height, workWidth, workHeight;
+    uint32_t width, height, workWidth, workHeight;
     vsg::ref_ptr<GBuffer> gBuffer;
 };

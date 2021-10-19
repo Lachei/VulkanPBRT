@@ -7,7 +7,7 @@
 
 class GBufferRasterizer{
 public:
-    GBufferRasterizer(vsg::Device* device, uint width, uint height, bool doubleSided = false, bool blend = false):
+    GBufferRasterizer(vsg::Device* device, uint32_t width, uint32_t height, bool doubleSided = false, bool blend = false):
     width(width), height(height), device(device), gBuffer(GBuffer::create(width, height)), doubleSided(doubleSided), blend(blend)
     {
         setupGraphicsPipeline();
@@ -29,7 +29,7 @@ public:
     vsg::ref_ptr<vsg::ImageView> depth;
     vsg::ref_ptr<vsg::RenderGraph> renderGraph;
 protected:
-    uint width, height;
+    uint32_t width, height;
     bool doubleSided, blend;
     vsg::Device* device;
 

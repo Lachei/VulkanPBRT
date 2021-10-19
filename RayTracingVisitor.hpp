@@ -118,7 +118,7 @@ public:
             if(vid.arrays[2]->valueCount() == 0){
                 auto data = vsg::vec2Array::create(vid.arrays[0]->valueCount());
                 for(int i = 0; i < vid.indices->valueCount() / 3; ++i){
-                    uint index = 0;
+                    uint32_t index = 0;
                     if(vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3];
                     else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3];
                     data->at(index) = vsg::vec2(0, 0);
@@ -150,7 +150,7 @@ public:
                 l.colorSpecular = l.colorAmbient;
                 l.strengths = vsg::vec3(0,0,1);
 
-                uint index = 0;
+                uint32_t index = 0;
                 if(vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3];
                 else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3];
                 l.v0 = ((vsg::vec3*)vid.arrays[0]->dataPointer())[index];

@@ -8,9 +8,9 @@
 // care to update also the RayTracingVisitor.hpp descriptor layout if you add things to the gbuffer
 class GBuffer: public vsg::Inherit<vsg::Object, GBuffer>{
 public:
-    GBuffer(uint width, uint height): width(width), height(height){setupImages();}
+    GBuffer(uint32_t width, uint32_t height): width(width), height(height){setupImages();}
 
-    uint width, height;
+    uint32_t width, height;
     vsg::ref_ptr<vsg::DescriptorImage> depth, normal, material, albedo;
 
     void updateDescriptor(vsg::BindDescriptorSet* descSet, const vsg::BindingMap& bindingMap){

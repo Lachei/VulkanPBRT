@@ -4,17 +4,17 @@
 
 class BFRBlender: public vsg::Inherit<vsg::Object, BFRBlender>{
 public:
-    uint averageBinding = 0, averageSquaredBinding = 1, denoised0Binding = 2, denoised1Binding = 3, denoised2Binding = 4, finalBinding = 5;
+    uint32_t averageBinding = 0, averageSquaredBinding = 1, denoised0Binding = 2, denoised1Binding = 3, denoised2Binding = 4, finalBinding = 5;
     vsg::ref_ptr<vsg::DescriptorImage> finalImage;
     vsg::ref_ptr<vsg::ComputePipeline> pipeline;
     vsg::ref_ptr<vsg::BindComputePipeline> bindPipeline;
     vsg::ref_ptr<vsg::BindDescriptorSet> bindDescriptorSet;
-    uint width, height, workWidth, workHeight, filterRadius;
+    uint32_t width, height, workWidth, workHeight, filterRadius;
 
-    BFRBlender(uint width, uint height, 
+    BFRBlender(uint32_t width, uint32_t height, 
         vsg::ref_ptr<vsg::DescriptorImage> averageImage, vsg::ref_ptr<vsg::DescriptorImage> averageSquaredImage,
         vsg::ref_ptr<vsg::DescriptorImage> denoised0, vsg::ref_ptr<vsg::DescriptorImage> denoised1, vsg::ref_ptr<vsg::DescriptorImage> denoised2, 
-        uint workWidth = 16, uint workHeight = 16, uint filterRadius = 2):
+        uint32_t workWidth = 16, uint32_t workHeight = 16, uint32_t filterRadius = 2):
         width(width), height(height), workWidth(workWidth), workHeight(workHeight), filterRadius(filterRadius)
         {
         std::string shaderPath = "shaders/bfrBlender.comp.spv";
@@ -73,7 +73,7 @@ public:
     void addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph){
         commandGraph->addChild(bindPipeline);
         commandGraph->addChild(bindDescriptorSet);
-        commandGraph->addChild(vsg::Dispatch::create(uint(ceil(float(width) / float(workWidth))), uint(ceil(float(height) / float(workHeight))), 1));
+        commandGraph->addChild(vsg::Dispatch::create(uint32_t(ceil(float(width) / float(workWidth))), uint32_t(ceil(float(height) / float(workHeight))), 1));
     }
 
     void compile(vsg::Context& context){
