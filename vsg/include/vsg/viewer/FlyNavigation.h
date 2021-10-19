@@ -81,11 +81,13 @@ namespace vsg
         };
 
         const UpdateMode& getUpdateMode() { return _updateMode;}
+        const bool& hasMoved() {return _hasMoved;}
     protected:
         ref_ptr<Camera> _camera;
         ref_ptr<LookAt> _lookAt;
 
         bool _hasFocus = false;
+        bool _hasMoved = false;
         bool _lastPointerEventWithinRenderArea = false;
 
         UpdateMode _updateMode = INACTIVE;
