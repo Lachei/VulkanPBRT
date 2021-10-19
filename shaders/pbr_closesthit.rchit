@@ -167,13 +167,14 @@ void main()
   vec3 position = v0.pos * bar.x + v1.pos * bar.y + v2.pos * bar.z;
   position = (instance.objectMat * vec4(position, 1)).xyz;
   vec3 normal = normalize(v0.normal * bar.x + v1.normal * bar.y + v2.normal * bar.z).xyz;//.xzy;
-  normal = normalize((transpose(inverse(instance.objectMat)) * vec4(normal, 0)).xyz);
+  mat4 normalObj = transpose(inverse(instance.objectMat));
+  normal = normalize((normalObj * vec4(normal, 0)).xyz);
   if(v0.uv == v1.uv) v1.uv += vec2(epsilon,0);
   if(v0.uv == v2.uv) v2.uv += vec2(0,2 * epsilon);
   if(v1.uv == v2.uv) v2.uv += vec2(epsilon);
-  vec3 T = getTangent(v0.pos, v1.pos, v2.pos, v0.uv, v1.uv, v2.uv).xzy;
+  vec3 T = (normalObj * vec4(getTangent(v0.pos, v1.pos, v2.pos, v0.uv, v1.uv, v2.uv).xyz, 0)).xyz;
   //T = (instance.objectMat * vec4(T, 0)).xyz;
-  vec3 B = getBitangent(v0.pos, v1.pos, v2.pos, v0.uv, v1.uv, v2.uv).xzy;
+  vec3 B = (normalObj * vec4(getBitangent(v0.pos, v1.pos, v2.pos, v0.uv, v1.uv, v2.uv).xyz, 0)).xyz;
   //B = (instance.objectMat * vec4(B, 0)).xyz;
   mat3 TBN = gramSchmidt(T, B, normal);
   normal = getNormal(TBN, normalMap[nonuniformEXT(objId)], texCoord);
