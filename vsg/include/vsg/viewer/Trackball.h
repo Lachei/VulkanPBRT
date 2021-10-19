@@ -82,6 +82,15 @@ namespace vsg
         /// Toggle on/off whether the view should continue moving when the mouse buttons are released while the mouse is in motion.
         bool supportsThrow = true;
 
+        enum UpdateMode
+        {
+            INACTIVE = 0,
+            ROTATE,
+            PAN,
+            ZOOM
+        };
+        
+        const UpdateMode& getUpdateMode() {return _updateMode;}
     protected:
         ref_ptr<Camera> _camera;
         ref_ptr<LookAt> _lookAt;
@@ -90,13 +99,6 @@ namespace vsg
         bool _hasFocus = false;
         bool _lastPointerEventWithinRenderArea = false;
 
-        enum UpdateMode
-        {
-            INACTIVE = 0,
-            ROTATE,
-            PAN,
-            ZOOM
-        };
         UpdateMode _updateMode = INACTIVE;
         double _zoomPreviousRatio = 0.0;
         dvec2 _pan;

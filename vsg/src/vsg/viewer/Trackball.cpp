@@ -350,12 +350,18 @@ void Trackball::apply(FrameEvent& frame)
         {
         case (ROTATE):
             rotate(_rotateAngle * scale, _rotateAxis);
+            if(_rotateAngle == 0)
+                _updateMode = INACTIVE;
             break;
         case (PAN):
             pan(_pan * scale);
+            if(length2(_pan) == 0)
+                _updateMode = INACTIVE;
             break;
         case (ZOOM):
             zoom(_zoomPreviousRatio * scale);
+            if(_zoomPreviousRatio == 0)
+                _updateMode = INACTIVE;
             break;
         default:
             break;
