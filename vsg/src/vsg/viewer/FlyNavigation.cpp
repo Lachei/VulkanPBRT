@@ -157,7 +157,6 @@ void FlyNavigation::apply(ButtonPressEvent& buttonPress)
     _lastPointerEventWithinRenderArea = _hasFocus;
 
     if (_hasFocus) buttonPress.handled = true;
-    _updateMode = MOVE;
 
     _previousPointerEvent = &buttonPress;
 }
@@ -261,10 +260,6 @@ void FlyNavigation::apply(FrameEvent& frame)
             else{
                 walk(_walkDir * scale);
             }
-            _hasMoved = true;
-        }
-        else{
-            _hasMoved = false;
         }
     }
 

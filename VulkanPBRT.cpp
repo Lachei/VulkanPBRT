@@ -433,7 +433,7 @@ int main(int argc, char** argv){
 
             rayTracingPushConstantsValue->value().frameNumber++;
             rayTracingPushConstantsValue->value().sampleNumber++;
-            if((flyNav && flyNav->hasMoved()) ||
+            if((flyNav && flyNav->getUpdateMode() != vsg::FlyNavigation::INACTIVE) ||
                 (trackballNav && trackballNav->getUpdateMode() != vsg::Trackball::INACTIVE))
                 rayTracingPushConstantsValue->value().sampleNumber = 0;
             guiValues->sampleNumber = rayTracingPushConstantsValue->value().sampleNumber;
