@@ -408,16 +408,10 @@ int main(int argc, char** argv){
         //close handler to close and imgui handler to forward to imgui
         viewer->addEventHandler(vsgImGui::SendEventsToImGui::create());
         viewer->addEventHandler(vsg::CloseHandler::create(viewer));
-        vsg::ref_ptr<vsg::FlyNavigation> flyNav;
-        vsg::ref_ptr<vsg::Trackball> trackballNav;
-        if(useFlyNavigation){
-            flyNav = vsg::FlyNavigation::create(camera);
-            viewer->addEventHandler(flyNav);
-        }
-        else{
-            trackballNav = vsg::Trackball::create(camera);
-            viewer->addEventHandler(trackballNav);
-        }
+        if(useFlyNavigation)
+            viewer->addEventHandler(vsg::FlyNavigation::create(camera));
+        else
+            viewer->addEventHandler(vsg::Trackball::create(camera));
         viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph});
         viewer->compile();
 
@@ -433,9 +427,7 @@ int main(int argc, char** argv){
 
             rayTracingPushConstantsValue->value().frameNumber++;
             rayTracingPushConstantsValue->value().sampleNumber++;
-            if((flyNav && flyNav->getUpdateMode() != vsg::FlyNavigation::INACTIVE) ||
-                (trackballNav && trackballNav->getUpdateMode() != vsg::Trackball::INACTIVE))
-                rayTracingPushConstantsValue->value().sampleNumber = 0;
+            if(viewer->getEvents().size() > 1) rayTracingPushConstantsValue->value().sampleNumber = 0;
             guiValues->sampleNumber = rayTracingPushConstantsValue->value().sampleNumber;
 
             viewer->update();

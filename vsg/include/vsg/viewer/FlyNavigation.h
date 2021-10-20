@@ -74,13 +74,6 @@ namespace vsg
         /// Scale for control how rapidly the view zooms in/out. Positive value zooms in when mouse moved downwards
         double zoomScale = 1.0;
 
-        enum UpdateMode
-        {
-            INACTIVE = 0,
-            MOVE
-        };
-
-        const UpdateMode& getUpdateMode() { return _updateMode;}
     protected:
         ref_ptr<Camera> _camera;
         ref_ptr<LookAt> _lookAt;
@@ -88,6 +81,11 @@ namespace vsg
         bool _hasFocus = false;
         bool _lastPointerEventWithinRenderArea = false;
 
+        enum UpdateMode
+        {
+            INACTIVE = 0,
+            MOVE
+        };
         UpdateMode _updateMode = INACTIVE;
         double _zoomPreviousRatio = 0.0;
         dvec3 _walkDir{};
