@@ -21,7 +21,8 @@ void main(){
     // Loading all features and samples
     //--------------------------------------------------------------------------
     vec3 noisyColor = imageLoad(noisy, curImagePos).xyz;
-    float screenDepth = imageLoad(depth, curImagePos).x;
+    vec3 pos;
+    pos.z = imageLoad(depth, curImagePos).x;
     vec2 compressedNormal = imageLoad(normal, curImagePos).xy;
     vec3 normal;
     normal.x = cos(compressedNormal.y) * sin(compressedNormal.x);
@@ -32,26 +33,60 @@ void main(){
     // normalizing depth and filling the feature maps
     //--------------------------------------------------------------------------
     // normalizing world depth
-    {
-        float min_val = parallel_reduction_min(screenDepth);
-        float max_val = parallel_reduction_max(screenDepth);
-        screenDepth -= min_val;
-        screenDepth /= max_val - min_val + EPS;
-        screenDepth = screenDepth;
+    switch(POSITION_TYPE){
+    case POSITION_DEPTH:{
+        float min_val = parallel_reduction_min(pos.z);
+        float max_val = parallel_reduction_max(pos.z);
+        pos.z -= min_val;
+        pos.z /= max_val - min_val + EPS;
+        pos.xy = vec2(gl_LocalInvocationID.xy) / (vec2(BLOCK_WIDTH, BLOCK_HEIGHT) - vec2(1));
+        break;
     }
-    vec2 screenPos = vec2(gl_LocalInvocationID.xy) / (vec2(BLOCK_WIDTH, BLOCK_HEIGHT) - vec2(1));
+    case POSITION_WORLD_DEPTH_NORM:{
+        float min_val = parallel_reduction_min(pos.z);
+        float max_val = parallel_reduction_max(pos.z);
+        pos.z -= min_val;
+        pos.z /= max_val - min_val + EPS;
+        vec2 pixelCenter = vec2(curImagePos) + vec2(.5);
+	    const vec2 normalisedPixelCoord = pixelCenter/vec2(imSize);
+	    vec2 clipSpaceCoord = normalisedPixelCoord * 2.0 - 1.0;
+
+	    vec4 worldSpacePos = camParams.inverseViewMatrix * vec4(0,0,0,1);
+	    vec4 viewSpaceDir = camParams.inverseProjectionMatrix * vec4(clipSpaceCoord.x, clipSpaceCoord.y, 1, 1) ;
+	    vec4 worldSpaceDir = camParams.inverseViewMatrix * vec4(normalize(viewSpaceDir.xyz), 0) ;
+        pos.xyz = worldSpaceDir.xyz * pos.z;
+        break;
+    }
+    case POSITION_WORLD:{
+        vec2 pixelCenter = vec2(curImagePos) + vec2(.5);
+	    const vec2 normalisedPixelCoord = pixelCenter/vec2(imSize);
+	    vec2 clipSpaceCoord = normalisedPixelCoord * 2.0 - 1.0;
+
+	    vec4 worldSpacePos = camParams.inverseViewMatrix * vec4(0,0,0,1);
+	    vec4 viewSpaceDir = camParams.inverseProjectionMatrix * vec4(clipSpaceCoord.x, clipSpaceCoord.y, 1, 1) ;
+	    vec4 worldSpaceDir = camParams.inverseViewMatrix * vec4(normalize(viewSpaceDir.xyz), 0) ;
+        pos.xyz = worldSpacePos.xyz + worldSpaceDir.xyz * pos.z;
+        for(int i = 0; i < 3; ++i){
+            float min_val = parallel_reduction_min(pos[i]);
+            float max_val = parallel_reduction_max(pos[i]);
+            pos[i] -= min_val;
+            pos[i] /= max_val - min_val + EPS;
+        }
+        break;
+    }
+    }
 
     features = float[ALPHA_SIZE](
         1.,
         normal.x,
         normal.y,
         normal.z,
-        screenPos.x,
-        screenPos.y,
-        screenDepth,
-        screenPos.x * screenPos.x,
-        screenPos.y * screenPos.y,
-        screenDepth * screenDepth,
+        pos.x,
+        pos.y,
+        pos.z,
+        pos.x * pos.x,
+        pos.y * pos.y,
+        pos.z * pos.z,
         noisyColor.x,
         noisyColor.y,
         noisyColor.z
