@@ -55,7 +55,7 @@ add_executable(VulkanPBRT ${SOURCES} ${VSG_ALL} ${BFR_SRC} ${TAA_SRC})
 target_compile_definitions(VulkanPBRT PRIVATE ${EXTRA_DEFINES})
 target_link_libraries(VulkanPBRT Vulkan::Vulkan 
     glslang::glslang glslang::MachineIndependent glslang::OSDependent glslang::OGLCompiler glslang::SPIRV glslang::GenericCodeGen glslang::SPIRV-Tools-opt glslang::SPIRV-Tools
-     Threads::Threads ${OpenEXR_LIBRARIES})
+     Threads::Threads OpenEXR::IlmImf)
 if(UNIX)
     target_link_libraries(VulkanPBRT xcb ${ASSIMP_LIBRARIES})
 elseif(WIN32)
