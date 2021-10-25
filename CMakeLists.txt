@@ -9,6 +9,7 @@ project(VulkanPBRT
 find_package(Vulkan REQUIRED)
 find_package(Threads REQUIRED)
 find_package(assimp CONFIG REQUIRED)
+find_package(OpenEXR REQUIRED)
 include(CMakeFindDependencyMacro)
 set(vsg_glslang_DIR ${CMAKE_SOURCE_DIR}/vsg)
 find_dependency(vsg_glslang)
@@ -18,7 +19,7 @@ add_subdirectory(Denoiser)
 add_subdirectory(TAA)
 set(IMGUI_HEADER
     vsg/src/imgui/)
-include_directories(vsg/include ${glslang_INCLUDE_DIRS} ${IMGUI_HEADER})
+include_directories(vsg/include ${glslang_INCLUDE_DIRS} ${IMGUI_HEADER} ${OpenEXR_INCLUDE_DIRS})
 set(CMAKE_CXX_STANDARD 17)
 file(GLOB SOURCES
     "*.h"
@@ -54,7 +55,7 @@ add_executable(VulkanPBRT ${SOURCES} ${VSG_ALL} ${BFR_SRC} ${TAA_SRC})
 target_compile_definitions(VulkanPBRT PRIVATE ${EXTRA_DEFINES})
 target_link_libraries(VulkanPBRT Vulkan::Vulkan 
     glslang::glslang glslang::MachineIndependent glslang::OSDependent glslang::OGLCompiler glslang::SPIRV glslang::GenericCodeGen glslang::SPIRV-Tools-opt glslang::SPIRV-Tools
-     Threads::Threads)
+     Threads::Threads ${OpenEXR_LIBRARIES})
 if(UNIX)
     target_link_libraries(VulkanPBRT xcb ${ASSIMP_LIBRARIES})
 elseif(WIN32)
