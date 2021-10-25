@@ -427,7 +427,7 @@ int main(int argc, char** argv){
 
             rayTracingPushConstantsValue->value().frameNumber++;
             rayTracingPushConstantsValue->value().sampleNumber++;
-            if(viewer->getEvents().size() > 1) rayTracingPushConstantsValue->value().sampleNumber = 0;
+            if((vsg::mat4)vsg::lookAt(lookAt->eye, lookAt->center, lookAt->up) != rayTracingPushConstantsValue->value().prevView) rayTracingPushConstantsValue->value().sampleNumber = 0;
             guiValues->sampleNumber = rayTracingPushConstantsValue->value().sampleNumber;
 
             viewer->update();
