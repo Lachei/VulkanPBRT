@@ -130,23 +130,19 @@ static vsg::ref_ptr<vsg::Object> parseOpenExr(Imf::InputFile& file){
     if (file.header().channels().begin().channel().type == Imf::HALF){
         vsg::usvec4* pixels = new vsg::usvec4[width * height];
         Imf::FrameBuffer frameBuffer;
-        auto curChannel = file.header().channels().begin();
-        frameBuffer.insert(curChannel.name(),
+        frameBuffer.insert("R",
                         Imf::Slice(Imf::HALF, (char*)(&(pixels - dw.min.x - dw.min.y * width)->r),
                         sizeof(pixels[0]),
                         sizeof(pixels[0]) * width));
-        ++curChannel;
-        frameBuffer.insert(curChannel.name(),
+        frameBuffer.insert("G",
                         Imf::Slice(Imf::HALF, (char*)(&(pixels - dw.min.x - dw.min.y * width)->g),
                         sizeof(pixels[0]),
                         sizeof(pixels[0]) * width));
-        ++curChannel;
-        frameBuffer.insert(curChannel.name(),
+        frameBuffer.insert("B",
                         Imf::Slice(Imf::HALF, (char*)(&(pixels - dw.min.x - dw.min.y * width)->b),
                         sizeof(pixels[0]),
                         sizeof(pixels[0]) * width));
-        ++curChannel;
-        frameBuffer.insert(curChannel.name(),
+        frameBuffer.insert("A",
                         Imf::Slice(Imf::HALF, (char*)(&(pixels - dw.min.x - dw.min.y * width)->a),
                         sizeof(pixels[0]),
                         sizeof(pixels[0]) * width));
@@ -159,23 +155,20 @@ static vsg::ref_ptr<vsg::Object> parseOpenExr(Imf::InputFile& file){
     if (file.header().channels().begin().channel().type == Imf::FLOAT){
         vsg::vec4* pixels = new vsg::vec4[width * height];
         Imf::FrameBuffer frameBuffer;
-        auto curChannel = file.header().channels().begin();
-        frameBuffer.insert(curChannel.name(),
+        frameBuffer.insert("R",
                         Imf::Slice(Imf::FLOAT, (char*)(&(pixels - dw.min.x - dw.min.y * width)->r),
                         sizeof(pixels[0]),
                         sizeof(pixels[0]) * width));
-        ++curChannel;
-        frameBuffer.insert(curChannel.name(),
+
+        frameBuffer.insert("G",
                         Imf::Slice(Imf::FLOAT, (char*)(&(pixels - dw.min.x - dw.min.y * width)->g),
                         sizeof(pixels[0]),
                         sizeof(pixels[0]) * width));
-                        ++curChannel;
-        frameBuffer.insert(curChannel.name(),
+        frameBuffer.insert("B",
                         Imf::Slice(Imf::FLOAT, (char*)(&(pixels - dw.min.x - dw.min.y * width)->b),
                         sizeof(pixels[0]),
                         sizeof(pixels[0]) * width));
-        ++curChannel;
-        frameBuffer.insert(curChannel.name(),
+        frameBuffer.insert("A",
                         Imf::Slice(Imf::FLOAT, (char*)(&(pixels - dw.min.x - dw.min.y * width)->a),
                         sizeof(pixels[0]),
                         sizeof(pixels[0]) * width));
@@ -188,23 +181,19 @@ static vsg::ref_ptr<vsg::Object> parseOpenExr(Imf::InputFile& file){
     if (file.header().channels().begin().channel().type == Imf::UINT){
         vsg::uivec4* pixels = new vsg::uivec4[width * height];
         Imf::FrameBuffer frameBuffer;
-        auto curChannel = file.header().channels().begin();
-        frameBuffer.insert(curChannel.name(),
+        frameBuffer.insert("R",
                         Imf::Slice(Imf::UINT, (char*)(&(pixels - dw.min.x - dw.min.y * width)->r),
                         sizeof(pixels[0]),
                         sizeof(pixels[0]) * width));
-        ++curChannel;
-        frameBuffer.insert(curChannel.name(),
+        frameBuffer.insert("G",
                         Imf::Slice(Imf::UINT, (char*)(&(pixels - dw.min.x - dw.min.y * width)->g),
                         sizeof(pixels[0]),
                         sizeof(pixels[0]) * width));
-        ++curChannel;
-        frameBuffer.insert(curChannel.name(),
+        frameBuffer.insert("B",
                         Imf::Slice(Imf::UINT, (char*)(&(pixels - dw.min.x - dw.min.y * width)->b),
                         sizeof(pixels[0]),
                         sizeof(pixels[0]) * width));
-        ++curChannel;
-        frameBuffer.insert(curChannel.name(),
+        frameBuffer.insert("A",
                         Imf::Slice(Imf::UINT, (char*)(&(pixels - dw.min.x - dw.min.y * width)->a),
                         sizeof(pixels[0]),
                         sizeof(pixels[0]) * width));
@@ -263,11 +252,11 @@ bool openexr::write(const vsg::Object* object, const vsg::Path& filename, vsg::r
     if(const vsg::ushortArray2D* obj = dynamic_cast<const vsg::ushortArray2D*>(object)){ //single precision half float
         int width = obj->width(), height = obj->height();
         Imf::Header header(width, height);
-        header.channels().insert("Z", Imf::Channel(Imf::HALF));
+        header.channels().insert("Y", Imf::Channel(Imf::HALF));
 
         Imf::OutputFile file(filename.c_str(), header);
         Imf::FrameBuffer frameBuffer;
-        frameBuffer.insert("Z", Imf::Slice(Imf::HALF,
+        frameBuffer.insert("Y", Imf::Slice(Imf::HALF,
                             (char*)obj->data(), 
                             sizeof(*obj->data()), 
                             sizeof(*obj->data()) * width));
@@ -278,7 +267,7 @@ bool openexr::write(const vsg::Object* object, const vsg::Path& filename, vsg::r
     if(const vsg::floatArray2D* obj = dynamic_cast<const vsg::floatArray2D*>(object)){ //single precision float
         int width = obj->width(), height = obj->height();
         Imf::Header header(width, height);
-        header.channels().insert("Z", Imf::Channel(Imf::FLOAT));
+        header.channels().insert("Y", Imf::Channel(Imf::FLOAT));
 
         int dataSize = obj->dataSize();
         int space = width * height * sizeof(float);
@@ -286,7 +275,7 @@ bool openexr::write(const vsg::Object* object, const vsg::Path& filename, vsg::r
         float dat = obj->data()[0];
         Imf::OutputFile file(filename.c_str(), header);
         Imf::FrameBuffer frameBuffer;
-        frameBuffer.insert("Z", Imf::Slice(Imf::FLOAT,
+        frameBuffer.insert("Y", Imf::Slice(Imf::FLOAT,
                             (char*)obj->data(), 
                             sizeof(*obj->data()), 
                             sizeof(*obj->data()) * width));
@@ -297,11 +286,11 @@ bool openexr::write(const vsg::Object* object, const vsg::Path& filename, vsg::r
     if(const vsg::uintArray2D* obj = dynamic_cast<const vsg::uintArray2D*>(object)){ //single precision uint
         int width = obj->width(), height = obj->height();
         Imf::Header header(width, height);
-        header.channels().insert("Z", Imf::Channel(Imf::UINT));
+        header.channels().insert("Y", Imf::Channel(Imf::UINT));
 
         Imf::OutputFile file(filename.c_str(), header);
         Imf::FrameBuffer frameBuffer;
-        frameBuffer.insert("Z", Imf::Slice(Imf::UINT,
+        frameBuffer.insert("Y", Imf::Slice(Imf::UINT,
                             (char*)obj->data(), 
                             sizeof(*obj->data()), 
                             sizeof(*obj->data()) * width));
