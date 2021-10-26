@@ -1,10 +1,10 @@
 #pragma once
-#include "../Defines.hpp"
 #include "../GBuffer.hpp"
 #include "../AccumulationBuffer.hpp"
-#include "../PipelineStructs.hpp"
 
 #include <vsg/all.h>
+
+#include <cstdint>
 
 
 class Taa: public vsg::Inherit<vsg::Object, Taa>{

@@ -1,5 +1,7 @@
 #include "BFR.hpp"
 
+#include "../PipelineStructs.hpp"
+
 #include <string>
 
 BFR::BFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeight, vsg::ref_ptr<GBuffer> gBuffer,

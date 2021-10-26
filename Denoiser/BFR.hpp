@@ -4,10 +4,7 @@
 #include "../GBuffer.hpp"
 #include "../IlluminationBuffer.hpp"
 
-
 #include <vsg/all.h>
-
-#include "vsg/core/ref_ptr.h"
 
 class BFR: public vsg::Inherit<vsg::Object, BFR>{
 public:

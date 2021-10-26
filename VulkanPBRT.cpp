@@ -1,6 +1,4 @@
 
-#include "Defines.hpp"
-
 #include "PBRTPipeline.hpp"
 #include "Denoiser/BFR.hpp"
 

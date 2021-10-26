@@ -1,7 +1,5 @@
 #pragma once
 
-#include "Defines.hpp"
-
 #include <vsgImGui/RenderImGui.h>
 #include <vsgImGui/SendEventsToImGui.h>
 #include <imgui.h>
