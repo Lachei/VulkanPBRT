@@ -27,6 +27,8 @@ layout(constant_id = 1) const int IMAGE_HEIGHT = 720;
 layout(constant_id = 2) const int BLOCK_WIDTH = 16;
 layout(constant_id = 3) const int BLOCK_HEIGHT = 16;
 layout(constant_id = 4) const int PIXEL_BLOCK_WIDTH = 32; //holds the true block size for the fitter, as in the fitter pass the block height will always be 1
+layout(constant_id = 5) const int POSITION_TYPE = 0;
+const int POSITION_DEPTH = 0, POSITION_WORLD_DEPTH_NORM = 1, POSITION_WORLD = 2;    //world_depth_norm is world coordinates calculated with normalized depth
 
 //constants ---------------------------------------------
 const float EPS = 1e-6;
