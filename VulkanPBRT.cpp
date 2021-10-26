@@ -38,8 +38,7 @@ enum class DenoisingBlockSize{
     x64,
     x8x16x32
 };
-DenoisingBlockSize denoisingBlockSize = DenoisingBlockSize::x32;
-
+DenoisingBlockSize denoisingBlockSize = DenoisingBlockSize::x16;
 
 class LoggingRedirectSentry
 {

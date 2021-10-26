@@ -46,21 +46,24 @@ public:
             {1, vsg::intValue::create(height)},
             {2, vsg::intValue::create(workWidth)},
             {3, vsg::intValue::create(workHeight)},
-            {4, vsg::intValue::create(workWidth)}};
+            {4, vsg::intValue::create(workWidth)},
+            {5, vsg::intValue::create(2)}};
 
         fitComputeStage->specializationConstants = vsg::ShaderStage::SpecializationConstants{
             {0, vsg::intValue::create(width)},
             {1, vsg::intValue::create(height)},
             {2, vsg::intValue::create(fittingKernel)},
             {3, vsg::intValue::create(1)},
-            {4, vsg::intValue::create(workWidth)}};
+            {4, vsg::intValue::create(workWidth)},
+            {5, vsg::intValue::create(2)}};
         
         postComputeStage->specializationConstants = vsg::ShaderStage::SpecializationConstants{
             {0, vsg::intValue::create(width)},
             {1, vsg::intValue::create(height)},
             {2, vsg::intValue::create(workWidth)},
             {3, vsg::intValue::create(workHeight)},
-            {4, vsg::intValue::create(workWidth)}};
+            {4, vsg::intValue::create(workWidth)},
+            {5, vsg::intValue::create(2)}};
 
         // denoised illuminatino accumulation
         auto image = vsg::Image::create();
