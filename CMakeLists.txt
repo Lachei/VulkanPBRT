@@ -21,12 +21,15 @@ set(IMGUI_HEADER
     vsg/src/imgui/)
 include_directories(vsg/include ${glslang_INCLUDE_DIRS} ${IMGUI_HEADER} ${OpenEXR_INCLUDE_DIRS})
 set(CMAKE_CXX_STANDARD 17)
-file(GLOB SOURCES
-    "*.h"
-    "*.hpp"
-    "*.cpp"
-)
-list(FILTER SOURCES EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/vsg/.*" )
+
+file(GLOB SRC_TOP
+       ${PROJECT_SOURCE_DIR}/*.cpp)
+file(GLOB_RECURSE SRC_NESTED
+       ${PROJECT_SOURCE_DIR}/TAA/*.cpp
+	   ${PROJECT_SOURCE_DIR}/Denoiser/*.cpp)
+set(SRC ${SRC_TOP} ${SRC_NESTED})
+list(FILTER SRC EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/vsg/.*" )
+
 set(SHADERS
     pbr_closesthit.rchit
     miss.rmiss
@@ -50,7 +53,7 @@ set(UNCOMPILED_SHADERS
     general.glsl
 )
 
-add_executable(VulkanPBRT ${SOURCES} ${VSG_ALL} ${BFR_SRC} ${TAA_SRC})
+add_executable(VulkanPBRT ${SRC} ${VSG_ALL})
 
 target_compile_definitions(VulkanPBRT PRIVATE ${EXTRA_DEFINES})
 target_link_libraries(VulkanPBRT Vulkan::Vulkan 

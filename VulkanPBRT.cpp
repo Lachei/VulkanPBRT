@@ -1,20 +1,19 @@
-#include <iostream>
-#include <set>
-#include "Defines.hpp"
-#include <vsg/all.h>
-#include <vsgXchange/models.h>
-#include <vsgXchange/images.h>
-#include "RayTracingVisitor.hpp"
+
 #include "PBRTPipeline.hpp"
-#include "IO/IO.hpp"
 #include "Denoiser/BFR.hpp"
-#include "TAA/taa.hpp"
+
 #include "Denoiser/BFRBlender.hpp"
 #include "Denoiser/BMFR.hpp"
 #include "PipelineStructs.hpp"
 #include "CountTrianglesVisitor.hpp"
- 
 #include "gui.hpp"
+
+#include <vsgXchange/models.h>
+#include <vsgXchange/images.h>
+#include <vsg/all.h>
+
+#include <set>
+#include <iostream>
 
 #define _DEBUG
 
@@ -38,6 +37,7 @@ enum class DenoisingBlockSize{
     x64,
     x8x16x32
 };
+
 DenoisingBlockSize denoisingBlockSize = DenoisingBlockSize::x16;
 
 class LoggingRedirectSentry
@@ -232,7 +232,7 @@ int main(int argc, char** argv){
         auto computeConstants = vsg::PushConstants::create(VK_SHADER_STAGE_COMPUTE_BIT, 0, rayTracingPushConstantsValue);
 
         // raytracing pipelin setup
-        uint maxRecursionDepth = 2;
+        uint32_t maxRecursionDepth = 2;
         vsg::ref_ptr<IlluminationBuffer> illuminationBuffer;
         switch(denoisingType){
         case::DenoisingType::None:
