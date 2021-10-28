@@ -3,7 +3,7 @@
 #include "../PipelineStructs.hpp"
 
 Taa::Taa(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeight, vsg::ref_ptr<GBuffer> gBuffer,
-    vsg::ref_ptr<AccumulationBuffer> accBuffer, vsg::ref_ptr<vsg::DescriptorImage> denoised) :
+    vsg::ref_ptr<AccumulationBuffer> accBuffer, vsg::ref_ptr<vsg::ImageView> denoised) :
     width(width),
     height(height),
     workWidth(workWidth),
@@ -70,7 +70,7 @@ Taa::Taa(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeigh
                                                             accBuffer->motion->imageInfoList[0], motionBinding, 0,
                                                             VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
                                                         vsg::DescriptorImage::create(
-                                                            denoised->imageInfoList[0], denoisedBinding, 0,
+                                                            vsg::ImageInfo{nullptr, denoised, VK_IMAGE_LAYOUT_GENERAL}, denoisedBinding, 0,
                                                             VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
                                                         finalImage,
                                                         accumulationImage

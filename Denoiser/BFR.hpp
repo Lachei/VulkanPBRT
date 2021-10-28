@@ -24,7 +24,6 @@ public:
     vsg::ref_ptr<vsg::BindDescriptorSet> bindDescriptorSet;
 
     vsg::ref_ptr<vsg::DescriptorImage> accumulatedIllumination, sampledAccIllu, finalIllumination;
-    vsg::ref_ptr<Taa> taaPipeline;
 
     vsg::ref_ptr<vsg::Sampler> sampler;
 protected:

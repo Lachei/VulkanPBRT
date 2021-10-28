@@ -69,7 +69,7 @@ BMFR::BMFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHei
 
     image = vsg::Image::create();
     image->imageType = VK_IMAGE_TYPE_2D;
-    image->format = VK_FORMAT_R16G16B16A16_SFLOAT;
+    image->format = VK_FORMAT_B8G8R8A8_UNORM;
     image->extent.width = width;
     image->extent.height = height;
     image->extent.depth = 1;
@@ -168,8 +168,6 @@ BMFR::BMFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHei
     bindPrePipeline = vsg::BindComputePipeline::create(bmfrPrePipeline);
     bindFitPipeline = vsg::BindComputePipeline::create(bmfrFitPipeline);
     bindPostPipeline = vsg::BindComputePipeline::create(bmfrPostPipeline);
-
-    taaPipeline = Taa::create(width, height, workWidth, workHeight, gBuffer, accBuffer, finalIllumination);
 }
 void BMFR::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants)
 {
@@ -196,14 +194,11 @@ void BMFR::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, v
     commandGraph->addChild(pushConstants);
     commandGraph->addChild(vsg::Dispatch::create(dispatchX, dispatchY, 1));
     commandGraph->addChild(pipelineBarrier);
-
-    taaPipeline->addDispatchToCommandGraph(commandGraph);
 }
 void BMFR::compileImages(vsg::Context& context)
 {
     accumulatedIllumination->compile(context);
     finalIllumination->compile(context);
-    taaPipeline->compile(context);
     featureBuffer->compile(context);
     weights->compile(context);
 }
@@ -230,5 +225,4 @@ void BMFR::updateImageLayouts(vsg::Context& context)
                                                         VK_DEPENDENCY_BY_REGION_BIT,
                                                         accIlluLayout, finalIluLayout, featureBufferLayout, weightsLayout);
     context.commands.push_back(pipelineBarrier);
-    taaPipeline->updateImageLayouts(context);
 }
