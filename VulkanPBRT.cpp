@@ -7,6 +7,7 @@
 #include "PipelineStructs.hpp"
 #include "CountTrianglesVisitor.hpp"
 #include "gui.hpp"
+#include "RenderImporter.hpp"
 
 #include <vsgXchange/models.h>
 #include <vsgXchange/images.h>
@@ -83,8 +84,15 @@ int main(int argc, char** argv){
         arguments.read("--screen", windowTraits->screenNum);	
 
         auto numFrames = arguments.value(-1, "-f");
+        auto depthImages = arguments.value(std::string(), "--depths");
+        auto positionImages = arguments.value(std::string(), "--positions");
+        auto normalImages = arguments.value(std::string(), "--normals");
+        auto albedoImages = arguments.value(std::string(), "--albedos");
+        auto materialImages = arguments.value(std::string(), "--materials");
+        auto illuminationImages = arguments.value(std::string(), "--illuminations");
+        auto matricesPath = arguments.value(std::string(), "--matrices");
         auto filename = arguments.value(std::string(), "-i");
-        if (filename.empty())
+        if (filename.empty() && normalImages.empty())
         {
             std::cout << "Missing input parameter \"-i <path_to_model>\"." << std::endl;
         }
@@ -206,16 +214,43 @@ int main(int argc, char** argv){
         guiValues->width = windowTraits->width;
         guiValues->height = windowTraits->height;
 
-    	// load scene
-        auto options = vsg::Options::create(vsgXchange::assimp::create(), vsgXchange::dds::create(), vsgXchange::stbi::create()); //using the assimp loader
-        loaded_scene = vsg::read_cast<vsg::Node>(filename, options);
-        if(!loaded_scene){
-            std::cout << "Scene not found: " << filename << std::endl;
-            return 1;
+    	// load scene or images
+        std::vector<vsg::ref_ptr<OfflineGBuffer>> offlineGBuffer;
+        std::vector<vsg::ref_ptr<OfflineIllumination>> offlineIllumination;
+        std::vector<DoubleMatrix> cameraMatrices;
+        if(filename.size()){
+            auto options = vsg::Options::create(vsgXchange::assimp::create(), vsgXchange::dds::create(), vsgXchange::stbi::create()); //using the assimp loader
+            loaded_scene = vsg::read_cast<vsg::Node>(filename, options);
+            if(!loaded_scene){
+                std::cout << "Scene not found: " << filename << std::endl;
+                return 1;
+            }
+            vsg::BuildAccelerationStructureTraversal buildAccelStruct(device);
+            loaded_scene->accept(buildAccelStruct);
+            tlas = buildAccelStruct.tlas;
         }
-        vsg::BuildAccelerationStructureTraversal buildAccelStruct(device);
-        loaded_scene->accept(buildAccelStruct);
-        tlas = buildAccelStruct.tlas;
+        else{
+            if(numFrames <= 0){
+                std::cout << "No number of frames given. For usage of external GBuffer and Illumination information use \"-f\" to inform about the number of frames." << std::endl;
+                return 1;
+            }
+            if(matricesPath.empty()){
+                std::cout << "Camera matrices are missing. Insert location of file with camera information via \"--matrices\"." << std::endl;
+                return 1;
+            }
+            cameraMatrices = MatrixImporter::importMatrices(matricesPath);
+            if(cameraMatrices.empty()){
+                std::cout << "Camera matrices could not be loaded" << std::endl;
+                return 1;
+            }
+            if(positionImages.size()){
+                offlineGBuffer = GBufferImporter::importGBufferPosition(positionImages, normalImages, materialImages, albedoImages, cameraMatrices, numFrames);
+            }
+            else{
+                offlineGBuffer = GBufferImporter::importGBufferDepth(depthImages, normalImages, materialImages, albedoImages, numFrames);
+            }
+            offlineIllumination = IlluminationBufferImporter::importIllumination(illuminationImages, numFrames);
+        }
 
         lookAt = vsg::LookAt::create(vsg::dvec3(0.0, -3, 1), vsg::dvec3(0.0, 0.0, 1), vsg::dvec3(0.0, 0.0, 1.0));
         CountTrianglesVisitor counter;
