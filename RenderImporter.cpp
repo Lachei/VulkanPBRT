@@ -66,7 +66,7 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferImporter::importGBufferPosition
             }
             float* depth = new float[posArray->valueCount()];
             auto toVec3 = [&](vsg::vec4 v){return vsg::vec3(v.x, v.y, v.z);};
-            vsg::vec3 cameraPos = toVec3(matrices[f][3]);
+            vsg::vec3 cameraPos = toVec3(matrices[f].view[3]);
             for(uint32_t i = 0; i < posArray->valueCount() ; ++i){
                 vsg::vec3 p = toVec3(posArray->data()[i]);
                 depth[i] = vsg::length(cameraPos + p);  //note: camera pos has to be inverted, thus plus

@@ -6,6 +6,7 @@
 #include <string>
 
 class DoubleMatrix{
+public:
     vsg::mat4 view, invView;
 };
 
