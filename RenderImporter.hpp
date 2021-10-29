@@ -4,31 +4,55 @@
 #include <vsgXchange/images.h>
 #include <vector>
 #include <string>
+#include "GBuffer.hpp"
+#include "IlluminationBuffer.hpp"
 
+// Matrices ------------------------------------------------------------------------
 class DoubleMatrix{
 public:
     vsg::mat4 view, invView;
 };
 
+// GBuffer --------------------------------------------------------------------------
 class OfflineGBuffer: public vsg::Inherit<vsg::Object, OfflineGBuffer>{
 public:
     vsg::ref_ptr<vsg::Data> depth, normal, material, albedo;
+    void uploadToGBuffer(vsg::ref_ptr<GBuffer>& gBuffer, vsg::Context& context);
 };
+using OfflineGBuffers = std::vector<vsg::ref_ptr<OfflineGBuffer>>;
 
 class GBufferImporter{
 public:
-    static std::vector<vsg::ref_ptr<OfflineGBuffer>> importGBufferDepth(const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames);
-    static std::vector<vsg::ref_ptr<OfflineGBuffer>> importGBufferPosition(const std::string& positionFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, const std::vector<DoubleMatrix>& matrices, int numFrames);
+    static OfflineGBuffers importGBufferDepth(const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames);
+    static OfflineGBuffers importGBufferPosition(const std::string& positionFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, const std::vector<DoubleMatrix>& matrices, int numFrames);
+private:
+    static vsg::ref_ptr<vsg::Data> convertNormalToSpherical(vsg::ref_ptr<vsg::vec4Array2D> normals);
 };
 
+class GBufferExporter{
+public:
+    static bool exportGBufferDepth(const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers);
+    static bool exportGBufferPosition(const std::string& positionFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers);
+private:
+    static vsg::ref_ptr<vsg::Data> sphericalToCartesian(vsg::ref_ptr<vsg::vec2Array2D> normals);
+};
+
+// IlluminationBuffer ---------------------------------------------------------------
 class OfflineIllumination: public vsg::Inherit<vsg::Object, OfflineIllumination>{
 public:
     vsg::ref_ptr<vsg::Data> noisy;
+    void uploadToIlluminationBuffer(vsg::ref_ptr<IlluminationBuffer>& illuBuffer, vsg::Context& context);
 };
+using OfflineIlluminations = std::vector<vsg::ref_ptr<OfflineIllumination>>;
 
 class IlluminationBufferImporter{
 public:
-    static std::vector<vsg::ref_ptr<OfflineIllumination>> importIllumination(const std::string& illuminationFormat, int numFrames);
+    static OfflineIlluminations importIllumination(const std::string& illuminationFormat, int numFrames);
+};
+
+class IlluminationBufferEdxporter{
+public:
+    static bool exportIllumination(const std::string& illuminationFormat, int numFrames, const OfflineIlluminations& illus);
 };
 
 class MatrixImporter{

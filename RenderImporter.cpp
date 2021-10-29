@@ -22,7 +22,7 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferImporter::importGBufferDepth(co
         snprintf(buff, sizeof(buff), normalFormat.c_str(), f);
         filename = vsg::findFile(buff, options);
 
-        if (gBuffers[f]->normal = vsg::read_cast<vsg::Data>(filename, options); !gBuffers[f]->normal.valid())
+        if (gBuffers[f]->normal = convertNormalToSpherical(vsg::read_cast<vsg::vec4Array2D>(filename, options)); !gBuffers[f]->normal.valid())
         {
             std::cerr << "Failed to load image: " << filename << " texPath = " << buff << std::endl;
             return {};
@@ -66,10 +66,10 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferImporter::importGBufferPosition
             }
             float* depth = new float[posArray->valueCount()];
             auto toVec3 = [&](vsg::vec4 v){return vsg::vec3(v.x, v.y, v.z);};
-            vsg::vec3 cameraPos = toVec3(matrices[f].view[3]);
+            vsg::vec3 cameraPos = toVec3(matrices[f].invView[3]);
             for(uint32_t i = 0; i < posArray->valueCount() ; ++i){
                 vsg::vec3 p = toVec3(posArray->data()[i]);
-                depth[i] = vsg::length(cameraPos + p);  //note: camera pos has to be inverted, thus plus
+                depth[i] = vsg::length(cameraPos - p);
             }
             gBuffers[f]->depth = vsg::floatArray2D::create(pos->width(), pos->height(), depth, vsg::Data::Layout{VK_FORMAT_R32_SFLOAT});
         }
@@ -77,7 +77,7 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferImporter::importGBufferPosition
         snprintf(buff, sizeof(buff), normalFormat.c_str(), f);
         filename = vsg::findFile(buff, options);
 
-        if (gBuffers[f]->normal = vsg::read_cast<vsg::Data>(filename, options); !gBuffers[f]->normal.valid())
+        if (gBuffers[f]->normal = convertNormalToSpherical(vsg::read_cast<vsg::vec4Array2D>(filename, options)); !gBuffers[f]->normal.valid())
         {
             std::cerr << "Failed to load image: " << filename << " texPath = " << buff << std::endl;
             return {};
@@ -93,6 +93,27 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferImporter::importGBufferPosition
         }
     }
     return gBuffers;
+}
+
+vsg::ref_ptr<vsg::Data> GBufferImporter::convertNormalToSpherical(vsg::ref_ptr<vsg::vec4Array2D> normals) 
+{
+    if(!normals) return {};
+    vsg::vec2* res = new vsg::vec2[normals->valueCount()];
+    for(uint32_t i = 0; i < normals->valueCount(); ++i){
+        vsg::vec4 curNormal = normals->data()[i];
+        // the normals are generally stored in correct full format
+        //curNormal *= 2;  
+        //curNormal -= vsg::vec4(1, 1, 1, 0);
+        res[i].x = acos(curNormal.z);
+        res[i].y = atan2(curNormal.y, curNormal.x);
+    }
+    return vsg::vec2Array2D::create(normals->width(), normals->height(), res, vsg::Data::Layout{VK_FORMAT_R32G32_SFLOAT});
+}
+
+void OfflineIllumination::uploadToIlluminationBuffer(vsg::ref_ptr<IlluminationBuffer>& illuBuffer, vsg::Context& context) 
+{
+    if(illuBuffer->illuminationImages.front() && noisy)
+        context.copy(noisy, illuBuffer->illuminationImages.front()->imageInfoList.front(), 1);
 }
 
 std::vector<vsg::ref_ptr<OfflineIllumination>> IlluminationBufferImporter::importIllumination(const std::string &illuminationFormat, int numFrames)
@@ -121,4 +142,16 @@ std::vector<vsg::ref_ptr<OfflineIllumination>> IlluminationBufferImporter::impor
 std::vector<DoubleMatrix> MatrixImporter::importMatrices(const std::string &matrixPath)
 {
     return {};
+}
+
+void OfflineGBuffer::uploadToGBuffer(vsg::ref_ptr<GBuffer>& gBuffer, vsg::Context& context) 
+{
+    if(gBuffer->depth && depth)
+        context.copy(depth, gBuffer->depth->imageInfoList.front(), 1);
+    if(gBuffer->normal && normal)
+        context.copy(normal, gBuffer->normal->imageInfoList.front(), 1);
+    if(gBuffer->albedo && albedo)
+        context.copy(albedo, gBuffer->albedo->imageInfoList.front(), 1);
+    if(gBuffer->material && material)
+        context.copy(material, gBuffer->material->imageInfoList.front(), 1);
 }
