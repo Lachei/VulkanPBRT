@@ -12,7 +12,7 @@ public:
     uint32_t denoisedBinding = 1, motionBinding = 0, finalImageBinding = 2, accumulationBinding = 3;
 
     Taa(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeight, vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<AccumulationBuffer> accBuffer,
-        vsg::ref_ptr<vsg::DescriptorImage> denoised);
+        vsg::ref_ptr<vsg::ImageView> denoised);
 
     void addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph);
 

@@ -37,8 +37,7 @@ enum class DenoisingBlockSize{
     x64,
     x8x16x32
 };
-
-DenoisingBlockSize denoisingBlockSize = DenoisingBlockSize::x16;
+DenoisingBlockSize denoisingBlockSize = DenoisingBlockSize::x32;
 
 class LoggingRedirectSentry
 {
@@ -99,6 +98,8 @@ int main(int argc, char** argv){
             else if(denoising == "none"){}
             else std::cout << "Unknown denoising type: " << denoising << std::endl;
         }
+        bool useTaa = false;
+        if(arguments.read("--taa")) useTaa = true;
         bool useFlyNavigation = false;
         if(arguments.read("--fly")) useFlyNavigation = true;
 
@@ -286,7 +287,7 @@ int main(int argc, char** argv){
                 bfr8->compile(imageLayoutCompile.context);
                 bfr8->updateImageLayouts(imageLayoutCompile.context);
                 bfr8->addDispatchToCommandGraph(scenegraph, computeConstants);
-                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bfr8->taaPipeline->finalImage->imageInfoList[0].imageView, window);
+                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bfr8->finalIllumination->imageInfoList[0].imageView, window);
                 break;
             }
             case DenoisingBlockSize::x16:
@@ -295,7 +296,7 @@ int main(int argc, char** argv){
                 bfr16->compile(imageLayoutCompile.context);
                 bfr16->updateImageLayouts(imageLayoutCompile.context);
                 bfr16->addDispatchToCommandGraph(scenegraph, computeConstants);
-                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bfr16->taaPipeline->finalImage->imageInfoList[0].imageView, window);
+                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bfr16->finalIllumination->imageInfoList[0].imageView, window);
                 break;
             }
             case DenoisingBlockSize::x32:
@@ -304,7 +305,7 @@ int main(int argc, char** argv){
                 bfr32->compile(imageLayoutCompile.context);
                 bfr32->updateImageLayouts(imageLayoutCompile.context);
                 bfr32->addDispatchToCommandGraph(scenegraph, computeConstants);
-                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bfr32->taaPipeline->finalImage->imageInfoList[0].imageView, window);
+                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bfr32->finalIllumination->imageInfoList[0].imageView, window);
                 break;
             }
             case DenoisingBlockSize::x8x16x32:
@@ -314,7 +315,7 @@ int main(int argc, char** argv){
                 auto bfr32 = BFR::create(windowTraits->width, windowTraits->height, 32, 32, gBuffer, illuminationBuffer, accumulationBuffer);
                 auto blender = BFRBlender::create(windowTraits->width, windowTraits->height, 
                                         illuminationBuffer->illuminationImages[1], illuminationBuffer->illuminationImages[2],
-                                        bfr8->taaPipeline->finalImage, bfr16->taaPipeline->finalImage, bfr32->taaPipeline->finalImage);
+                                        bfr8->finalIllumination, bfr16->finalIllumination, bfr32->finalIllumination);
                 bfr8->compile(imageLayoutCompile.context);
                 bfr8->updateImageLayouts(imageLayoutCompile.context);
                 bfr16->compile(imageLayoutCompile.context);
@@ -340,7 +341,7 @@ int main(int argc, char** argv){
                 bmfr8->compileImages(imageLayoutCompile.context);
                 bmfr8->updateImageLayouts(imageLayoutCompile.context);
                 bmfr8->addDispatchToCommandGraph(scenegraph, computeConstants);
-                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bmfr8->taaPipeline->finalImage->imageInfoList[0].imageView, window);
+                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bmfr8->finalIllumination->imageInfoList[0].imageView, window);
                 break;
             }
             case DenoisingBlockSize::x16:
@@ -349,7 +350,7 @@ int main(int argc, char** argv){
                 bmfr16->compileImages(imageLayoutCompile.context);
                 bmfr16->updateImageLayouts(imageLayoutCompile.context);
                 bmfr16->addDispatchToCommandGraph(scenegraph, computeConstants);
-                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bmfr16->taaPipeline->finalImage->imageInfoList[0].imageView, window);
+                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bmfr16->finalIllumination->imageInfoList[0].imageView, window);
                 break;
             }
             case DenoisingBlockSize::x32:
@@ -358,7 +359,7 @@ int main(int argc, char** argv){
                 bmfr32->compileImages(imageLayoutCompile.context);
                 bmfr32->updateImageLayouts(imageLayoutCompile.context);
                 bmfr32->addDispatchToCommandGraph(scenegraph, computeConstants);
-                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bmfr32->taaPipeline->finalImage->imageInfoList[0].imageView, window);
+                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bmfr32->finalIllumination->imageInfoList[0].imageView, window);
                 break;
             }
             case DenoisingBlockSize::x8x16x32:
@@ -367,7 +368,7 @@ int main(int argc, char** argv){
                 auto bmfr32 = BMFR::create(windowTraits->width, windowTraits->height, 32, 32, gBuffer, illuminationBuffer, accumulationBuffer);
                 auto blender = BFRBlender::create(windowTraits->width, windowTraits->height, 
                                         illuminationBuffer->illuminationImages[1], illuminationBuffer->illuminationImages[2],
-                                        bmfr8->taaPipeline->finalImage, bmfr16->taaPipeline->finalImage, bmfr32->taaPipeline->finalImage);
+                                        bmfr8->finalIllumination, bmfr16->finalIllumination, bmfr32->finalIllumination);
                 bmfr8->compileImages(imageLayoutCompile.context);
                 bmfr8->updateImageLayouts(imageLayoutCompile.context);
                 bmfr16->compileImages(imageLayoutCompile.context);
@@ -387,6 +388,14 @@ int main(int argc, char** argv){
         case DenoisingType::SVG:
             std::cout << "Not yet implemented" << std::endl;
             break;
+        }
+
+        if(useTaa){
+            auto taa = Taa::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer, accumulationBuffer, copyImageViewToWindow->srcImageView);
+            taa->compile(imageLayoutCompile.context);
+            taa->updateImageLayouts(imageLayoutCompile.context);
+            taa->addDispatchToCommandGraph(scenegraph);
+            copyImageViewToWindow = vsg::CopyImageViewToWindow::create(taa->finalImage->imageInfoList[0].imageView, window);
         }
 
         imageLayoutCompile.context.record();

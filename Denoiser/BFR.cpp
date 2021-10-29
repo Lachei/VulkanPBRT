@@ -47,7 +47,7 @@ BFR::BFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeigh
 
     image = vsg::Image::create();
     image->imageType = VK_IMAGE_TYPE_2D;
-    image->format = VK_FORMAT_R16G16B16A16_SFLOAT;
+    image->format = VK_FORMAT_B8G8R8A8_UNORM;
     image->extent.width = width;
     image->extent.height = height;
     image->extent.depth = 1;
@@ -100,8 +100,6 @@ BFR::BFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeigh
 
     bfrPipeline = vsg::ComputePipeline::create(pipelineLayout, computeStage);
     bindBfrPipeline = vsg::BindComputePipeline::create(bfrPipeline);
-
-    taaPipeline = Taa::create(width, height, workWidth, workHeight, gBuffer, accBuffer, finalIllumination);
 }
 void BFR::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants)
 {
@@ -112,14 +110,12 @@ void BFR::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vs
     auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                                                         VK_DEPENDENCY_BY_REGION_BIT);
     commandGraph->addChild(pipelineBarrier); //barrier to wait for completion of denoising before taa is applied
-    taaPipeline->addDispatchToCommandGraph(commandGraph);
 }
 void BFR::compile(vsg::Context& context)
 {
     accumulatedIllumination->compile(context);
     sampledAccIllu->compile(context);
     finalIllumination->compile(context);
-    taaPipeline->compile(context);
 }
 void BFR::updateImageLayouts(vsg::Context& context)
 {
@@ -136,5 +132,4 @@ void BFR::updateImageLayouts(vsg::Context& context)
                                                         VK_DEPENDENCY_BY_REGION_BIT,
                                                         accIlluLayout, finalIluLayout);
     context.commands.push_back(pipelineBarrier);
-    taaPipeline->updateImageLayouts(context);
 }

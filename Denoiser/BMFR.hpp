@@ -22,7 +22,6 @@ public:
     vsg::ref_ptr<vsg::ComputePipeline> bmfrPrePipeline, bmfrFitPipeline, bmfrPostPipeline;
     vsg::ref_ptr<vsg::DescriptorImage> accumulatedIllumination, finalIllumination, featureBuffer, rMat, weights;
     vsg::ref_ptr<vsg::BindDescriptorSet> bindDescriptorSet;
-    vsg::ref_ptr<Taa> taaPipeline;
 
     BMFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeight, vsg::ref_ptr<GBuffer> gBuffer,
          vsg::ref_ptr<IlluminationBuffer> illuBuffer, vsg::ref_ptr<AccumulationBuffer> accBuffer, uint32_t fittingKernel = 256);
