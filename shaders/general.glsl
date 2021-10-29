@@ -336,10 +336,10 @@ vec3 BRDF(vec3 v, vec3 l, vec3 h, SurfaceInfo s)
 
     float NdotL = clamp(dot(n, l), 0.001, 1.0);
     float NdotV = clamp(abs(dot(n, v)), 0.001, 1.0);
-    float NdotH = clamp(dot(n, h), 0.0, 1.0);
-    float LdotH = clamp(dot(l, h), 0.0, 1.0);
-    float VdotH = clamp(dot(v, h), 0.0, 1.0);
-    float VdotL = clamp(dot(v, l), 0.0, 1.0);
+    float NdotH = clamp(dot(n, h), 0, 1.0);
+    float LdotH = clamp(dot(l, h), 0, 1.0);
+    float VdotH = clamp(dot(v, h), 0, 1.0);
+    float VdotL = clamp(dot(v, l), 0, 1.0);
 
     PBRInfo pbrInputs = PBRInfo(NdotL,
                                 NdotV,
@@ -359,6 +359,7 @@ vec3 BRDF(vec3 v, vec3 l, vec3 h, SurfaceInfo s)
     // Calculation of analytical lighting contribution
     vec3 diffuseContrib = (1.0 - F) * BRDF_Diffuse_Disney(pbrInputs);
     vec3 specContrib = F * G * D / (4.0 * NdotL * NdotV);
+    if(dot(n,l) <= 0) specContrib = vec3(0);
     // Obtain final intensity as reflectance (BRDF) scaled by the energy of the light (cosine law)
     vec3 color = diffuseContrib + specContrib;
 
@@ -376,7 +377,7 @@ vec3 sampleGGX(vec2 r, float alpha2){
 vec3 sampleHemisphere(vec2 r){
     float t = 2 * PI * r.y;
     vec2 d = sqrt(r.x) * vec2(cos(t), sin(t));
-    return vec3(d, sqrt(1.0 - pow2(d.x) - pow2(d.y)));
+    return vec3(d, sqrt(max(0,1.0 - pow2(d.x) - pow2(d.y))));
 }
 
 uint rotl(uint x, uint k){

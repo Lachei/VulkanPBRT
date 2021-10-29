@@ -85,8 +85,8 @@ vec3 sampleLight(vec3 pos, vec3 n, out vec3 l, out float pdf)
         d = length(lightDir);
         lightDir /= d;
         attenuation = 1.0f / (lights.l[i].strengths.x + lights.l[i].strengths.y * d + lights.l[i].strengths.z * d * d);
-        strength = max(dot(n, lightDir) * abs(dot(lightDir, lightNormal)), 0) * lightPower * attenuation * triangleArea;
-        lightStrength *= dot(n, lightDir) * abs(dot(lightDir, lightNormal)) * attenuation * triangleArea;
+        strength = max(dot(n, lightDir), 0) * max(dot(-lightDir, lightNormal), 0) * lightPower * attenuation * triangleArea;
+        lightStrength *= max(dot(n, lightDir), 0) * max(dot(-lightDir, lightNormal), 0) * attenuation * triangleArea;
         curL = lightDir;
         curTmax = d - tmin;
         break;
@@ -100,7 +100,7 @@ vec3 sampleLight(vec3 pos, vec3 n, out vec3 l, out float pdf)
     }
   }
 
-  if(strengthSum == 0){   //surface is not directly lit
+  if(strengthSum < 1e-6){   //surface is not directly lit
     pdf = 0;
     l = vec3(0);
     return vec3(0);
@@ -167,6 +167,7 @@ void main()
   vec3 position = v0.pos * bar.x + v1.pos * bar.y + v2.pos * bar.z;
   position = (instance.objectMat * vec4(position, 1)).xyz;
   vec3 normal = normalize(v0.normal * bar.x + v1.normal * bar.y + v2.normal * bar.z).xyz;//.xzy;
+  if(isinf(normal.x) || isnan(normal.x)) normal = vec3(0,1,0);
   mat4 normalObj = transpose(inverse(instance.objectMat));
   normal = normalize((normalObj * vec4(normal, 0)).xyz);
   if(v0.uv == v1.uv) v1.uv += vec2(epsilon,0);
@@ -220,7 +221,8 @@ void main()
   //direct illumination
   rayPayload.color = nextEventEsitmation(position, v, rayPayload.si);
   //surface emission
-  vec3 emissive = mat.emission;// * SRGBtoLINEAR(texture(emissiveMap[nonuniformEXT(objId)], texCoord)).rgb;
+  vec3 emissive = mat.emission * SRGBtoLINEAR(texture(emissiveMap[nonuniformEXT(objId)], texCoord)).rgb;
+  if(dot(v, normal) < 0) emissive = vec3(0);
   rayPayload.color += emissive;
 
   rayPayload.albedo = vec4(specularColor + diffuseColor, 1);
