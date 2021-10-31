@@ -29,6 +29,8 @@ public:
 
     void updateImageLayouts(vsg::Context& context);
 
+    void addTraceRaysToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants);
+
     void cmdCopyToAccImages(vsg::ref_ptr<vsg::Commands> commands);
 
     uint32_t width, height, maxRecursionDepth, samplePerPixel;

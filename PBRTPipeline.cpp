@@ -52,6 +52,19 @@ void PBRTPipeline::updateImageLayouts(vsg::Context& context)
     if (accumulationBuffer)
         accumulationBuffer->updateImageLayouts(context);
 }
+void PBRTPipeline::addTraceRaysToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants)
+{
+    commandGraph->addChild(bindRayTracingPipeline);
+    commandGraph->addChild(bindRayTracingDescriptorSet);
+    commandGraph->addChild(pushConstants);
+    auto traceRays = vsg::TraceRays::create();
+    traceRays->bindingTable = shaderBindingTable;
+    traceRays->width = width;
+    traceRays->height = height;
+    traceRays->depth = 1;
+    commandGraph->addChild(traceRays);
+
+}
 void PBRTPipeline::cmdCopyToAccImages(vsg::ref_ptr<vsg::Commands> commands)
 {
     if (accumulationBuffer)

@@ -220,7 +220,7 @@ int main(int argc, char** argv){
             break;
         }
 
-        // raytracing pipelin setup
+        // raytracing pipeline setup
         uint32_t maxRecursionDepth = 2;
         auto pbrtPipeline = PBRTPipeline::create(windowTraits->width, windowTraits->height, maxRecursionDepth, loaded_scene, illuminationBuffer);
         auto gBuffer = pbrtPipeline->gBuffer;
@@ -231,28 +231,16 @@ int main(int argc, char** argv){
         loaded_scene->accept(buildAccelStruct);
         pbrtPipeline->setTlas(buildAccelStruct.tlas);      
 
-        //state group to bind the pipeline and descriptorset
-        auto commands = vsg::Commands::create();
-        
+
         // -------------------------------------------------------------------------------------
         // image layout conversions and correct binding of different denoising tequniques
         // -------------------------------------------------------------------------------------
         vsg::CompileTraversal imageLayoutCompile(window);
-
+        auto commands = vsg::Commands::create();
         pbrtPipeline->compile(imageLayoutCompile.context);
         pbrtPipeline->updateImageLayouts(imageLayoutCompile.context);
-
-        // add PBRTPipeline execution commands
-        commands->addChild(pbrtPipeline->bindRayTracingPipeline);
-        commands->addChild(pbrtPipeline->bindRayTracingDescriptorSet);
-        commands->addChild(pushConstants);
-        auto traceRays = vsg::TraceRays::create();
-        traceRays->bindingTable = pbrtPipeline->shaderBindingTable;
-        traceRays->width = windowTraits->width;
-        traceRays->height = windowTraits->height;
-        traceRays->depth = 1;
-        commands->addChild(traceRays);
-
+        pbrtPipeline->addTraceRaysToCommandGraph(commands, pushConstants);
+        
         vsg::ref_ptr<vsg::CopyImageViewToWindow> copyImageViewToWindow;
         switch(denoisingType){
         case DenoisingType::None:
