@@ -40,7 +40,6 @@ public:
     vsg::ref_ptr<vsg::BindRayTracingPipeline> bindRayTracingPipeline;
     vsg::ref_ptr<vsg::BindDescriptorSet> bindRayTracingDescriptorSet;
     vsg::ref_ptr<vsg::PushConstants> pushConstants;
-    vsg::ref_ptr<vsg::TraceRays> traceRays;
 
     //shader binding table for trace rays
     vsg::ref_ptr<vsg::RayTracingShaderBindingTable> shaderBindingTable;
