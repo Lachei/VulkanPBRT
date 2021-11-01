@@ -226,3 +226,7 @@ void BMFR::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, v
     commandGraph->addChild(vsg::Dispatch::create(dispatchX, dispatchY, 1));
     commandGraph->addChild(pipelineBarrier);
 }
+vsg::ref_ptr<vsg::DescriptorImage> BMFR::getFinalDescriptorImage() const
+{
+    return finalIllumination;
+}

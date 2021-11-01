@@ -241,10 +241,10 @@ int main(int argc, char** argv){
         pbrtPipeline->updateImageLayouts(imageLayoutCompile.context);
         pbrtPipeline->addTraceRaysToCommandGraph(commands, pushConstants);
         
-        vsg::ref_ptr<vsg::ImageView> finalImageView;
+        vsg::ref_ptr<vsg::DescriptorImage> finalDescriptorImage;
         switch(denoisingType){
         case DenoisingType::None:
-            finalImageView = illuminationBuffer->illuminationImages[0]->imageInfoList[0].imageView;
+            finalDescriptorImage = illuminationBuffer->illuminationImages[0];
             break;
         case DenoisingType::BFR:
             switch(denoisingBlockSize){
@@ -254,7 +254,7 @@ int main(int argc, char** argv){
                 bfr8->compile(imageLayoutCompile.context);
                 bfr8->updateImageLayouts(imageLayoutCompile.context);
                 bfr8->addDispatchToCommandGraph(commands, computeConstants);
-                finalImageView = bfr8->finalIllumination->imageInfoList[0].imageView;
+                finalDescriptorImage = bfr8->getFinalDescriptorImage();
                 break;
             }
             case DenoisingBlockSize::x16:
@@ -263,7 +263,7 @@ int main(int argc, char** argv){
                 bfr16->compile(imageLayoutCompile.context);
                 bfr16->updateImageLayouts(imageLayoutCompile.context);
                 bfr16->addDispatchToCommandGraph(commands, computeConstants);
-                finalImageView = bfr16->finalIllumination->imageInfoList[0].imageView;
+                finalDescriptorImage = bfr16->getFinalDescriptorImage();
                 break;
             }
             case DenoisingBlockSize::x32:
@@ -272,7 +272,7 @@ int main(int argc, char** argv){
                 bfr32->compile(imageLayoutCompile.context);
                 bfr32->updateImageLayouts(imageLayoutCompile.context);
                 bfr32->addDispatchToCommandGraph(commands, computeConstants);
-                finalImageView = bfr32->finalIllumination->imageInfoList[0].imageView;
+                finalDescriptorImage = bfr32->getFinalDescriptorImage();
                 break;
             }
             case DenoisingBlockSize::x8x16x32:
@@ -282,7 +282,7 @@ int main(int argc, char** argv){
                 auto bfr32 = BFR::create(windowTraits->width, windowTraits->height, 32, 32, gBuffer, illuminationBuffer, accumulationBuffer);
                 auto blender = BFRBlender::create(windowTraits->width, windowTraits->height, 
                                         illuminationBuffer->illuminationImages[1], illuminationBuffer->illuminationImages[2],
-                                        bfr8->finalIllumination, bfr16->finalIllumination, bfr32->finalIllumination);
+                                        bfr8->getFinalDescriptorImage(), bfr16->getFinalDescriptorImage(), bfr32->getFinalDescriptorImage());
                 bfr8->compile(imageLayoutCompile.context);
                 bfr8->updateImageLayouts(imageLayoutCompile.context);
                 bfr16->compile(imageLayoutCompile.context);
@@ -295,7 +295,7 @@ int main(int argc, char** argv){
                 bfr16->addDispatchToCommandGraph(commands, computeConstants);
                 bfr32->addDispatchToCommandGraph(commands, computeConstants);
                 blender->addDispatchToCommandGraph(commands);
-                finalImageView = blender->finalImage->imageInfoList[0].imageView;
+                finalDescriptorImage = blender->getFinalDescriptorImage();
                 break;
             }
             }
@@ -308,7 +308,7 @@ int main(int argc, char** argv){
                 bmfr8->compile(imageLayoutCompile.context);
                 bmfr8->updateImageLayouts(imageLayoutCompile.context);
                 bmfr8->addDispatchToCommandGraph(commands, computeConstants);
-                finalImageView = bmfr8->finalIllumination->imageInfoList[0].imageView;
+                finalDescriptorImage = bmfr8->getFinalDescriptorImage();
                 break;
             }
             case DenoisingBlockSize::x16:
@@ -317,7 +317,7 @@ int main(int argc, char** argv){
                 bmfr16->compile(imageLayoutCompile.context);
                 bmfr16->updateImageLayouts(imageLayoutCompile.context);
                 bmfr16->addDispatchToCommandGraph(commands, computeConstants);
-                finalImageView = bmfr16->finalIllumination->imageInfoList[0].imageView;
+                finalDescriptorImage = bmfr16->getFinalDescriptorImage();
                 break;
             }
             case DenoisingBlockSize::x32:
@@ -326,7 +326,7 @@ int main(int argc, char** argv){
                 bmfr32->compile(imageLayoutCompile.context);
                 bmfr32->updateImageLayouts(imageLayoutCompile.context);
                 bmfr32->addDispatchToCommandGraph(commands, computeConstants);
-                finalImageView = bmfr32->finalIllumination->imageInfoList[0].imageView;
+                finalDescriptorImage = bmfr32->getFinalDescriptorImage();
                 break;
             }
             case DenoisingBlockSize::x8x16x32:
@@ -335,7 +335,7 @@ int main(int argc, char** argv){
                 auto bmfr32 = BMFR::create(windowTraits->width, windowTraits->height, 32, 32, gBuffer, illuminationBuffer, accumulationBuffer);
                 auto blender = BFRBlender::create(windowTraits->width, windowTraits->height, 
                                         illuminationBuffer->illuminationImages[1], illuminationBuffer->illuminationImages[2],
-                                        bmfr8->finalIllumination, bmfr16->finalIllumination, bmfr32->finalIllumination);
+                                        bmfr8->getFinalDescriptorImage(), bmfr16->getFinalDescriptorImage(), bmfr32->getFinalDescriptorImage());
                 bmfr8->compile(imageLayoutCompile.context);
                 bmfr8->updateImageLayouts(imageLayoutCompile.context);
                 bmfr16->compile(imageLayoutCompile.context);
@@ -348,7 +348,7 @@ int main(int argc, char** argv){
                 bmfr16->addDispatchToCommandGraph(commands, computeConstants);
                 bmfr32->addDispatchToCommandGraph(commands, computeConstants);
                 blender->addDispatchToCommandGraph(commands);
-                finalImageView = blender->finalImage->imageInfoList[0].imageView;
+                finalDescriptorImage = blender->getFinalDescriptorImage();
                 break;
             }
             break;
@@ -358,11 +358,11 @@ int main(int argc, char** argv){
         }
 
         if(useTaa){
-            auto taa = Taa::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer, accumulationBuffer, finalImageView);
+            auto taa = Taa::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer, accumulationBuffer, finalDescriptorImage);
             taa->compile(imageLayoutCompile.context);
             taa->updateImageLayouts(imageLayoutCompile.context);
             taa->addDispatchToCommandGraph(commands);
-            finalImageView = taa->finalImage->imageInfoList[0].imageView;
+            finalDescriptorImage = taa->getFinalDescriptorImage();
         }
         imageLayoutCompile.context.record();
 
@@ -384,7 +384,7 @@ int main(int argc, char** argv){
 
         auto commandGraph = vsg::CommandGraph::create(window);
         commandGraph->addChild(commands);
-        commandGraph->addChild(vsg::CopyImageViewToWindow::create(finalImageView, window));
+        commandGraph->addChild(vsg::CopyImageViewToWindow::create(finalDescriptorImage->imageInfoList[0].imageView, window));
         commandGraph->addChild(renderGraph);
         
         //close handler to close and imgui handler to forward to imgui

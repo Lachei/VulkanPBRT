@@ -133,3 +133,7 @@ void BFR::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vs
         VK_DEPENDENCY_BY_REGION_BIT);
     commandGraph->addChild(pipelineBarrier); //barrier to wait for completion of denoising before taa is applied
 }
+vsg::ref_ptr<vsg::DescriptorImage> BFR::getFinalDescriptorImage() const
+{
+    return finalIllumination;
+}

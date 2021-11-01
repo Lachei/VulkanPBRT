@@ -88,6 +88,13 @@ void BFRBlender::updateImageLayouts(vsg::Context& context)
                                                         finalLayout);
     context.commands.push_back(pipelineBarrier);
 }
+void BFRBlender::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph)
+{
+    commandGraph->addChild(bindPipeline);
+    commandGraph->addChild(bindDescriptorSet);
+    commandGraph->addChild(vsg::Dispatch::create(uint32_t(ceil(float(width) / float(workWidth))),
+        uint32_t(ceil(float(height) / float(workHeight))), 1));
+}
 void BFRBlender::copyFinalImage(vsg::ref_ptr<vsg::Commands> commands, vsg::ref_ptr<vsg::Image> dstImage)
 {
     auto srcImage = finalImage->imageInfoList[0].imageView->image;
@@ -126,10 +133,8 @@ void BFRBlender::copyFinalImage(vsg::ref_ptr<vsg::Commands> commands, vsg::ref_p
                                                    srcBarrier, dstBarrier);
     commands->addChild(pipelineBarrier);
 }
-void BFRBlender::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph)
+vsg::ref_ptr<vsg::DescriptorImage> BFRBlender::getFinalDescriptorImage() const
 {
-    commandGraph->addChild(bindPipeline);
-    commandGraph->addChild(bindDescriptorSet);
-    commandGraph->addChild(vsg::Dispatch::create(uint32_t(ceil(float(width) / float(workWidth))),
-        uint32_t(ceil(float(height) / float(workHeight))), 1));
+    return finalImage;
 }
+
