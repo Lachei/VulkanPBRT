@@ -120,7 +120,6 @@ void main()
 	// --------------------------------------------------------------------
  	vec3 prevColor;
 	vec3 prevColorSquared;
-	vec3 prevNor;
 	float truePrevDepth;
 	bool reprojected = false;
 	float pixelSpp = 1.0 / 256.0; //has to be normalized as only floating point 8 bit interp is supported
@@ -142,7 +141,8 @@ void main()
 		float depthDissim = (truePrevDepth / preDepth) - 1;	//using relative error of depths to blend pixels further away form camera together
 		if(all(greaterThanEqual(prevPos.xy, vec2(0))) && all(lessThanEqual(prevPos.xy, vec2(1))) && abs(depthDissim) <= .01f){		//dissimilarity in depth values shoudl be smaller than 1%
 			//normal check
-			prevNor = texture(prevNormal, prevPos.xy).xy;
+			vec3 prevNor;
+			prevNor.xy = texture(prevNormal, prevPos.xy).xy;
 			prevNor = vec3(sin(prevNor.x) * cos(prevNor.y), sin(prevNor.x) * sin(prevNor.y), cos(prevNor.x));
 			if(dot(rayPayload.si.normal, prevNor) > .7f){	//we do have a point which can be reprojected
 				reprojected = true;
