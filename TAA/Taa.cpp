@@ -91,7 +91,7 @@ void Taa::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph)
     commandGraph->addChild(bindDescriptorSet);
     commandGraph->addChild(vsg::Dispatch::create(uint32_t(ceil(float(width) / float(workWidth))), uint32_t(ceil(float(height) / float(workHeight))),
                                                  1));
-    copyFinalImageToAccumulation(commandGraph);
+    copyFinalImage(commandGraph, accumulationImage->imageInfoList[0].imageView->image);
 }
 void Taa::compile(vsg::Context& context)
 {
@@ -111,45 +111,6 @@ void Taa::updateImageLayouts(vsg::Context& context)
                                                         VK_DEPENDENCY_BY_REGION_BIT,
                                                         accumulationLayout, finalLayout);
     context.commands.push_back(pipelineBarrier);
-}
-void Taa::copyFinalImageToAccumulation(vsg::ref_ptr<vsg::Commands> commands)
-{
-    auto srcImage = finalImage->imageInfoList[0].imageView->image;
-    auto dstImage = accumulationImage->imageInfoList[0].imageView->image;
-
-    VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    auto srcBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL,
-                                                      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0, srcImage, resourceRange);
-    auto dstBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL,
-                                                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, 0, dstImage, resourceRange);
-    auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                                                        VK_DEPENDENCY_BY_REGION_BIT,
-                                                        srcBarrier, dstBarrier);
-    commands->addChild(pipelineBarrier);
-
-    VkImageCopy copyRegion{};
-    copyRegion.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    copyRegion.srcOffset = {0, 0, 0};
-    copyRegion.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    copyRegion.dstOffset = {0, 0, 0};
-    copyRegion.extent = {width, height, 1};
-
-    auto copyImage = vsg::CopyImage::create();
-    copyImage->srcImage = srcImage;
-    copyImage->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-    copyImage->dstImage = dstImage;
-    copyImage->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    copyImage->regions.emplace_back(copyRegion);
-    commands->addChild(copyImage);
-
-    srcBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                                                 VK_IMAGE_LAYOUT_GENERAL, 0, 0, srcImage, resourceRange);
-    dstBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                                 VK_IMAGE_LAYOUT_GENERAL, 0, 0, dstImage, resourceRange);
-    pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                                                   VK_DEPENDENCY_BY_REGION_BIT,
-                                                   srcBarrier, dstBarrier);
-    commands->addChild(pipelineBarrier);
 }
 void Taa::copyFinalImage(vsg::ref_ptr<vsg::Commands> commands, vsg::ref_ptr<vsg::Image> dstImage)
 {

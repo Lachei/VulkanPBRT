@@ -20,8 +20,6 @@ public:
 
     void updateImageLayouts(vsg::Context& context);
 
-    void copyFinalImageToAccumulation(vsg::ref_ptr<vsg::Commands> commands);
-
     void copyFinalImage(vsg::ref_ptr<vsg::Commands> commands, vsg::ref_ptr<vsg::Image> dstImage);
 
     vsg::ref_ptr<vsg::ComputePipeline> pipeline;
