@@ -14,12 +14,9 @@ public:
     Taa(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeight, vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<AccumulationBuffer> accBuffer,
         vsg::ref_ptr<vsg::ImageView> denoised);
 
-    void addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph);
-
     void compile(vsg::Context& context);
-
     void updateImageLayouts(vsg::Context& context);
-
+    void addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph);
     void copyFinalImage(vsg::ref_ptr<vsg::Commands> commands, vsg::ref_ptr<vsg::Image> dstImage);
 
     vsg::ref_ptr<vsg::ComputePipeline> pipeline;

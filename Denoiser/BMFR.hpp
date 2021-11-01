@@ -26,10 +26,8 @@ public:
     BMFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeight, vsg::ref_ptr<GBuffer> gBuffer,
          vsg::ref_ptr<IlluminationBuffer> illuBuffer, vsg::ref_ptr<AccumulationBuffer> accBuffer, uint32_t fittingKernel = 256);
 
-    void addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants);
-
-    void compileImages(vsg::Context& context);
-
+    void compile(vsg::Context& context);
     void updateImageLayouts(vsg::Context& context);
+    void addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants);
 };
 

@@ -305,7 +305,7 @@ int main(int argc, char** argv){
             case DenoisingBlockSize::x8:
             {
                 auto bmfr8 = BMFR::create(windowTraits->width, windowTraits->height, 8, 8, gBuffer, illuminationBuffer, accumulationBuffer, 64);
-                bmfr8->compileImages(imageLayoutCompile.context);
+                bmfr8->compile(imageLayoutCompile.context);
                 bmfr8->updateImageLayouts(imageLayoutCompile.context);
                 bmfr8->addDispatchToCommandGraph(commands, computeConstants);
                 finalImageView = bmfr8->finalIllumination->imageInfoList[0].imageView;
@@ -314,7 +314,7 @@ int main(int argc, char** argv){
             case DenoisingBlockSize::x16:
             {
                 auto bmfr16 = BMFR::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer, illuminationBuffer, accumulationBuffer);
-                bmfr16->compileImages(imageLayoutCompile.context);
+                bmfr16->compile(imageLayoutCompile.context);
                 bmfr16->updateImageLayouts(imageLayoutCompile.context);
                 bmfr16->addDispatchToCommandGraph(commands, computeConstants);
                 finalImageView = bmfr16->finalIllumination->imageInfoList[0].imageView;
@@ -323,7 +323,7 @@ int main(int argc, char** argv){
             case DenoisingBlockSize::x32:
             {
                 auto bmfr32 = BMFR::create(windowTraits->width, windowTraits->height, 32, 32, gBuffer, illuminationBuffer, accumulationBuffer);
-                bmfr32->compileImages(imageLayoutCompile.context);
+                bmfr32->compile(imageLayoutCompile.context);
                 bmfr32->updateImageLayouts(imageLayoutCompile.context);
                 bmfr32->addDispatchToCommandGraph(commands, computeConstants);
                 finalImageView = bmfr32->finalIllumination->imageInfoList[0].imageView;
@@ -336,11 +336,11 @@ int main(int argc, char** argv){
                 auto blender = BFRBlender::create(windowTraits->width, windowTraits->height, 
                                         illuminationBuffer->illuminationImages[1], illuminationBuffer->illuminationImages[2],
                                         bmfr8->finalIllumination, bmfr16->finalIllumination, bmfr32->finalIllumination);
-                bmfr8->compileImages(imageLayoutCompile.context);
+                bmfr8->compile(imageLayoutCompile.context);
                 bmfr8->updateImageLayouts(imageLayoutCompile.context);
-                bmfr16->compileImages(imageLayoutCompile.context);
+                bmfr16->compile(imageLayoutCompile.context);
                 bmfr16->updateImageLayouts(imageLayoutCompile.context);
-                bmfr32->compileImages(imageLayoutCompile.context);
+                bmfr32->compile(imageLayoutCompile.context);
                 bmfr32->updateImageLayouts(imageLayoutCompile.context);
                 blender->compile(imageLayoutCompile.context);
                 blender->updateImageLayouts(imageLayoutCompile.context);

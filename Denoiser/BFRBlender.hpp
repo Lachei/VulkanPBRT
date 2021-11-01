@@ -19,12 +19,9 @@ public:
                vsg::ref_ptr<vsg::DescriptorImage> denoised2,
                uint32_t workWidth = 16, uint32_t workHeight = 16, uint32_t filterRadius = 2);
 
-    void addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph);
-
     void compile(vsg::Context& context);
-
     void updateImageLayouts(vsg::Context& context);
-
+    void addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph);
     void copyFinalImage(vsg::ref_ptr<vsg::Commands> commands, vsg::ref_ptr<vsg::Image> dstImage);
 
 protected:

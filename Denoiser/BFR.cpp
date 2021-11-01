@@ -101,16 +101,6 @@ BFR::BFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeigh
     bfrPipeline = vsg::ComputePipeline::create(pipelineLayout, computeStage);
     bindBfrPipeline = vsg::BindComputePipeline::create(bfrPipeline);
 }
-void BFR::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants)
-{
-    commandGraph->addChild(bindBfrPipeline);
-    commandGraph->addChild(bindDescriptorSet);
-    commandGraph->addChild(pushConstants);
-    commandGraph->addChild(vsg::Dispatch::create((width / workWidth + 1), (height / workHeight + 1), 1));
-    auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                                                        VK_DEPENDENCY_BY_REGION_BIT);
-    commandGraph->addChild(pipelineBarrier); //barrier to wait for completion of denoising before taa is applied
-}
 void BFR::compile(vsg::Context& context)
 {
     accumulatedIllumination->compile(context);
@@ -132,4 +122,14 @@ void BFR::updateImageLayouts(vsg::Context& context)
                                                         VK_DEPENDENCY_BY_REGION_BIT,
                                                         accIlluLayout, finalIluLayout);
     context.commands.push_back(pipelineBarrier);
+}
+void BFR::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants)
+{
+    commandGraph->addChild(bindBfrPipeline);
+    commandGraph->addChild(bindDescriptorSet);
+    commandGraph->addChild(pushConstants);
+    commandGraph->addChild(vsg::Dispatch::create((width / workWidth + 1), (height / workHeight + 1), 1));
+    auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_DEPENDENCY_BY_REGION_BIT);
+    commandGraph->addChild(pipelineBarrier); //barrier to wait for completion of denoising before taa is applied
 }

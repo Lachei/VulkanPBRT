@@ -169,33 +169,7 @@ BMFR::BMFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHei
     bindFitPipeline = vsg::BindComputePipeline::create(bmfrFitPipeline);
     bindPostPipeline = vsg::BindComputePipeline::create(bmfrPostPipeline);
 }
-void BMFR::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants)
-{
-    auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                                                        VK_DEPENDENCY_BY_REGION_BIT);
-    uint32_t dispatchX = widthPadded / workWidth, dispatchY = heightPadded / workHeight;
-    // pre pipeline
-    commandGraph->addChild(bindPrePipeline);
-    commandGraph->addChild(bindDescriptorSet);
-    commandGraph->addChild(pushConstants);
-    commandGraph->addChild(vsg::Dispatch::create(dispatchX, dispatchY, 1));
-    commandGraph->addChild(pipelineBarrier);
-
-    // fit pipeline
-    commandGraph->addChild(bindFitPipeline);
-    commandGraph->addChild(bindDescriptorSet);
-    commandGraph->addChild(pushConstants);
-    commandGraph->addChild(vsg::Dispatch::create(dispatchX, dispatchY, 1));
-    commandGraph->addChild(pipelineBarrier);
-
-    // post pipeline
-    commandGraph->addChild(bindPostPipeline);
-    commandGraph->addChild(bindDescriptorSet);
-    commandGraph->addChild(pushConstants);
-    commandGraph->addChild(vsg::Dispatch::create(dispatchX, dispatchY, 1));
-    commandGraph->addChild(pipelineBarrier);
-}
-void BMFR::compileImages(vsg::Context& context)
+void BMFR::compile(vsg::Context& context)
 {
     accumulatedIllumination->compile(context);
     finalIllumination->compile(context);
@@ -225,4 +199,30 @@ void BMFR::updateImageLayouts(vsg::Context& context)
                                                         VK_DEPENDENCY_BY_REGION_BIT,
                                                         accIlluLayout, finalIluLayout, featureBufferLayout, weightsLayout);
     context.commands.push_back(pipelineBarrier);
+}
+void BMFR::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants)
+{
+    auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_DEPENDENCY_BY_REGION_BIT);
+    uint32_t dispatchX = widthPadded / workWidth, dispatchY = heightPadded / workHeight;
+    // pre pipeline
+    commandGraph->addChild(bindPrePipeline);
+    commandGraph->addChild(bindDescriptorSet);
+    commandGraph->addChild(pushConstants);
+    commandGraph->addChild(vsg::Dispatch::create(dispatchX, dispatchY, 1));
+    commandGraph->addChild(pipelineBarrier);
+
+    // fit pipeline
+    commandGraph->addChild(bindFitPipeline);
+    commandGraph->addChild(bindDescriptorSet);
+    commandGraph->addChild(pushConstants);
+    commandGraph->addChild(vsg::Dispatch::create(dispatchX, dispatchY, 1));
+    commandGraph->addChild(pipelineBarrier);
+
+    // post pipeline
+    commandGraph->addChild(bindPostPipeline);
+    commandGraph->addChild(bindDescriptorSet);
+    commandGraph->addChild(pushConstants);
+    commandGraph->addChild(vsg::Dispatch::create(dispatchX, dispatchY, 1));
+    commandGraph->addChild(pipelineBarrier);
 }

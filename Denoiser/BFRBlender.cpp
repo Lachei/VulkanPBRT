@@ -73,13 +73,6 @@ BFRBlender::BFRBlender(uint32_t width, uint32_t height, vsg::ref_ptr<vsg::Descri
     pipeline = vsg::ComputePipeline::create(pipelineLayout, computeStage);
     bindPipeline = vsg::BindComputePipeline::create(pipeline);
 }
-void BFRBlender::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph)
-{
-    commandGraph->addChild(bindPipeline);
-    commandGraph->addChild(bindDescriptorSet);
-    commandGraph->addChild(vsg::Dispatch::create(uint32_t(ceil(float(width) / float(workWidth))),
-                                                 uint32_t(ceil(float(height) / float(workHeight))), 1));
-}
 void BFRBlender::compile(vsg::Context& context)
 {
     finalImage->compile(context);
@@ -132,4 +125,11 @@ void BFRBlender::copyFinalImage(vsg::ref_ptr<vsg::Commands> commands, vsg::ref_p
                                                    VK_DEPENDENCY_BY_REGION_BIT,
                                                    srcBarrier, dstBarrier);
     commands->addChild(pipelineBarrier);
+}
+void BFRBlender::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph)
+{
+    commandGraph->addChild(bindPipeline);
+    commandGraph->addChild(bindDescriptorSet);
+    commandGraph->addChild(vsg::Dispatch::create(uint32_t(ceil(float(width) / float(workWidth))),
+        uint32_t(ceil(float(height) / float(workHeight))), 1));
 }
