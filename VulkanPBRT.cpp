@@ -241,10 +241,10 @@ int main(int argc, char** argv){
         pbrtPipeline->updateImageLayouts(imageLayoutCompile.context);
         pbrtPipeline->addTraceRaysToCommandGraph(commands, pushConstants);
         
-        vsg::ref_ptr<vsg::CopyImageViewToWindow> copyImageViewToWindow;
+        vsg::ref_ptr<vsg::ImageView> finalImageView;
         switch(denoisingType){
         case DenoisingType::None:
-            copyImageViewToWindow = vsg::CopyImageViewToWindow::create(illuminationBuffer->illuminationImages[0]->imageInfoList[0].imageView, window);
+            finalImageView = illuminationBuffer->illuminationImages[0]->imageInfoList[0].imageView;
             break;
         case DenoisingType::BFR:
             switch(denoisingBlockSize){
@@ -254,7 +254,7 @@ int main(int argc, char** argv){
                 bfr8->compile(imageLayoutCompile.context);
                 bfr8->updateImageLayouts(imageLayoutCompile.context);
                 bfr8->addDispatchToCommandGraph(commands, computeConstants);
-                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bfr8->finalIllumination->imageInfoList[0].imageView, window);
+                finalImageView = bfr8->finalIllumination->imageInfoList[0].imageView;
                 break;
             }
             case DenoisingBlockSize::x16:
@@ -263,7 +263,7 @@ int main(int argc, char** argv){
                 bfr16->compile(imageLayoutCompile.context);
                 bfr16->updateImageLayouts(imageLayoutCompile.context);
                 bfr16->addDispatchToCommandGraph(commands, computeConstants);
-                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bfr16->finalIllumination->imageInfoList[0].imageView, window);
+                finalImageView = bfr16->finalIllumination->imageInfoList[0].imageView;
                 break;
             }
             case DenoisingBlockSize::x32:
@@ -272,7 +272,7 @@ int main(int argc, char** argv){
                 bfr32->compile(imageLayoutCompile.context);
                 bfr32->updateImageLayouts(imageLayoutCompile.context);
                 bfr32->addDispatchToCommandGraph(commands, computeConstants);
-                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bfr32->finalIllumination->imageInfoList[0].imageView, window);
+                finalImageView = bfr32->finalIllumination->imageInfoList[0].imageView;
                 break;
             }
             case DenoisingBlockSize::x8x16x32:
@@ -295,7 +295,7 @@ int main(int argc, char** argv){
                 bfr16->addDispatchToCommandGraph(commands, computeConstants);
                 bfr32->addDispatchToCommandGraph(commands, computeConstants);
                 blender->addDispatchToCommandGraph(commands);
-                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(blender->finalImage->imageInfoList[0].imageView, window);
+                finalImageView = blender->finalImage->imageInfoList[0].imageView;
                 break;
             }
             }
@@ -308,7 +308,7 @@ int main(int argc, char** argv){
                 bmfr8->compileImages(imageLayoutCompile.context);
                 bmfr8->updateImageLayouts(imageLayoutCompile.context);
                 bmfr8->addDispatchToCommandGraph(commands, computeConstants);
-                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bmfr8->finalIllumination->imageInfoList[0].imageView, window);
+                finalImageView = bmfr8->finalIllumination->imageInfoList[0].imageView;
                 break;
             }
             case DenoisingBlockSize::x16:
@@ -317,7 +317,7 @@ int main(int argc, char** argv){
                 bmfr16->compileImages(imageLayoutCompile.context);
                 bmfr16->updateImageLayouts(imageLayoutCompile.context);
                 bmfr16->addDispatchToCommandGraph(commands, computeConstants);
-                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bmfr16->finalIllumination->imageInfoList[0].imageView, window);
+                finalImageView = bmfr16->finalIllumination->imageInfoList[0].imageView;
                 break;
             }
             case DenoisingBlockSize::x32:
@@ -326,7 +326,7 @@ int main(int argc, char** argv){
                 bmfr32->compileImages(imageLayoutCompile.context);
                 bmfr32->updateImageLayouts(imageLayoutCompile.context);
                 bmfr32->addDispatchToCommandGraph(commands, computeConstants);
-                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(bmfr32->finalIllumination->imageInfoList[0].imageView, window);
+                finalImageView = bmfr32->finalIllumination->imageInfoList[0].imageView;
                 break;
             }
             case DenoisingBlockSize::x8x16x32:
@@ -348,7 +348,7 @@ int main(int argc, char** argv){
                 bmfr16->addDispatchToCommandGraph(commands, computeConstants);
                 bmfr32->addDispatchToCommandGraph(commands, computeConstants);
                 blender->addDispatchToCommandGraph(commands);
-                copyImageViewToWindow = vsg::CopyImageViewToWindow::create(blender->finalImage->imageInfoList[0].imageView, window);
+                finalImageView = blender->finalImage->imageInfoList[0].imageView;
                 break;
             }
             break;
@@ -358,11 +358,11 @@ int main(int argc, char** argv){
         }
 
         if(useTaa){
-            auto taa = Taa::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer, accumulationBuffer, copyImageViewToWindow->srcImageView);
+            auto taa = Taa::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer, accumulationBuffer, finalImageView);
             taa->compile(imageLayoutCompile.context);
             taa->updateImageLayouts(imageLayoutCompile.context);
             taa->addDispatchToCommandGraph(commands);
-            copyImageViewToWindow = vsg::CopyImageViewToWindow::create(taa->finalImage->imageInfoList[0].imageView, window);
+            finalImageView = taa->finalImage->imageInfoList[0].imageView;
         }
         imageLayoutCompile.context.record();
 
@@ -384,7 +384,7 @@ int main(int argc, char** argv){
 
         auto commandGraph = vsg::CommandGraph::create(window);
         commandGraph->addChild(commands);
-        commandGraph->addChild(copyImageViewToWindow);
+        commandGraph->addChild(vsg::CopyImageViewToWindow::create(finalImageView, window));
         commandGraph->addChild(renderGraph);
         
         //close handler to close and imgui handler to forward to imgui
