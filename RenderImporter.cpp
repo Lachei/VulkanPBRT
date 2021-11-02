@@ -110,14 +110,117 @@ vsg::ref_ptr<vsg::Data> GBufferImporter::convertNormalToSpherical(vsg::ref_ptr<v
     return vsg::vec2Array2D::create(normals->width(), normals->height(), res, vsg::Data::Layout{VK_FORMAT_R32G32_SFLOAT});
 }
 
-bool exportGBufferDepth(const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers) 
+bool GBufferExporter::exportGBufferDepth(const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers) 
 {
-    
+    auto options = vsg::Options::create(vsgXchange::openexr::create());
+    for(int f = 0; f < numFrames; ++f){
+        char buff[200];
+        std::string filename;
+        // depth images
+        snprintf(buff, sizeof(buff), depthFormat.c_str(), f);
+        filename = buff;
+        if(!vsg::write(gBuffers[f]->depth, filename, options)){
+            std::cerr << "Failed to store image: " << filename << std::endl;
+            return false;
+        }
+        //normal images
+        snprintf(buff, sizeof(buff), normalFormat.c_str(), f);
+        filename = buff;
+        if(!vsg::write(gBuffers[f]->normal, filename, options)){
+            std::cerr << "Failed to store image: " << filename << std::endl;
+            return false;
+        }
+        //material images
+        snprintf(buff, sizeof(buff), materialFormat.c_str(), f);
+        filename = buff;
+        if(!vsg::write(gBuffers[f]->material, filename, options)){
+            std::cerr << "Failed to store image: " << filename << std::endl;
+            return false;
+        }
+        //albedo images
+        snprintf(buff, sizeof(buff), albedoFormat.c_str(), f);
+        filename = buff;
+        if(!vsg::write(gBuffers[f]->albedo, filename, options)){
+            std::cerr << "Failed to store image: " << filename << std::endl;
+            return false;
+        }
+    }
+    return true;
 }
 
-bool GBufferExporter::exportGBufferPosition(const std::string& positionFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers) 
+bool GBufferExporter::exportGBufferPosition(const std::string& positionFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers, const DoubleMatrices& matrices) 
 {
-    
+    auto options = vsg::Options::create(vsgXchange::openexr::create());
+    for(int f = 0; f < numFrames; ++f){
+        char buff[200];
+        std::string filename;
+        // position images
+        snprintf(buff, sizeof(buff), positionFormat.c_str(), f);
+        vsg::ref_ptr<vsg::Data> position = depthToPosition(gBuffers[f]->depth, matrices[f]);
+        filename = buff;
+        if(!vsg::write(position, filename, options)){
+            std::cerr << "Failed to store image: " << filename << std::endl;
+            return false;
+        }
+        //normal images
+        snprintf(buff, sizeof(buff), normalFormat.c_str(), f);
+        filename = buff;
+        if(!vsg::write(gBuffers[f]->normal, filename, options)){
+            std::cerr << "Failed to store image: " << filename << std::endl;
+            return false;
+        }
+        //material images
+        snprintf(buff, sizeof(buff), materialFormat.c_str(), f);
+        filename = buff;
+        if(!vsg::write(gBuffers[f]->material, filename, options)){
+            std::cerr << "Failed to store image: " << filename << std::endl;
+            return false;
+        }
+        //albedo images
+        snprintf(buff, sizeof(buff), albedoFormat.c_str(), f);
+        filename = buff;
+        if(!vsg::write(gBuffers[f]->albedo, filename, options)){
+            std::cerr << "Failed to store image: " << filename << std::endl;
+            return false;
+        }
+    }
+    return true;
+}
+
+vsg::ref_ptr<vsg::Data> GBufferExporter::sphericalToCartesian(vsg::ref_ptr<vsg::vec2Array2D> normals)
+{
+    if(!normals) return {};
+    vsg::vec4* res = new vsg::vec4[normals->valueCount()];
+    for(uint32_t i = 0; i < normals->valueCount(); ++i){
+        vsg::vec2 curNormal = normals->data()[i];
+        res[i].x = cos(curNormal.y) * sin(curNormal.x);
+        res[i].y = sin(curNormal.y) * sin(curNormal.x);
+        res[i].z = cos(curNormal.x);
+        res[i].w = 1;
+    }
+    return vsg::vec4Array2D::create(normals->width(), normals->height(), res, vsg::Data::Layout{VK_FORMAT_R32G32B32A32_SFLOAT});
+}
+
+vsg::ref_ptr<vsg::Data> GBufferExporter::depthToPosition(vsg::ref_ptr<vsg::floatArray2D> depths, const DoubleMatrix& matrix)
+{
+    if(!depths) return {};
+    vsg::vec4* res = new vsg::vec4[depths->valueCount()];
+    auto toVec3 = [&](vsg::vec4 v){return vsg::vec3(v.x, v.y, v.z);};
+    vsg::vec3 cameraPos = toVec3(matrix.invView[3]);
+    for(uint32_t i = 0; i < depths->valueCount(); ++i){
+        uint32_t x = i % depths->width();
+        uint32_t y = i / depths->width();
+        vsg::vec2 p{(x + .5f) / depths->width() * 2 - 1, (y + .5f) / depths->height() * 2 - 1};
+        vsg::vec4 dir = matrix.invView * vsg::vec4{p.x, p.y, 1, 0};
+        vsg::vec3 direction = vsg::normalize(vsg::vec3{dir.x, dir.y, dir.z});
+        direction *= depths->data()[i];
+        vsg::vec3 pos = cameraPos + direction;
+        res[i].x = pos.x;
+        res[i].y = pos.y;
+        res[i].z = pos.z;
+        res[i].w = 1;
+    }
+    return vsg::vec4Array2D::create(depths->width(), depths->height(), res, vsg::Data::Layout{VK_FORMAT_R32G32B32A32_SFLOAT});
 }
 
 void OfflineIllumination::uploadToIlluminationBuffer(vsg::ref_ptr<IlluminationBuffer>& illuBuffer, vsg::Context& context) 

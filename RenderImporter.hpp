@@ -12,12 +12,14 @@ class DoubleMatrix{
 public:
     vsg::mat4 view, invView;
 };
+using DoubleMatrices = std::vector<DoubleMatrix>;
 
 // GBuffer --------------------------------------------------------------------------
 class OfflineGBuffer: public vsg::Inherit<vsg::Object, OfflineGBuffer>{
 public:
     vsg::ref_ptr<vsg::Data> depth, normal, material, albedo;
     void uploadToGBuffer(vsg::ref_ptr<GBuffer>& gBuffer, vsg::Context& context);
+    void downloadFromGBuffer(vsg::ref_ptr<GBuffer>& gBuffer, vsg::Context& context);
 };
 using OfflineGBuffers = std::vector<vsg::ref_ptr<OfflineGBuffer>>;
 
@@ -32,9 +34,10 @@ private:
 class GBufferExporter{
 public:
     static bool exportGBufferDepth(const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers);
-    static bool exportGBufferPosition(const std::string& positionFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers);
+    static bool exportGBufferPosition(const std::string& positionFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers, const DoubleMatrices& matrices);
 private:
     static vsg::ref_ptr<vsg::Data> sphericalToCartesian(vsg::ref_ptr<vsg::vec2Array2D> normals);
+    static vsg::ref_ptr<vsg::Data> depthToPosition(vsg::ref_ptr<vsg::floatArray2D> depths, const DoubleMatrix& matrix);
 };
 
 // IlluminationBuffer ---------------------------------------------------------------
@@ -42,6 +45,7 @@ class OfflineIllumination: public vsg::Inherit<vsg::Object, OfflineIllumination>
 public:
     vsg::ref_ptr<vsg::Data> noisy;
     void uploadToIlluminationBuffer(vsg::ref_ptr<IlluminationBuffer>& illuBuffer, vsg::Context& context);
+    void downloadFromIlluminationBuffer(vsg::ref_ptr<IlluminationBuffer>& illuBuffer, vsg::Context& context);
 };
 using OfflineIlluminations = std::vector<vsg::ref_ptr<OfflineIllumination>>;
 
