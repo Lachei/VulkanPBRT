@@ -40,7 +40,7 @@ public:
     void fillImages();
 };
 
-class IlluminationBufferDemodulated: public vsg::Inherit<IlluminationBuffer, IlluminationBufferFinalDemodulated>{
+class IlluminationBufferDemodulated: public vsg::Inherit<IlluminationBuffer, IlluminationBufferDemodulated>{
 public:
     IlluminationBufferDemodulated(uint32_t width, uint32_t height);;
 

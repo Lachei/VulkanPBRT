@@ -218,7 +218,7 @@ int main(int argc, char** argv){
             gBuffer = GBuffer::create(windowTraits->width, windowTraits->height);
             accumulationBuffer = AccumulationBuffer::create(windowTraits->width, windowTraits->height);
             writeGBuffer = true;
-            illuminationBufferType = IlluminationBufferType::DEMODULATED;
+            illuminationBufferType = IlluminationBufferType::FINAL_DEMODULATED;
         }
         else
         {
