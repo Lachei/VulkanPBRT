@@ -209,39 +209,59 @@ int main(int argc, char** argv){
         auto pushConstants = vsg::PushConstants::create(VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, rayTracingPushConstantsValue);
         auto computeConstants = vsg::PushConstants::create(VK_SHADER_STAGE_COMPUTE_BIT, 0, rayTracingPushConstantsValue);
 
-        // create illumination buffer
-        vsg::ref_ptr<IlluminationBuffer> illuminationBuffer;
-        switch(denoisingType){
-        case::DenoisingType::None:
-            illuminationBuffer = IlluminationBufferFinal::create(windowTraits->width, windowTraits->height);
-            break;
-        default:
-            illuminationBuffer = IlluminationBufferDemodulated::create(windowTraits->width, windowTraits->height);
-            break;
+        vsg::ref_ptr<GBuffer> gBuffer;
+        vsg::ref_ptr<AccumulationBuffer> accumulationBuffer;
+        bool writeGBuffer;
+        IlluminationBufferType illuminationBufferType;
+        if (denoisingType != DenoisingType::None)
+        {
+            gBuffer = GBuffer::create(windowTraits->width, windowTraits->height);
+            accumulationBuffer = AccumulationBuffer::create(windowTraits->width, windowTraits->height);
+            writeGBuffer = true;
+            illuminationBufferType = IlluminationBufferType::DEMODULATED;
         }
-
+        else
+        {
+            writeGBuffer = false;
+            illuminationBufferType = IlluminationBufferType::FINAL;
+        }
+        if (useTaa && !accumulationBuffer)
+        {
+            // TODO: need the velocity buffer
+        }
+        
         // raytracing pipeline setup
         uint32_t maxRecursionDepth = 2;
-        auto pbrtPipeline = PBRTPipeline::create(windowTraits->width, windowTraits->height, maxRecursionDepth, loaded_scene, illuminationBuffer);
-        auto gBuffer = pbrtPipeline->gBuffer;
-        auto accumulationBuffer = pbrtPipeline->accumulationBuffer;
+        auto pbrtPipeline = PBRTPipeline::create(windowTraits->width, windowTraits->height, maxRecursionDepth, loaded_scene, gBuffer, accumulationBuffer,
+                illuminationBufferType, writeGBuffer, RayTracingRayOrigin::CAMERA);
 
         // setup tlas
         vsg::BuildAccelerationStructureTraversal buildAccelStruct(device);
         loaded_scene->accept(buildAccelStruct);
         pbrtPipeline->setTlas(buildAccelStruct.tlas);      
 
-
         // -------------------------------------------------------------------------------------
         // image layout conversions and correct binding of different denoising tequniques
         // -------------------------------------------------------------------------------------
         vsg::CompileTraversal imageLayoutCompile(window);
-        auto commands = vsg::Commands::create();
+        if (gBuffer)
+        {
+            gBuffer->compile(imageLayoutCompile.context);
+            gBuffer->updateImageLayouts(imageLayoutCompile.context);
+        }
+        if (accumulationBuffer)
+        {
+            accumulationBuffer->compile(imageLayoutCompile.context);
+            accumulationBuffer->updateImageLayouts(imageLayoutCompile.context);
+        }
         pbrtPipeline->compile(imageLayoutCompile.context);
         pbrtPipeline->updateImageLayouts(imageLayoutCompile.context);
+
+        auto commands = vsg::Commands::create();
         pbrtPipeline->addTraceRaysToCommandGraph(commands, pushConstants);
         
         vsg::ref_ptr<vsg::DescriptorImage> finalDescriptorImage;
+        vsg::ref_ptr<IlluminationBuffer> illuminationBuffer = pbrtPipeline->getIlluminationBuffer();
         switch(denoisingType){
         case DenoisingType::None:
             finalDescriptorImage = illuminationBuffer->illuminationImages[0];
@@ -366,7 +386,10 @@ int main(int argc, char** argv){
         }
         imageLayoutCompile.context.record();
 
-        pbrtPipeline->cmdCopyToAccImages(commands); 
+        if (accumulationBuffer) 
+        {
+            accumulationBuffer->copyToBackImages(commands, gBuffer, illuminationBuffer);
+        }
 
         // set GUI values
         auto guiValues = Gui::Values::create();

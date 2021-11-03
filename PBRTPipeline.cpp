@@ -2,32 +2,50 @@
 
 #include <cassert>
 
-PBRTPipeline::PBRTPipeline(uint32_t width, uint32_t height, uint32_t maxRecursionDepth, vsg::Node* scene,
-                           vsg::ref_ptr<IlluminationBuffer> illuminationBuffer) :
-    width(width), height(height), maxRecursionDepth(maxRecursionDepth), illuminationBuffer(illuminationBuffer)
+namespace
 {
-    //GBuffer setup
-    useExternalGBuffer = false;
-    if (!illuminationBuffer.cast<IlluminationBufferFinal>())
-        gBuffer = GBuffer::create(width, height);
+struct ConstantInfos
+{
+    uint32_t lightCount;
+    uint32_t minRecursionDepth;
+    uint32_t maxRecursionDepth;
+};
 
-    setupPipeline(scene);
-}
-PBRTPipeline::PBRTPipeline(uint32_t width, uint32_t height, uint32_t maxRecursionDepth, vsg::Node* scene,
-                           vsg::ref_ptr<IlluminationBuffer> illuminationBuffer, vsg::ref_ptr<GBuffer> gBuffer):
-    width(width), height(height), maxRecursionDepth(maxRecursionDepth), illuminationBuffer(illuminationBuffer), gBuffer(gBuffer)
+class ConstantInfosValue : public vsg::Inherit<vsg::Value<ConstantInfos>, ConstantInfosValue>
 {
-    useExternalGBuffer = true;
+public:
+    ConstantInfosValue()
+    {
+    }
+};
+}
 
-    setupPipeline(scene);
-}
-void PBRTPipeline::compile(vsg::Context& context)
+PBRTPipeline::PBRTPipeline(uint32_t width, uint32_t height, uint32_t maxRecursionDepth, vsg::Node* scene, vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<AccumulationBuffer> accumulationBuffer,
+    IlluminationBufferType illuminationBufferType, bool writeGBuffer, RayTracingRayOrigin rayTracingRayOrigin) :
+    width(width), height(height), maxRecursionDepth(maxRecursionDepth), accumulationBuffer(accumulationBuffer)
 {
-    illuminationBuffer->compile(context);
-    if (gBuffer)
-        gBuffer->compile(context);
-    if (accumulationBuffer)
-        accumulationBuffer->compile(context);
+    switch (illuminationBufferType)
+    {
+    case IlluminationBufferType::DEMODULATED:
+        illuminationBuffer = IlluminationBufferDemodulated::create(width, height);
+        break;
+    case IlluminationBufferType::FINAL_DEMODULATED:
+        illuminationBuffer = IlluminationBufferFinalDemodulated::create(width, height);
+        break;
+    case IlluminationBufferType::FINAL_DIRECT_INDIRECT:
+        illuminationBuffer = IlluminationBufferFinalDirIndir::create(width, height);
+        break;
+    case IlluminationBufferType::FINAL:
+    default:
+        illuminationBuffer = IlluminationBufferFinal::create(width, height);
+    }
+    if (writeGBuffer)
+    {
+        assert(gBuffer);
+        this->gBuffer = gBuffer;
+    }
+    bool useExternalGBuffer = rayTracingRayOrigin == RayTracingRayOrigin::GBUFFER;
+    setupPipeline(scene, useExternalGBuffer, illuminationBufferType);
 }
 void PBRTPipeline::setTlas(vsg::ref_ptr<vsg::AccelerationStructure> as)
 {
@@ -44,13 +62,13 @@ void PBRTPipeline::setTlas(vsg::ref_ptr<vsg::AccelerationStructure> as)
     auto accelDescriptor = vsg::DescriptorAccelerationStructure::create(vsg::AccelerationStructures{as}, 0, 0);
     bindRayTracingDescriptorSet->descriptorSet->descriptors.push_back(accelDescriptor);
 }
+void PBRTPipeline::compile(vsg::Context& context)
+{
+    illuminationBuffer->compile(context);
+}
 void PBRTPipeline::updateImageLayouts(vsg::Context& context)
 {
     illuminationBuffer->updateImageLayouts(context);
-    if (gBuffer)
-        gBuffer->updateImageLayouts(context);
-    if (accumulationBuffer)
-        accumulationBuffer->updateImageLayouts(context);
 }
 void PBRTPipeline::addTraceRaysToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants)
 {
@@ -63,85 +81,13 @@ void PBRTPipeline::addTraceRaysToCommandGraph(vsg::ref_ptr<vsg::Commands> comman
     traceRays->height = height;
     traceRays->depth = 1;
     commandGraph->addChild(traceRays);
-
 }
-void PBRTPipeline::cmdCopyToAccImages(vsg::ref_ptr<vsg::Commands> commands)
+vsg::ref_ptr<IlluminationBuffer> PBRTPipeline::getIlluminationBuffer() const
 {
-    if (accumulationBuffer)
-        accumulationBuffer->copyToBackImages(commands, gBuffer, illuminationBuffer);
+    return illuminationBuffer;
 }
-vsg::ref_ptr<vsg::ShaderStage> PBRTPipeline::setupRaygenShader(std::string raygenPath)
+void PBRTPipeline::setupPipeline(vsg::Node* scene, bool useExternalGbuffer, IlluminationBufferType illuminationBufferType)
 {
-    std::vector<std::string> defines; //needed defines for the correct illumination buffer
-    auto final = illuminationBuffer.cast<IlluminationBufferFinal>();
-    auto finalDirIndir = illuminationBuffer.cast<IlluminationBufferFinalDirIndir>();
-    auto finalDemod = illuminationBuffer.cast<IlluminationBufferFinalDemodulated>();
-    auto demod = illuminationBuffer.cast<IlluminationBufferDemodulated>();
-    //set different raygen shaders according to state of external gbuffer and illumination buffer type
-    //TODO: implement things for external gBuffer
-    if (useExternalGBuffer)
-    {
-        if (final)
-        {
-            //raygenPath = "shaders/raygen.rgen.spv";
-        }
-        else if (finalDirIndir)
-        {
-            //raygenPath = "shaders/raygen.rgen.spv";
-        }
-        else
-        {
-            //raygenPath = "shaders/raygen.rgen.spv";
-        }
-    }
-    else
-    {
-        if (final)
-        {
-            defines.push_back("FINAL_IMAGE");
-        }
-        else if (finalDirIndir)
-        {
-            //TODO:
-        }
-        else if (finalDemod)
-        {
-            defines.push_back("FINAL_IMAGE");
-            defines.push_back("DEMOD_ILLUMINATION");
-            defines.push_back("DEMOD_ILLUMINATION_SQUARED");
-            if (gBuffer)
-                defines.push_back("GBUFFER");
-            if (accumulationBuffer)
-                defines.push_back("PREV_GBUFFER");
-        }
-        else if (demod)
-        {
-            defines.push_back("DEMOD_ILLUMINATION");
-            defines.push_back("DEMOD_ILLUMINATION_SQUARED");
-            if (gBuffer)
-                defines.push_back("GBUFFER");
-            if (accumulationBuffer)
-                defines.push_back("PREV_GBUFFER");
-        }
-        else
-        {
-            throw vsg::Exception{"Error: PBRTPipeline::setupRaygenShader(...) Illumination buffer not supported."};
-        }
-    }
-
-    auto options = vsg::Options::create(vsgXchange::glsl::create());
-    auto raygenShader = vsg::ShaderStage::read(VK_SHADER_STAGE_RAYGEN_BIT_KHR, "main", raygenPath, options);
-    auto shaderCompiler = vsg::ShaderCompiler::create();
-    vsg::Paths searchPaths{"shaders"};
-    shaderCompiler->compile(raygenShader, defines, searchPaths);
-
-    return raygenShader;
-}
-void PBRTPipeline::setupPipeline(vsg::Node* scene)
-{
-    if (!illuminationBuffer.cast<IlluminationBufferFinal>()) //only create accumulation buffer if no accumulation is needed
-        accumulationBuffer = AccumulationBuffer::create(width, height);
-
     //creating the shader stages and shader binding table
     std::string raygenPath = "shaders/raygen.rgen"; //raygen shader not yet precompiled
     std::string raymissPath = "shaders/miss.rmiss.spv";
@@ -149,7 +95,7 @@ void PBRTPipeline::setupPipeline(vsg::Node* scene)
     std::string closesthitPath = "shaders/pbr_closesthit.rchit.spv";
     std::string anyHitPath = "shaders/alpha_hit.rahit.spv";
 
-    auto raygenShader = setupRaygenShader(raygenPath);
+    auto raygenShader = setupRaygenShader(raygenPath, useExternalGbuffer, illuminationBufferType);
     auto raymissShader = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_MISS_BIT_KHR, "main", raymissPath);
     auto shadowMissShader = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_MISS_BIT_KHR, "main", shadowMissPath);
     auto closesthitShader = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, "main", closesthitPath);
@@ -219,4 +165,59 @@ void PBRTPipeline::setupPipeline(vsg::Node* scene)
         gBuffer->updateDescriptor(bindRayTracingDescriptorSet, bindingMap);
     if (accumulationBuffer)
         accumulationBuffer->updateDescriptor(bindRayTracingDescriptorSet, bindingMap);
+}
+vsg::ref_ptr<vsg::ShaderStage> PBRTPipeline::setupRaygenShader(std::string raygenPath, bool useExternalGBuffer, IlluminationBufferType illuminationBufferType)
+{
+    std::vector<std::string> defines; //needed defines for the correct illumination buffer
+    auto finalDemod = illuminationBuffer.cast<IlluminationBufferFinalDemodulated>();
+    auto demod = illuminationBuffer.cast<IlluminationBufferDemodulated>();
+    //set different raygen shaders according to state of external gbuffer and illumination buffer type
+    
+    if (useExternalGBuffer)
+    {
+        //TODO: implement things for external gBuffer
+        //raygenPath = "shaders/raygen.rgen.spv";
+    }
+    else
+    {
+        if (illuminationBufferType == IlluminationBufferType::FINAL)
+        {
+            defines.push_back("FINAL_IMAGE");
+        }
+        else if (illuminationBufferType == IlluminationBufferType::FINAL_DIRECT_INDIRECT)
+        {
+            //TODO:
+        }
+        else if (illuminationBufferType == IlluminationBufferType::FINAL_DEMODULATED)
+        {
+            defines.push_back("FINAL_IMAGE");
+            defines.push_back("DEMOD_ILLUMINATION");
+            defines.push_back("DEMOD_ILLUMINATION_SQUARED");
+            if (gBuffer)
+                defines.push_back("GBUFFER");
+            if (accumulationBuffer)
+                defines.push_back("PREV_GBUFFER");
+        }
+        else if (demod)
+        {
+            defines.push_back("DEMOD_ILLUMINATION");
+            defines.push_back("DEMOD_ILLUMINATION_SQUARED");
+            if (gBuffer)
+                defines.push_back("GBUFFER");
+            if (accumulationBuffer)
+                defines.push_back("PREV_GBUFFER");
+        }
+        else
+        {
+            throw vsg::Exception{"Error: PBRTPipeline::setupRaygenShader(...) Illumination buffer not supported."};
+        }
+    }
+
+    auto options = vsg::Options::create(vsgXchange::glsl::create());
+    auto raygenShader = vsg::ShaderStage::read(VK_SHADER_STAGE_RAYGEN_BIT_KHR, "main", raygenPath, options);
+    auto shaderCompiler = vsg::ShaderCompiler::create();
+    vsg::Paths searchPaths{"shaders"};
+    shaderCompiler->compile(raygenShader, defines, searchPaths);
+
+    return raygenShader;
 }
