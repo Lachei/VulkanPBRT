@@ -10,14 +10,6 @@
 
 #include <cstdint>
 
-enum class IlluminationBufferType
-{
-    FINAL,
-    DEMODULATED,
-    FINAL_DEMODULATED,
-    FINAL_DIRECT_INDIRECT,
-};
-
 enum class RayTracingRayOrigin
 {
     CAMERA,
