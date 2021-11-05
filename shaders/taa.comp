@@ -54,7 +54,7 @@ void main(){
 	// Loads value wich tells where this pixel was in the previous frame.
 	vec2 prev_frame_pixel = imageLoad(prev_frame_pixel,ivec2(gl_GlobalInvocationID)).xy;
 
-	if(true || camParams.frameNumber == 0 || prev_frame_pixel.x < 0 || prev_frame_pixel.y < 0 || prev_frame_pixel.x > 1 || prev_frame_pixel.y > 1){
+	if(camParams.frameNumber == 0 || prev_frame_pixel.x < 0 || prev_frame_pixel.y < 0 || prev_frame_pixel.x > 1 || prev_frame_pixel.y > 1){
 		imageStore(finalImage, ivec2(gl_GlobalInvocationID.xy), vec4(cur_albedo ,1));
 		return;
 	}

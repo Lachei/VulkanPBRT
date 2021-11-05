@@ -156,7 +156,7 @@ bool GBufferExporter::exportGBufferPosition(const std::string& positionFormat, c
         std::string filename;
         // position images
         snprintf(buff, sizeof(buff), positionFormat.c_str(), f);
-        vsg::ref_ptr<vsg::Data> position = depthToPosition(gBuffers[f]->depth, matrices[f]);
+        vsg::ref_ptr<vsg::Data> position = depthToPosition(gBuffers[f]->depth.cast<vsg::floatArray2D>(), matrices[f]);
         filename = buff;
         if(!vsg::write(position, filename, options)){
             std::cerr << "Failed to store image: " << filename << std::endl;
@@ -260,17 +260,25 @@ std::vector<DoubleMatrix> MatrixImporter::importMatrices(const std::string &matr
 void OfflineGBuffer::uploadToGBuffer(vsg::ref_ptr<GBuffer>& gBuffer, vsg::ref_ptr<vsg::Commands> commands) 
 {
     if(gBuffer->depth && depth)
-        commands->addChild(CopyBufferToImage::create(depth, gBuffer->depth->imageInfoList.front(), 1));
+        commands->addChild(CopyBufferToImage::create(depthStaging, gBuffer->depth->imageInfoList.front(), 1));
     if(gBuffer->normal && normal)
-        commands->addChild(CopyBufferToImage::create(normal, gBuffer->normal->imageInfoList.front(), 1));
+        commands->addChild(CopyBufferToImage::create(normalStaging, gBuffer->normal->imageInfoList.front(), 1));
     if(gBuffer->albedo && albedo)
-        commands->addChild(CopyBufferToImage::create(albedo, gBuffer->albedo->imageInfoList.front(), 1));
+        commands->addChild(CopyBufferToImage::create(albedoStaging, gBuffer->albedo->imageInfoList.front(), 1));
     if(gBuffer->material && material)
-        commands->addChild(CopyBufferToImage::create(material, gBuffer->material->imageInfoList.front(), 1));
+        commands->addChild(CopyBufferToImage::create(materialStaging, gBuffer->material->imageInfoList.front(), 1));
 }
 
 void OfflineGBuffer::downloadFromGBuffer(vsg::ref_ptr<GBuffer>& gBuffer, vsg::ref_ptr<vsg::Commands> commands)
-    if(gBuffer->depth && depth)
-        commands->addChild(vsg::CopyImageToBuffer::create(depth, gBuffer->depth->imageInfoList.front(), 1));
+{
+    if(gBuffer->depth && depth){
+        auto copy = vsg::CopyImageToBuffer::create();
+        vsg::ImageInfo info = gBuffer->depth->imageInfoList.front();
+        copy->srcImage = info.imageView->image;
+        copy->srcImageLayout = info.imageLayout;
+        copy->dstBuffer = depthStaging.buffer;
+        copy->regions = {VkBufferImageCopy{0, static_cast<uint32_t>(depthStaging.buffer->size), 1, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
+        commands->addChild(copy);
+    }
     
 }
