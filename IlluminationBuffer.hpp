@@ -3,6 +3,14 @@
 
 #include <cstdint>
 
+enum class IlluminationBufferType
+{
+	FINAL,
+	DEMODULATED,
+	FINAL_DEMODULATED,
+	FINAL_DIRECT_INDIRECT,
+};
+
 //base illumination buffer class
 class IlluminationBuffer: public vsg::Inherit<vsg::Object, IlluminationBuffer>{
 public:
@@ -40,7 +48,7 @@ public:
     void fillImages();
 };
 
-class IlluminationBufferDemodulated: public vsg::Inherit<IlluminationBuffer, IlluminationBufferFinalDemodulated>{
+class IlluminationBufferDemodulated: public vsg::Inherit<IlluminationBuffer, IlluminationBufferDemodulated>{
 public:
     IlluminationBufferDemodulated(uint32_t width, uint32_t height);;
 

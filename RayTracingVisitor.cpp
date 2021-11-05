@@ -30,7 +30,7 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::MatrixTransform& mt)
 }
 void RayTracingSceneDescriptorCreationVisitor::apply(vsg::VertexIndexDraw& vid)
 {
-    if (vid.arrays.size() == 0) return;
+    if (vid.arrays.empty()) return;
 
     //check cache
     bool cached = _vertexIndexDrawMap.find(&vid) != _vertexIndexDrawMap.end();

@@ -12,9 +12,17 @@
 
 class BMFR: public vsg::Inherit<vsg::Object, BMFR>{
 public:
+    BMFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeight, vsg::ref_ptr<GBuffer> gBuffer,
+         vsg::ref_ptr<IlluminationBuffer> illuBuffer, vsg::ref_ptr<AccumulationBuffer> accBuffer, uint32_t fittingKernel = 256);
+
+    void compile(vsg::Context& context);
+    void updateImageLayouts(vsg::Context& context);
+    void addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants);
+    vsg::ref_ptr<vsg::DescriptorImage> getFinalDescriptorImage() const;
+private:
     uint32_t depthBinding = 0, normalBinding = 1, materialBinding = 2, albedoBinding = 3, motionBinding = 4, sampleBinding = 5, sampledDenIlluBinding = 6, finalBinding = 7, noisyBinding = 8, denoisedBinding = 9, featureBufferBinding = 10, weightsBinding = 11;
     uint32_t amtOfFeatures = 13;
-    
+
     uint32_t width, height, workWidth, workHeight, fittingKernel, widthPadded, heightPadded;
     vsg::ref_ptr<GBuffer> gBuffer;
     vsg::ref_ptr<vsg::Sampler> sampler;
@@ -22,14 +30,5 @@ public:
     vsg::ref_ptr<vsg::ComputePipeline> bmfrPrePipeline, bmfrFitPipeline, bmfrPostPipeline;
     vsg::ref_ptr<vsg::DescriptorImage> accumulatedIllumination, finalIllumination, featureBuffer, rMat, weights;
     vsg::ref_ptr<vsg::BindDescriptorSet> bindDescriptorSet;
-
-    BMFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeight, vsg::ref_ptr<GBuffer> gBuffer,
-         vsg::ref_ptr<IlluminationBuffer> illuBuffer, vsg::ref_ptr<AccumulationBuffer> accBuffer, uint32_t fittingKernel = 256);
-
-    void addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants);
-
-    void compileImages(vsg::Context& context);
-
-    void updateImageLayouts(vsg::Context& context);
 };
 
