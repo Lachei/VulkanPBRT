@@ -257,14 +257,20 @@ std::vector<DoubleMatrix> MatrixImporter::importMatrices(const std::string &matr
     return {};
 }
 
-void OfflineGBuffer::uploadToGBuffer(vsg::ref_ptr<GBuffer>& gBuffer, vsg::Context& context) 
+void OfflineGBuffer::uploadToGBuffer(vsg::ref_ptr<GBuffer>& gBuffer, vsg::ref_ptr<vsg::Commands> commands) 
 {
     if(gBuffer->depth && depth)
-        context.copy(depth, gBuffer->depth->imageInfoList.front(), 1);
+        commands->addChild(CopyBufferToImage::create(depth, gBuffer->depth->imageInfoList.front(), 1));
     if(gBuffer->normal && normal)
-        context.copy(normal, gBuffer->normal->imageInfoList.front(), 1);
+        commands->addChild(CopyBufferToImage::create(normal, gBuffer->normal->imageInfoList.front(), 1));
     if(gBuffer->albedo && albedo)
-        context.copy(albedo, gBuffer->albedo->imageInfoList.front(), 1);
+        commands->addChild(CopyBufferToImage::create(albedo, gBuffer->albedo->imageInfoList.front(), 1));
     if(gBuffer->material && material)
-        context.copy(material, gBuffer->material->imageInfoList.front(), 1);
+        commands->addChild(CopyBufferToImage::create(material, gBuffer->material->imageInfoList.front(), 1));
+}
+
+void OfflineGBuffer::downloadFromGBuffer(vsg::ref_ptr<GBuffer>& gBuffer, vsg::ref_ptr<vsg::Commands> commands)
+    if(gBuffer->depth && depth)
+        commands->addChild(vsg::CopyImageToBuffer::create(depth, gBuffer->depth->imageInfoList.front(), 1));
+    
 }

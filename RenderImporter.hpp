@@ -7,6 +7,17 @@
 #include "GBuffer.hpp"
 #include "IlluminationBuffer.hpp"
 
+// vk copy Buffer to image wrapper class
+class CopyBufferToImage: public vsg::Inherit<vsg::Command, CopyBufferToImage>{
+public:
+    CopyBufferToImage(vsg::BufferInfo src, vsg::ImageInfo dst, uint32_t numMipMapLevels = 1):
+        copyData(src, dst, numMipMapLevels){}
+    vsg::CopyAndReleaseImage::CopyData copyData;
+    void record(vsg::CommandBuffer& commandBuffer) const override{
+        copyData.record(commandBuffer);
+    }
+};
+
 // Matrices ------------------------------------------------------------------------
 class DoubleMatrix{
 public:
@@ -18,8 +29,8 @@ using DoubleMatrices = std::vector<DoubleMatrix>;
 class OfflineGBuffer: public vsg::Inherit<vsg::Object, OfflineGBuffer>{
 public:
     vsg::ref_ptr<vsg::Data> depth, normal, material, albedo;
-    void uploadToGBuffer(vsg::ref_ptr<GBuffer>& gBuffer, vsg::Context& context);
-    void downloadFromGBuffer(vsg::ref_ptr<GBuffer>& gBuffer, vsg::Context& context);
+    void uploadToGBuffer(vsg::ref_ptr<GBuffer>& gBuffer, vsg::ref_ptr<vsg::Commands> commands);
+    void downloadFromGBuffer(vsg::ref_ptr<GBuffer>& gBuffer, vsg::ref_ptr<vsg::Commands> commands);
 };
 using OfflineGBuffers = std::vector<vsg::ref_ptr<OfflineGBuffer>>;
 
