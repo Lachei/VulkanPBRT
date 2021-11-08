@@ -29,9 +29,14 @@ using DoubleMatrices = std::vector<DoubleMatrix>;
 class OfflineGBuffer: public vsg::Inherit<vsg::Object, OfflineGBuffer>{
 public:
     vsg::ref_ptr<vsg::Data> depth, normal, material, albedo;
+    void uploadToGBufferCommand(vsg::ref_ptr<GBuffer>& gBuffer, vsg::ref_ptr<vsg::Commands> commands, vsg::Context& context);
+    void downloadFromGBufferCommand(vsg::ref_ptr<GBuffer>& gBuffer, vsg::ref_ptr<vsg::Commands> commands, vsg::Context& context);
+    void transferStagingDataTo(vsg::ref_ptr<OfflineGBuffer> other);
+    void transferStagingDataFrom(vsg::ref_ptr<OfflineGBuffer> other);
+private:
     vsg::BufferInfo depthStaging, normalStaging, materialStaging, albedoStaging;
-    void uploadToGBuffer(vsg::ref_ptr<GBuffer>& gBuffer, vsg::ref_ptr<vsg::Commands> commands);
-    void downloadFromGBuffer(vsg::ref_ptr<GBuffer>& gBuffer, vsg::ref_ptr<vsg::Commands> commands);
+    vsg::ref_ptr<vsg::MemoryBufferPools> stagingMemoryBufferPools;
+    void setupStagingBuffer(uint32_t width, uint32_t height);
 };
 using OfflineGBuffers = std::vector<vsg::ref_ptr<OfflineGBuffer>>;
 

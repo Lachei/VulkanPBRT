@@ -252,13 +252,41 @@ std::vector<vsg::ref_ptr<OfflineIllumination>> IlluminationBufferImporter::impor
     return illuminations;
 }
 
-std::vector<DoubleMatrix> MatrixImporter::importMatrices(const std::string &matrixPath)
+DoubleMatrices MatrixImporter::importMatrices(const std::string &matrixPath)
 {
-    return {};
+    //TODO: temporary implementation to parse matrices from BMFRs dataset
+    std::ifstream f(matrixPath);
+    if (!f) {
+        std::cout << "Matrix file " << matrixPath << " unable to open." << std::endl;
+        exit(-1);
+    }
+
+    std::string cur;
+    uint32_t count = 0;
+    vsg::mat4 tmp;
+    DoubleMatrices matrices;
+    while (!f.eof()) {
+        f >> cur;
+        if (cur.back() == ',') cur.pop_back();
+        if (cur.front() == '{') cur = cur.substr(1, cur.size() - 1);
+        if (cur.size() && (std::isdigit(cur[0]) || cur[0] == '-')) {
+            tmp[count / 4][count % 4] = std::stof(cur);
+            ++count;
+            if (count == 16) {
+                matrices.push_back({tmp, vsg::inverse(tmp)});
+                count = 0;
+            }
+        }
+    }
+
+    return matrices;
 }
 
-void OfflineGBuffer::uploadToGBuffer(vsg::ref_ptr<GBuffer>& gBuffer, vsg::ref_ptr<vsg::Commands> commands) 
+void OfflineGBuffer::uploadToGBufferCommand(vsg::ref_ptr<GBuffer>& gBuffer, vsg::ref_ptr<vsg::Commands> commands, vsg::Context& context) 
 {
+    stagingMemoryBufferPools = context.stagingMemoryBufferPools;
+    if(!depthStaging.buffer || !normalStaging.buffer || !albedoStaging.buffer || !materialStaging.buffer)
+        setupStagingBuffer(gBuffer->width, gBuffer->height);
     if(gBuffer->depth && depth)
         commands->addChild(CopyBufferToImage::create(depthStaging, gBuffer->depth->imageInfoList.front(), 1));
     if(gBuffer->normal && normal)
@@ -269,9 +297,13 @@ void OfflineGBuffer::uploadToGBuffer(vsg::ref_ptr<GBuffer>& gBuffer, vsg::ref_pt
         commands->addChild(CopyBufferToImage::create(materialStaging, gBuffer->material->imageInfoList.front(), 1));
 }
 
-void OfflineGBuffer::downloadFromGBuffer(vsg::ref_ptr<GBuffer>& gBuffer, vsg::ref_ptr<vsg::Commands> commands)
+void OfflineGBuffer::downloadFromGBufferCommand(vsg::ref_ptr<GBuffer>& gBuffer, vsg::ref_ptr<vsg::Commands> commands, vsg::Context& context)
 {
-    if(gBuffer->depth && depth){
+    stagingMemoryBufferPools = context.stagingMemoryBufferPools;
+    if(!depthStaging.buffer || !normalStaging.buffer || !albedoStaging.buffer || !materialStaging.buffer)
+        setupStagingBuffer(gBuffer->width, gBuffer->height);
+    if(gBuffer->depth && depth)
+    {
         auto copy = vsg::CopyImageToBuffer::create();
         vsg::ImageInfo info = gBuffer->depth->imageInfoList.front();
         copy->srcImage = info.imageView->image;
@@ -280,5 +312,134 @@ void OfflineGBuffer::downloadFromGBuffer(vsg::ref_ptr<GBuffer>& gBuffer, vsg::re
         copy->regions = {VkBufferImageCopy{0, static_cast<uint32_t>(depthStaging.buffer->size), 1, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
         commands->addChild(copy);
     }
+    if(gBuffer->normal && normal)
+    {
+        auto copy = vsg::CopyImageToBuffer::create();
+        vsg::ImageInfo info = gBuffer->normal->imageInfoList.front();
+        copy->srcImage = info.imageView->image;
+        copy->srcImageLayout = info.imageLayout;
+        copy->dstBuffer = normalStaging.buffer;
+        copy->regions = {VkBufferImageCopy{0, static_cast<uint32_t>(normalStaging.buffer->size), 1, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
+        commands->addChild(copy);
+    }
+    if(gBuffer->albedo && albedo)
+    {
+        auto copy = vsg::CopyImageToBuffer::create();
+        vsg::ImageInfo info = gBuffer->albedo->imageInfoList.front();
+        copy->srcImage = info.imageView->image;
+        copy->srcImageLayout = info.imageLayout;
+        copy->dstBuffer = albedoStaging.buffer;
+        copy->regions = {VkBufferImageCopy{0, static_cast<uint32_t>(normalStaging.buffer->size), 1, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
+        commands->addChild(copy);
+    }
+    if(gBuffer->material && material)
+    {
+        auto copy = vsg::CopyImageToBuffer::create();
+        vsg::ImageInfo info = gBuffer->material->imageInfoList.front();
+        copy->srcImage = info.imageView->image;
+        copy->srcImageLayout = info.imageLayout;
+        copy->dstBuffer = materialStaging.buffer;
+        copy->regions = {VkBufferImageCopy{0, static_cast<uint32_t>(normalStaging.buffer->size), 1, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
+        commands->addChild(copy);
+    }
+}
+
+void OfflineGBuffer::transferStagingDataTo(vsg::ref_ptr<OfflineGBuffer> other)
+{
+    auto deviceID = stagingMemoryBufferPools->device->deviceID;
+    vsg::ref_ptr<vsg::Buffer> buffer(depthStaging.buffer);
+    vsg::ref_ptr<vsg::DeviceMemory> memory(buffer->getDeviceMemory(deviceID));
+    if(!memory){
+        std::cout << "Error while transferring depth staging memory data to offline gBuffer." << std::endl;
+        return;
+    }
+    void* gpu_data;
+    memory->map(buffer->getMemoryOffset(deviceID) + depthStaging.offset, buffer->size, 0, &gpu_data);
+    std::memcpy(other->depth->dataPointer(), gpu_data, (size_t)buffer->size);
+    memory->unmap();
+
+    buffer = vsg::ref_ptr<vsg::Buffer>(normalStaging.buffer);
+    memory = vsg::ref_ptr<vsg::DeviceMemory>(buffer->getDeviceMemory(deviceID));
+    if(!memory){
+        std::cout << "Error while transferring normal staging memory data to offline gBuffer." << std::endl;
+        return;
+    }
+    memory->map(buffer->getMemoryOffset(deviceID) + normalStaging.offset, buffer->size, 0, &gpu_data);
+    std::memcpy(other->normal->dataPointer(), gpu_data, (size_t)buffer->size);
+    memory->unmap();
+
+    buffer = vsg::ref_ptr<vsg::Buffer>(albedoStaging.buffer);
+    memory = vsg::ref_ptr<vsg::DeviceMemory>(buffer->getDeviceMemory(deviceID));
+    if(!memory){
+        std::cout << "Error while transferring albedo staging memory data to offline gBuffer." << std::endl;
+        return;
+    }
+    memory->map(buffer->getMemoryOffset(deviceID) + albedoStaging.offset, buffer->size, 0, &gpu_data);
+    std::memcpy(other->albedo->dataPointer(), gpu_data, (size_t)buffer->size);
+    memory->unmap();
+
+    buffer = vsg::ref_ptr<vsg::Buffer>(materialStaging.buffer);
+    memory = vsg::ref_ptr<vsg::DeviceMemory>(buffer->getDeviceMemory(deviceID));
+    if(!memory){
+        std::cout << "Error while transferring material staging memory data to offline gBuffer." << std::endl;
+        return;
+    }
+    memory->map(buffer->getMemoryOffset(deviceID) + materialStaging.offset, buffer->size, 0, &gpu_data);
+    std::memcpy(other->material->dataPointer(), gpu_data, (size_t)buffer->size);
+    memory->unmap();
+    vsg::Context c;
+}
+
+void OfflineGBuffer::transferStagingDataFrom(vsg::ref_ptr<OfflineGBuffer> other)
+{
+    auto deviceID = stagingMemoryBufferPools->device->deviceID;
+    vsg::ref_ptr<vsg::Buffer> buffer(depthStaging.buffer);
+    vsg::ref_ptr<vsg::DeviceMemory> memory(buffer->getDeviceMemory(deviceID));
+    if(!memory){
+        std::cout << "Error while transferring depth staging memory data to offline gBuffer." << std::endl;
+        return;
+    }
+    memory->copy(buffer->getMemoryOffset(deviceID) + depthStaging.offset, buffer->size, other->depth->dataPointer());
+
+    buffer = vsg::ref_ptr<vsg::Buffer>(normalStaging.buffer);
+    memory = vsg::ref_ptr<vsg::DeviceMemory>(buffer->getDeviceMemory(deviceID));
+    if(!memory){
+        std::cout << "Error while transferring normal staging memory data to offline gBuffer." << std::endl;
+        return;
+    }
+    memory->copy(buffer->getMemoryOffset(deviceID) + normalStaging.offset, buffer->size, other->normal->dataPointer());
+
+    buffer = vsg::ref_ptr<vsg::Buffer>(albedoStaging.buffer);
+    memory = vsg::ref_ptr<vsg::DeviceMemory>(buffer->getDeviceMemory(deviceID));
+    if(!memory){
+        std::cout << "Error while transferring albedo staging memory data to offline gBuffer." << std::endl;
+        return;
+    }
+    memory->copy(buffer->getMemoryOffset(deviceID) + albedoStaging.offset, buffer->size, other->albedo->dataPointer());
+
+    buffer = vsg::ref_ptr<vsg::Buffer>(materialStaging.buffer);
+    memory = vsg::ref_ptr<vsg::DeviceMemory>(buffer->getDeviceMemory(deviceID));
+    if(!memory){
+        std::cout << "Error while transferring material staging memory data to offline gBuffer." << std::endl;
+        return;
+    }
+    memory->copy(buffer->getMemoryOffset(deviceID) + materialStaging.offset, buffer->size, other->material->dataPointer());
+}
+
+void OfflineGBuffer::setupStagingBuffer(uint32_t width, uint32_t height)
+{
+    VkDeviceSize imageTotalSize = sizeof(float) * width * height;
+    VkDeviceSize alignment = 4;
+    VkMemoryPropertyFlags memoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    depthStaging = stagingMemoryBufferPools->reserveBuffer(imageTotalSize, alignment, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, memoryPropertyFlags);
     
+    imageTotalSize = sizeof(vsg::vec2) * width * height;
+    alignment = 8; //sizeof vsg::vec2
+    normalStaging = stagingMemoryBufferPools->reserveBuffer(imageTotalSize, alignment, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, memoryPropertyFlags);
+
+    imageTotalSize = sizeof(vsg::ubvec4) * width * height;
+    alignment = 4;
+    albedoStaging = stagingMemoryBufferPools->reserveBuffer(imageTotalSize, alignment, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, memoryPropertyFlags);
+
+    materialStaging = stagingMemoryBufferPools->reserveBuffer(imageTotalSize, alignment, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, memoryPropertyFlags);
 }
