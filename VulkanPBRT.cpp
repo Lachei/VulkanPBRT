@@ -222,7 +222,7 @@ int main(int argc, char** argv){
                 std::cout << "Camera matrices are missing. Insert location of file with camera information via \"--matrices\"." << std::endl;
                 return 1;
             }
-            cameraMatrices = MatrixImporter::importMatrices(matricesPath);
+            cameraMatrices = MatrixIO::importMatrices(matricesPath);
             if(cameraMatrices.empty()){
                 std::cout << "Camera matrices could not be loaded" << std::endl;
                 return 1;

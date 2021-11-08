@@ -37,6 +37,8 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferImporter::importGBufferDepth(co
             std::cerr << "Failed to load image: " << filename << " texPath = " << buff << std::endl;
             return;
         }
+        std::cout << "Frame " << f << " loaded"<< std::endl << std::flush; 
+
     };
     {   //automatic join at the end of threads scope
         std::vector<std::future<void>> threads(numFrames);
@@ -51,7 +53,7 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferImporter::importGBufferPosition
     auto options = vsg::Options::create(vsgXchange::openexr::create());
     std::vector<vsg::ref_ptr<OfflineGBuffer>> gBuffers(numFrames);
     auto execLoad = [&](int f){
-        std::cout << "Loading frame " << f << std::endl << std::flush; 
+        std::cout << "Loading frame " << f << std::endl << std::flush;
         gBuffers[f] = OfflineGBuffer::create();
         char buff[200];
         std::string filename;
@@ -98,6 +100,7 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferImporter::importGBufferPosition
             std::cerr << "Failed to load image: " << filename << " texPath = " << buff << std::endl;
             return;
         }
+        std::cout << "Frame " << f << " loaded"<< std::endl << std::flush; 
     };
     {   //automatic join at the end of threads scope
         std::vector<std::future<void>> threads(numFrames);
@@ -125,7 +128,9 @@ vsg::ref_ptr<vsg::Data> GBufferImporter::convertNormalToSpherical(vsg::ref_ptr<v
 bool GBufferExporter::exportGBufferDepth(const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers) 
 {
     auto options = vsg::Options::create(vsgXchange::openexr::create());
-    for(int f = 0; f < numFrames; ++f){
+    bool fine = true;
+    auto execStore = [&](int f){
+        std::cout << "Storing frame " << f << std::endl << std::flush;
         char buff[200];
         std::string filename;
         // depth images
@@ -133,37 +138,48 @@ bool GBufferExporter::exportGBufferDepth(const std::string& depthFormat, const s
         filename = buff;
         if(!vsg::write(gBuffers[f]->depth, filename, options)){
             std::cerr << "Failed to store image: " << filename << std::endl;
-            return false;
+            fine = false;
+            return;
         }
         //normal images
         snprintf(buff, sizeof(buff), normalFormat.c_str(), f);
         filename = buff;
         if(!vsg::write(gBuffers[f]->normal, filename, options)){
             std::cerr << "Failed to store image: " << filename << std::endl;
-            return false;
+            fine = false;
+            return;
         }
         //material images
         snprintf(buff, sizeof(buff), materialFormat.c_str(), f);
         filename = buff;
         if(!vsg::write(gBuffers[f]->material, filename, options)){
             std::cerr << "Failed to store image: " << filename << std::endl;
-            return false;
+            fine = false;
+            return;
         }
         //albedo images
         snprintf(buff, sizeof(buff), albedoFormat.c_str(), f);
         filename = buff;
         if(!vsg::write(gBuffers[f]->albedo, filename, options)){
             std::cerr << "Failed to store image: " << filename << std::endl;
-            return false;
+            fine = false;
+            return;
         }
+        std::cout << "Frame " << f << " stored" << std::endl << std::flush;
+    };
+    {   //automatic join at the end of threads scope
+        std::vector<std::future<void>> threads(numFrames);
+        for (int f = 0; f < numFrames; ++f) threads[f] = std::async(std::launch::async, execStore, f); 
     }
-    return true;
+    return fine;
 }
 
 bool GBufferExporter::exportGBufferPosition(const std::string& positionFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers, const DoubleMatrices& matrices) 
 {
     auto options = vsg::Options::create(vsgXchange::openexr::create());
-    for(int f = 0; f < numFrames; ++f){
+    bool fine = true;
+    auto execStore = [&](int f){
+        std::cout << "Storing frame " << f << std::endl << std::flush;
         char buff[200];
         std::string filename;
         // position images
@@ -172,31 +188,40 @@ bool GBufferExporter::exportGBufferPosition(const std::string& positionFormat, c
         filename = buff;
         if(!vsg::write(position, filename, options)){
             std::cerr << "Failed to store image: " << filename << std::endl;
-            return false;
+            fine = false;
+            return;
         }
         //normal images
         snprintf(buff, sizeof(buff), normalFormat.c_str(), f);
         filename = buff;
         if(!vsg::write(gBuffers[f]->normal, filename, options)){
             std::cerr << "Failed to store image: " << filename << std::endl;
-            return false;
+            fine = false;
+            return;
         }
         //material images
         snprintf(buff, sizeof(buff), materialFormat.c_str(), f);
         filename = buff;
         if(!vsg::write(gBuffers[f]->material, filename, options)){
             std::cerr << "Failed to store image: " << filename << std::endl;
-            return false;
+            fine = false;
+            return;
         }
         //albedo images
         snprintf(buff, sizeof(buff), albedoFormat.c_str(), f);
         filename = buff;
         if(!vsg::write(gBuffers[f]->albedo, filename, options)){
             std::cerr << "Failed to store image: " << filename << std::endl;
-            return false;
+            fine = false;
+            return;
         }
+        std::cout << "Frame " << f << " stored" << std::endl << std::flush;
+    };
+    {
+        std::vector<std::future<void>> threads(numFrames);
+        for (int f = 0; f < numFrames; ++f) threads[f] = std::async(std::launch::async, execStore, f); 
     }
-    return true;
+    return fine;
 }
 
 vsg::ref_ptr<vsg::Data> GBufferExporter::sphericalToCartesian(vsg::ref_ptr<vsg::vec2Array2D> normals)
@@ -235,10 +260,71 @@ vsg::ref_ptr<vsg::Data> GBufferExporter::depthToPosition(vsg::ref_ptr<vsg::float
     return vsg::vec4Array2D::create(depths->width(), depths->height(), res, vsg::Data::Layout{VK_FORMAT_R32G32B32A32_SFLOAT});
 }
 
-void OfflineIllumination::uploadToIlluminationBuffer(vsg::ref_ptr<IlluminationBuffer>& illuBuffer, vsg::Context& context) 
+void OfflineIllumination::uploadToIlluminationBufferCommand(vsg::ref_ptr<IlluminationBuffer>& illuBuffer, vsg::ref_ptr<vsg::Commands>& commands, vsg::Context& context)
 {
-    if(illuBuffer->illuminationImages.front() && noisy)
-        context.copy(noisy, illuBuffer->illuminationImages.front()->imageInfoList.front(), 1);
+    stagingMemoryBufferPools = context.stagingMemoryBufferPools;
+    if(!noisyStaging.buffer)
+        setupStagingBuffer(illuBuffer->width, illuBuffer->height);
+    if(illuBuffer->illuminationImages[0])
+        commands->addChild(CopyBufferToImage::create(noisyStaging, illuBuffer->illuminationImages[0]->imageInfoList.front(), 1));
+}
+
+void OfflineIllumination::downloadFromIlluminationBufferCommand(vsg::ref_ptr<IlluminationBuffer>& illuBuffer, vsg::ref_ptr<vsg::Commands>& commands, vsg::Context& context){
+    stagingMemoryBufferPools = context.stagingMemoryBufferPools;
+    if(!noisyStaging.buffer)
+        setupStagingBuffer(illuBuffer->width, illuBuffer->height);
+    if(illuBuffer->illuminationImages[0])
+    {
+        auto copy = vsg::CopyImageToBuffer::create();
+        vsg::ImageInfo info = illuBuffer->illuminationImages[0]->imageInfoList.front();
+        copy->srcImage = info.imageView->image;
+        copy->srcImageLayout = info.imageLayout;
+        copy->dstBuffer = noisyStaging.buffer;
+        copy->regions = {VkBufferImageCopy{0, static_cast<uint32_t>(noisyStaging.buffer->size), 1, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
+        commands->addChild(copy);
+    }
+}
+
+void OfflineIllumination::transferStagingDataTo(vsg::ref_ptr<OfflineIllumination>& illuBuffer)
+{
+    if(!stagingMemoryBufferPools){
+        std::cout << "Current offline illumination buffer has not been added to a command graph and is thus not able to do transfer" << std::endl;
+        return;
+    }
+    auto deviceID = stagingMemoryBufferPools->device->deviceID;
+    vsg::ref_ptr<vsg::Buffer> buffer(noisyStaging.buffer);
+    vsg::ref_ptr<vsg::DeviceMemory> memory(buffer->getDeviceMemory(deviceID));
+    if(!memory){
+        std::cout << "Error while transferring illumination staging memory data to offline illumination buffer." << std::endl;
+        return;
+    }
+    void* gpu_data;
+    memory->map(buffer->getMemoryOffset(deviceID) + noisyStaging.offset, buffer->size, 0, &gpu_data);
+    std::memcpy(illuBuffer->noisy->dataPointer(), gpu_data, (size_t)buffer->size);
+    memory->unmap();
+}
+
+void OfflineIllumination::transferStagingDataFrom(vsg::ref_ptr<OfflineIllumination>& illuBuffer)
+{
+    if(!stagingMemoryBufferPools){
+        std::cout << "Current offline illumination buffer has not been added to a command graph and is thus not able to do transfer" << std::endl;
+        return;
+    }
+    auto deviceID = stagingMemoryBufferPools->device->deviceID;
+    vsg::ref_ptr<vsg::Buffer> buffer(noisyStaging.buffer);
+    vsg::ref_ptr<vsg::DeviceMemory> memory(buffer->getDeviceMemory(deviceID));
+    if(!memory){
+        std::cout << "Error while transferring illumination staging memory data from offline illumination buffer." << std::endl;
+        return;
+    }
+    memory->copy(buffer->getMemoryOffset(deviceID) + noisyStaging.offset, buffer->size, illuBuffer->noisy->dataPointer());
+}
+
+void OfflineIllumination::setupStagingBuffer(uint32_t width, uint32_t height){
+    VkDeviceSize imageTotalSize = sizeof(vsg::usvec4) * width * height;
+    VkDeviceSize alignment = 8;
+    VkMemoryPropertyFlags memoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    noisyStaging = stagingMemoryBufferPools->reserveBuffer(imageTotalSize, alignment, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, memoryPropertyFlags);
 }
 
 std::vector<vsg::ref_ptr<OfflineIllumination>> IlluminationBufferImporter::importIllumination(const std::string &illuminationFormat, int numFrames)
@@ -264,7 +350,7 @@ std::vector<vsg::ref_ptr<OfflineIllumination>> IlluminationBufferImporter::impor
     return illuminations;
 }
 
-DoubleMatrices MatrixImporter::importMatrices(const std::string &matrixPath)
+DoubleMatrices MatrixIO::importMatrices(const std::string &matrixPath)
 {
     //TODO: temporary implementation to parse matrices from BMFRs dataset
     std::ifstream f(matrixPath);
@@ -292,6 +378,19 @@ DoubleMatrices MatrixImporter::importMatrices(const std::string &matrixPath)
     }
 
     return matrices;
+}
+
+bool MatrixIO::exportMatrices(const std::string &matrixPath, const DoubleMatrices& matrices)
+{
+    std::ifstream f(matrixPath);
+    if (!f) {
+        std::cout << "Matrix file " << matrixPath << " unable to open." << std::endl;
+        exit(-1);
+    }
+
+    //TODO: implement
+
+    return true;
 }
 
 void OfflineGBuffer::uploadToGBufferCommand(vsg::ref_ptr<GBuffer>& gBuffer, vsg::ref_ptr<vsg::Commands> commands, vsg::Context& context) 
@@ -358,6 +457,10 @@ void OfflineGBuffer::downloadFromGBufferCommand(vsg::ref_ptr<GBuffer>& gBuffer, 
 
 void OfflineGBuffer::transferStagingDataTo(vsg::ref_ptr<OfflineGBuffer> other)
 {
+    if(!stagingMemoryBufferPools){
+        std::cout << "Current offline buffer has not been added to a command graph and is thus not able to do transfer" << std::endl;
+        return;
+    }
     auto deviceID = stagingMemoryBufferPools->device->deviceID;
     vsg::ref_ptr<vsg::Buffer> buffer(depthStaging.buffer);
     vsg::ref_ptr<vsg::DeviceMemory> memory(buffer->getDeviceMemory(deviceID));
@@ -403,6 +506,10 @@ void OfflineGBuffer::transferStagingDataTo(vsg::ref_ptr<OfflineGBuffer> other)
 
 void OfflineGBuffer::transferStagingDataFrom(vsg::ref_ptr<OfflineGBuffer> other)
 {
+    if(!stagingMemoryBufferPools){
+        std::cout << "Current offline buffer has not been added to a command graph and is thus not able to do transfer" << std::endl;
+        return;
+    }
     auto deviceID = stagingMemoryBufferPools->device->deviceID;
     vsg::ref_ptr<vsg::Buffer> buffer(depthStaging.buffer);
     vsg::ref_ptr<vsg::DeviceMemory> memory(buffer->getDeviceMemory(deviceID));

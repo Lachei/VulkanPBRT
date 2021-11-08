@@ -61,8 +61,14 @@ private:
 class OfflineIllumination: public vsg::Inherit<vsg::Object, OfflineIllumination>{
 public:
     vsg::ref_ptr<vsg::Data> noisy;
-    void uploadToIlluminationBuffer(vsg::ref_ptr<IlluminationBuffer>& illuBuffer, vsg::Context& context);
-    void downloadFromIlluminationBuffer(vsg::ref_ptr<IlluminationBuffer>& illuBuffer, vsg::Context& context);
+    void uploadToIlluminationBufferCommand(vsg::ref_ptr<IlluminationBuffer>& illuBuffer, vsg::ref_ptr<vsg::Commands>& commands, vsg::Context& context);
+    void downloadFromIlluminationBufferCommand(vsg::ref_ptr<IlluminationBuffer>& illuBuffer, vsg::ref_ptr<vsg::Commands>& commands, vsg::Context& context);
+    void transferStagingDataTo(vsg::ref_ptr<OfflineIllumination>& illuBuffer);
+    void transferStagingDataFrom(vsg::ref_ptr<OfflineIllumination>& illuBuffer);
+private:
+    vsg::BufferInfo noisyStaging;
+    vsg::ref_ptr<vsg::MemoryBufferPools> stagingMemoryBufferPools;
+    void setupStagingBuffer(uint32_t widht, uint32_t height);
 };
 using OfflineIlluminations = std::vector<vsg::ref_ptr<OfflineIllumination>>;
 
@@ -76,7 +82,8 @@ public:
     static bool exportIllumination(const std::string& illuminationFormat, int numFrames, const OfflineIlluminations& illus);
 };
 
-class MatrixImporter{
+class MatrixIO{
 public:
     static std::vector<DoubleMatrix> importMatrices(const std::string& matrixPath);
+    static bool exportMatrices(const std::string& matrixPath, const DoubleMatrices& matrices);
 };
