@@ -1,11 +1,12 @@
 #include "RenderImporter.hpp"
+#include <future>
 
 std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferImporter::importGBufferDepth(const std::string &depthFormat, const std::string &normalFormat, const std::string &materialFormat, const std::string &albedoFormat, int numFrames)
 {
     std::vector<vsg::ref_ptr<OfflineGBuffer>> gBuffers(numFrames);
     auto options = vsg::Options::create(vsgXchange::openexr::create());
-    for (int f = 0; f < numFrames; ++f)
-    {
+    auto execLoad = [&](int f){
+        std::cout << "Loading frame " << f << std::endl << std::flush; 
         gBuffers[f] = OfflineGBuffer::create();
         char buff[200];
         std::string filename;
@@ -16,7 +17,7 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferImporter::importGBufferDepth(co
         if (gBuffers[f]->depth = vsg::read_cast<vsg::Data>(filename, options); !gBuffers[f]->depth.valid())
         {
             std::cerr << "Failed to load image: " << filename << " texPath = " << buff << std::endl;
-            return {};
+            return;
         }
         // load normal image
         snprintf(buff, sizeof(buff), normalFormat.c_str(), f);
@@ -25,7 +26,7 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferImporter::importGBufferDepth(co
         if (gBuffers[f]->normal = convertNormalToSpherical(vsg::read_cast<vsg::vec4Array2D>(filename, options)); !gBuffers[f]->normal.valid())
         {
             std::cerr << "Failed to load image: " << filename << " texPath = " << buff << std::endl;
-            return {};
+            return;
         }
         // load albedo image
         snprintf(buff, sizeof(buff), albedoFormat.c_str(), f);
@@ -34,9 +35,14 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferImporter::importGBufferDepth(co
         if (gBuffers[f]->albedo = vsg::read_cast<vsg::Data>(filename, options); !gBuffers[f]->albedo.valid())
         {
             std::cerr << "Failed to load image: " << filename << " texPath = " << buff << std::endl;
-            return {};
+            return;
         }
+    };
+    {   //automatic join at the end of threads scope
+        std::vector<std::future<void>> threads(numFrames);
+        for (int f = 0; f < numFrames; ++f) threads[f] = std::async(std::launch::async, execLoad, f);
     }
+    std::cout << "done" << std::endl;
     return gBuffers;
 }
 
@@ -44,8 +50,9 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferImporter::importGBufferPosition
 {
     auto options = vsg::Options::create(vsgXchange::openexr::create());
     std::vector<vsg::ref_ptr<OfflineGBuffer>> gBuffers(numFrames);
-    for (int f = 0; f < numFrames; ++f)
-    {
+    auto execLoad = [&](int f){
+        std::cout << "Loading frame " << f << std::endl << std::flush; 
+        gBuffers[f] = OfflineGBuffer::create();
         char buff[200];
         std::string filename;
         // position images
@@ -56,13 +63,13 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferImporter::importGBufferPosition
         if (pos = vsg::read_cast<vsg::Data>(filename, options); !pos.valid())
         {
             std::cerr << "Failed to load image: " << filename << " texPath = " << buff << std::endl;
-            return {};
+            return;
         }
         {// converting position to depth
             vsg::ref_ptr<vsg::vec4Array2D> posArray = pos.cast<vsg::vec4Array2D>();
             if(!posArray){
                 std::cerr << "Unexpected position format" << std::endl;
-                return {};
+                return;
             }
             float* depth = new float[posArray->valueCount()];
             auto toVec3 = [&](vsg::vec4 v){return vsg::vec3(v.x, v.y, v.z);};
@@ -80,7 +87,7 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferImporter::importGBufferPosition
         if (gBuffers[f]->normal = convertNormalToSpherical(vsg::read_cast<vsg::vec4Array2D>(filename, options)); !gBuffers[f]->normal.valid())
         {
             std::cerr << "Failed to load image: " << filename << " texPath = " << buff << std::endl;
-            return {};
+            return;
         }
         // load albedo image
         snprintf(buff, sizeof(buff), albedoFormat.c_str(), f);
@@ -89,9 +96,14 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferImporter::importGBufferPosition
         if (gBuffers[f]->albedo = vsg::read_cast<vsg::Data>(filename, options); !gBuffers[f]->albedo.valid())
         {
             std::cerr << "Failed to load image: " << filename << " texPath = " << buff << std::endl;
-            return {};
+            return;
         }
+    };
+    {   //automatic join at the end of threads scope
+        std::vector<std::future<void>> threads(numFrames);
+        for (int f = 0; f < numFrames; ++f) threads[f] = std::async(std::launch::async, execLoad, f); 
     }
+    std::cout << "done" << std::endl;
     return gBuffers;
 }
 
@@ -387,7 +399,6 @@ void OfflineGBuffer::transferStagingDataTo(vsg::ref_ptr<OfflineGBuffer> other)
     memory->map(buffer->getMemoryOffset(deviceID) + materialStaging.offset, buffer->size, 0, &gpu_data);
     std::memcpy(other->material->dataPointer(), gpu_data, (size_t)buffer->size);
     memory->unmap();
-    vsg::Context c;
 }
 
 void OfflineGBuffer::transferStagingDataFrom(vsg::ref_ptr<OfflineGBuffer> other)
