@@ -37,8 +37,8 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferImporter::importGBufferDepth(co
             std::cerr << "Failed to load image: " << filename << " texPath = " << buff << std::endl;
             return;
         }
-        std::cout << "Frame " << f << " loaded"<< std::endl << std::flush; 
-
+        gBuffers[f]->albedo = compressAlbedo(gBuffers[f]->albedo);
+        std::cout << "Frame " << f << " loaded"<< std::endl << std::flush;
     };
     {   //automatic join at the end of threads scope
         std::vector<std::future<void>> threads(numFrames);
@@ -100,6 +100,7 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferImporter::importGBufferPosition
             std::cerr << "Failed to load image: " << filename << " texPath = " << buff << std::endl;
             return;
         }
+        gBuffers[f]->albedo = compressAlbedo(gBuffers[f]->albedo);
         std::cout << "Frame " << f << " loaded"<< std::endl << std::flush; 
     };
     {   //automatic join at the end of threads scope
@@ -123,6 +124,22 @@ vsg::ref_ptr<vsg::Data> GBufferImporter::convertNormalToSpherical(vsg::ref_ptr<v
         res[i].y = atan2(curNormal.y, curNormal.x);
     }
     return vsg::vec2Array2D::create(normals->width(), normals->height(), res, vsg::Data::Layout{VK_FORMAT_R32G32_SFLOAT});
+}
+
+vsg::ref_ptr<vsg::Data> GBufferImporter::compressAlbedo(vsg::ref_ptr<vsg::Data> in){
+    vsg::ubvec4* albedo = new vsg::ubvec4[in->valueCount()];
+    if(vsg::ref_ptr<vsg::vec4Array2D> largeAlbedo = in)
+        for(uint32_t i = 0; i < in->valueCount(); ++i) albedo[i] = largeAlbedo->data()[i] * 255.0f;
+    else if(vsg::ref_ptr<vsg::uivec4Array2D> largeAlbedo = in)
+        for(uint32_t i = 0; i < in->valueCount(); ++i) albedo[i] = largeAlbedo->data()[i];
+    else if(vsg::ref_ptr<vsg::usvec4Array2D> largeAlbedo = in){
+        auto toFloat = [](uint16_t h){uint32_t t = ((h&0x8000)<<16) | (((h&0x7c00)+0x1C000)<<13) | ((h&0x03FF)<<13); return *reinterpret_cast<float*>(&t);};
+        for(uint32_t i = 0; i < in->valueCount(); ++i){
+            vsg::usvec4& cur = largeAlbedo->data()[i];
+            albedo[i] = vsg::vec4(toFloat(cur.x), toFloat(cur.y), toFloat(cur.z), toFloat(cur.w)) * 255.0f;
+        }    
+    }
+    return vsg::ubvec4Array2D::create(in->width(), in->height(), albedo, vsg::Data::Layout{VK_FORMAT_R8G8B8A8_UNORM});
 }
 
 bool GBufferExporter::exportGBufferDepth(const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers) 
@@ -265,8 +282,10 @@ void OfflineIllumination::uploadToIlluminationBufferCommand(vsg::ref_ptr<Illumin
     stagingMemoryBufferPools = context.stagingMemoryBufferPools;
     if(!noisyStaging.buffer)
         setupStagingBuffer(illuBuffer->width, illuBuffer->height);
-    if(illuBuffer->illuminationImages[0])
+    if(illuBuffer->illuminationImages[0]){
         commands->addChild(CopyBufferToImage::create(noisyStaging, illuBuffer->illuminationImages[0]->imageInfoList.front(), 1));
+        illuBuffer->illuminationImages[0]->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    }
 }
 
 void OfflineIllumination::downloadFromIlluminationBufferCommand(vsg::ref_ptr<IlluminationBuffer>& illuBuffer, vsg::ref_ptr<vsg::Commands>& commands, vsg::Context& context){
@@ -282,6 +301,7 @@ void OfflineIllumination::downloadFromIlluminationBufferCommand(vsg::ref_ptr<Ill
         copy->dstBuffer = noisyStaging.buffer;
         copy->regions = {VkBufferImageCopy{0, static_cast<uint32_t>(noisyStaging.buffer->size), 1, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
         commands->addChild(copy);
+        illuBuffer->illuminationImages[0]->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     }
 }
 
@@ -398,14 +418,22 @@ void OfflineGBuffer::uploadToGBufferCommand(vsg::ref_ptr<GBuffer>& gBuffer, vsg:
     stagingMemoryBufferPools = context.stagingMemoryBufferPools;
     if(!depthStaging.buffer || !normalStaging.buffer || !albedoStaging.buffer || !materialStaging.buffer)
         setupStagingBuffer(gBuffer->width, gBuffer->height);
-    if(gBuffer->depth && depth)
+    if(gBuffer->depth){
         commands->addChild(CopyBufferToImage::create(depthStaging, gBuffer->depth->imageInfoList.front(), 1));
-    if(gBuffer->normal && normal)
+        gBuffer->depth->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    }
+    if(gBuffer->normal){
         commands->addChild(CopyBufferToImage::create(normalStaging, gBuffer->normal->imageInfoList.front(), 1));
-    if(gBuffer->albedo && albedo)
+        gBuffer->normal->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    }
+    if(gBuffer->albedo){
         commands->addChild(CopyBufferToImage::create(albedoStaging, gBuffer->albedo->imageInfoList.front(), 1));
-    if(gBuffer->material && material)
+        gBuffer->albedo->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    }
+    if(gBuffer->material){
         commands->addChild(CopyBufferToImage::create(materialStaging, gBuffer->material->imageInfoList.front(), 1));
+        gBuffer->depth->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    }
 }
 
 void OfflineGBuffer::downloadFromGBufferCommand(vsg::ref_ptr<GBuffer>& gBuffer, vsg::ref_ptr<vsg::Commands> commands, vsg::Context& context)
@@ -413,7 +441,7 @@ void OfflineGBuffer::downloadFromGBufferCommand(vsg::ref_ptr<GBuffer>& gBuffer, 
     stagingMemoryBufferPools = context.stagingMemoryBufferPools;
     if(!depthStaging.buffer || !normalStaging.buffer || !albedoStaging.buffer || !materialStaging.buffer)
         setupStagingBuffer(gBuffer->width, gBuffer->height);
-    if(gBuffer->depth && depth)
+    if(gBuffer->depth)
     {
         auto copy = vsg::CopyImageToBuffer::create();
         vsg::ImageInfo info = gBuffer->depth->imageInfoList.front();
@@ -422,8 +450,9 @@ void OfflineGBuffer::downloadFromGBufferCommand(vsg::ref_ptr<GBuffer>& gBuffer, 
         copy->dstBuffer = depthStaging.buffer;
         copy->regions = {VkBufferImageCopy{0, static_cast<uint32_t>(depthStaging.buffer->size), 1, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
         commands->addChild(copy);
+        gBuffer->depth->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     }
-    if(gBuffer->normal && normal)
+    if(gBuffer->normal)
     {
         auto copy = vsg::CopyImageToBuffer::create();
         vsg::ImageInfo info = gBuffer->normal->imageInfoList.front();
@@ -432,8 +461,9 @@ void OfflineGBuffer::downloadFromGBufferCommand(vsg::ref_ptr<GBuffer>& gBuffer, 
         copy->dstBuffer = normalStaging.buffer;
         copy->regions = {VkBufferImageCopy{0, static_cast<uint32_t>(normalStaging.buffer->size), 1, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
         commands->addChild(copy);
+        gBuffer->normal->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     }
-    if(gBuffer->albedo && albedo)
+    if(gBuffer->albedo)
     {
         auto copy = vsg::CopyImageToBuffer::create();
         vsg::ImageInfo info = gBuffer->albedo->imageInfoList.front();
@@ -442,8 +472,9 @@ void OfflineGBuffer::downloadFromGBufferCommand(vsg::ref_ptr<GBuffer>& gBuffer, 
         copy->dstBuffer = albedoStaging.buffer;
         copy->regions = {VkBufferImageCopy{0, static_cast<uint32_t>(normalStaging.buffer->size), 1, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
         commands->addChild(copy);
+        gBuffer->albedo->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     }
-    if(gBuffer->material && material)
+    if(gBuffer->material)
     {
         auto copy = vsg::CopyImageToBuffer::create();
         vsg::ImageInfo info = gBuffer->material->imageInfoList.front();
@@ -452,6 +483,7 @@ void OfflineGBuffer::downloadFromGBufferCommand(vsg::ref_ptr<GBuffer>& gBuffer, 
         copy->dstBuffer = materialStaging.buffer;
         copy->regions = {VkBufferImageCopy{0, static_cast<uint32_t>(normalStaging.buffer->size), 1, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
         commands->addChild(copy);
+        gBuffer->material->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     }
 }
 

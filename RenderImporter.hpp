@@ -29,7 +29,9 @@ using DoubleMatrices = std::vector<DoubleMatrix>;
 class OfflineGBuffer: public vsg::Inherit<vsg::Object, OfflineGBuffer>{
 public:
     vsg::ref_ptr<vsg::Data> depth, normal, material, albedo;
+    // automatically adds correct image usag eflags to the gBuffer images
     void uploadToGBufferCommand(vsg::ref_ptr<GBuffer>& gBuffer, vsg::ref_ptr<vsg::Commands> commands, vsg::Context& context);
+    // automatically adds correct image usag eflags to the gBuffer images
     void downloadFromGBufferCommand(vsg::ref_ptr<GBuffer>& gBuffer, vsg::ref_ptr<vsg::Commands> commands, vsg::Context& context);
     void transferStagingDataTo(vsg::ref_ptr<OfflineGBuffer> other);
     void transferStagingDataFrom(vsg::ref_ptr<OfflineGBuffer> other);
@@ -46,6 +48,7 @@ public:
     static OfflineGBuffers importGBufferPosition(const std::string& positionFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, const std::vector<DoubleMatrix>& matrices, int numFrames);
 private:
     static vsg::ref_ptr<vsg::Data> convertNormalToSpherical(vsg::ref_ptr<vsg::vec4Array2D> normals);
+    static vsg::ref_ptr<vsg::Data> compressAlbedo(vsg::ref_ptr<vsg::Data> in);
 };
 
 class GBufferExporter{

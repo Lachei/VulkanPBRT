@@ -91,7 +91,8 @@ int main(int argc, char** argv){
         auto illuminationImages = arguments.value(std::string(), "--illuminations");
         auto matricesPath = arguments.value(std::string(), "--matrices");
         auto sceneFilename = arguments.value(std::string(), "-i");
-        if (sceneFilename.empty() && normalImages.empty())
+        bool externalRenderings = normalImages.size();
+        if (sceneFilename.empty() && !externalRenderings)
         {
             std::cout << "Missing input parameter \"-i <path_to_model>\"." << std::endl;
         }
@@ -195,10 +196,8 @@ int main(int argc, char** argv){
             window->setRenderPass(renderPass);
         }
 
-        vsg::ref_ptr<vsg::TopLevelAccelerationStructure> tlas;
-        vsg::ref_ptr<vsg::Node> loaded_scene;
-
     	// load scene or images
+        vsg::ref_ptr<vsg::Node> loaded_scene;
         std::vector<vsg::ref_ptr<OfflineGBuffer>> offlineGBuffer;
         std::vector<vsg::ref_ptr<OfflineIllumination>> offlineIllumination;
         std::vector<DoubleMatrix> cameraMatrices;
@@ -209,9 +208,6 @@ int main(int argc, char** argv){
                 std::cout << "Scene not found: " << sceneFilename << std::endl;
                 return 1;
             }
-            vsg::BuildAccelerationStructureTraversal buildAccelStruct(device);
-            loaded_scene->accept(buildAccelStruct);
-            tlas = buildAccelStruct.tlas;
         }
         else{
             if(numFrames <= 0){
@@ -273,14 +269,18 @@ int main(int argc, char** argv){
         
         // raytracing pipeline setup
         uint32_t maxRecursionDepth = 2;
-        auto pbrtPipeline = PBRTPipeline::create(windowTraits->width, windowTraits->height, maxRecursionDepth, loaded_scene, gBuffer, accumulationBuffer,
-                illuminationBufferType, writeGBuffer, RayTracingRayOrigin::CAMERA);
+        vsg::ref_ptr<PBRTPipeline> pbrtPipeline;
+        if(!externalRenderings)
+        {
+            pbrtPipeline = PBRTPipeline::create(windowTraits->width, windowTraits->height, maxRecursionDepth, loaded_scene, gBuffer, accumulationBuffer,
+                    illuminationBufferType, writeGBuffer, RayTracingRayOrigin::CAMERA);
 
-        // setup tlas
-        vsg::BuildAccelerationStructureTraversal buildAccelStruct(device);
-        loaded_scene->accept(buildAccelStruct);
-        pbrtPipeline->setTlas(buildAccelStruct.tlas);      
 
+            // setup tlas
+            vsg::BuildAccelerationStructureTraversal buildAccelStruct(device);
+            loaded_scene->accept(buildAccelStruct);
+            pbrtPipeline->setTlas(buildAccelStruct.tlas);      
+        }
         // -------------------------------------------------------------------------------------
         // image layout conversions and correct binding of different denoising tequniques
         // -------------------------------------------------------------------------------------
@@ -295,8 +295,11 @@ int main(int argc, char** argv){
             accumulationBuffer->compile(imageLayoutCompile.context);
             accumulationBuffer->updateImageLayouts(imageLayoutCompile.context);
         }
-        pbrtPipeline->compile(imageLayoutCompile.context);
-        pbrtPipeline->updateImageLayouts(imageLayoutCompile.context);
+        if(pbrtPipeline)
+        {
+            pbrtPipeline->compile(imageLayoutCompile.context);
+            pbrtPipeline->updateImageLayouts(imageLayoutCompile.context);
+        }
 
         auto commands = vsg::Commands::create();
         pbrtPipeline->addTraceRaysToCommandGraph(commands, pushConstants);
