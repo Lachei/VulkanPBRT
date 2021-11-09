@@ -198,8 +198,8 @@ int main(int argc, char** argv){
 
     	// load scene or images
         vsg::ref_ptr<vsg::Node> loaded_scene;
-        std::vector<vsg::ref_ptr<OfflineGBuffer>> offlineGBuffer;
-        std::vector<vsg::ref_ptr<OfflineIllumination>> offlineIllumination;
+        std::vector<vsg::ref_ptr<OfflineGBuffer>> offlineGBuffers;
+        std::vector<vsg::ref_ptr<OfflineIllumination>> offlineIlluminations;
         std::vector<DoubleMatrix> cameraMatrices;
         if(sceneFilename.size()){
             auto options = vsg::Options::create(vsgXchange::assimp::create(), vsgXchange::dds::create(), vsgXchange::stbi::create()); //using the assimp loader
@@ -224,12 +224,12 @@ int main(int argc, char** argv){
                 return 1;
             }
             if(positionImages.size()){
-                offlineGBuffer = GBufferImporter::importGBufferPosition(positionImages, normalImages, materialImages, albedoImages, cameraMatrices, numFrames);
+                offlineGBuffers = GBufferImporter::importGBufferPosition(positionImages, normalImages, materialImages, albedoImages, cameraMatrices, numFrames);
             }
             else{
-                offlineGBuffer = GBufferImporter::importGBufferDepth(depthImages, normalImages, materialImages, albedoImages, numFrames);
+                offlineGBuffers = GBufferImporter::importGBufferDepth(depthImages, normalImages, materialImages, albedoImages, numFrames);
             }
-            offlineIllumination = IlluminationBufferImporter::importIllumination(illuminationImages, numFrames);
+            offlineIlluminations = IlluminationBufferImporter::importIllumination(illuminationImages, numFrames);
         }
 
         //create camera matrices
@@ -247,6 +247,7 @@ int main(int argc, char** argv){
         auto computeConstants = vsg::PushConstants::create(VK_SHADER_STAGE_COMPUTE_BIT, 0, rayTracingPushConstantsValue);
 
         vsg::ref_ptr<GBuffer> gBuffer;
+        vsg::ref_ptr<IlluminationBuffer> illuminationBuffer;
         vsg::ref_ptr<AccumulationBuffer> accumulationBuffer;
         bool writeGBuffer;
         IlluminationBufferType illuminationBufferType;
@@ -302,10 +303,29 @@ int main(int argc, char** argv){
         }
 
         auto commands = vsg::Commands::create();
-        pbrtPipeline->addTraceRaysToCommandGraph(commands, pushConstants);
+        auto offlineGBufferStager = OfflineGBuffer::create();
+        auto offlineIlluminationBufferStager = OfflineIllumination::create();
+        if(pbrtPipeline){
+            pbrtPipeline->addTraceRaysToCommandGraph(commands, pushConstants);
+            illuminationBuffer = pbrtPipeline->getIlluminationBuffer();
+        }
+        else{
+            if(offlineGBuffers.size() < numFrames || offlineIlluminations.size() < numFrames){
+                std::cout << "Missing offline GBuffer or offline Illumination Buffer info" << std::endl;
+                return 1;
+            }
+            switch(offlineIlluminations[0]->noisy->getFormat()){
+            case VK_FORMAT_R16G16B16A16_SFLOAT: illuminationBuffer = IlluminationBufferDemodulated::create(offlineIlluminations[0]->noisy->width(), offlineIlluminations[0]->noisy->height()); break;
+            case VK_FORMAT_R32G32B32A32_SFLOAT: illuminationBuffer = IlluminationBufferDemodulatedFloat::create(offlineIlluminations[0]->noisy->width(), offlineIlluminations[0]->noisy->height()); break;
+            default:
+                std::cout << "Offline illumination buffer image format not compatible" << std::endl;
+                return 1;
+            }
+            offlineGBufferStager->uploadToGBufferCommand(gBuffer, commands, imageLayoutCompile.context);
+            offlineIlluminationBufferStager->uploadToIlluminationBufferCommand(illuminationBuffer, commands, imageLayoutCompile.context);
+        }
         
-        vsg::ref_ptr<vsg::DescriptorImage> finalDescriptorImage;
-        vsg::ref_ptr<IlluminationBuffer> illuminationBuffer = pbrtPipeline->getIlluminationBuffer();
+        vsg::ref_ptr<vsg::DescriptorImage> finalDescriptorImage;  
         switch(denoisingType){
         case DenoisingType::None:
             finalDescriptorImage = illuminationBuffer->illuminationImages[0];
@@ -468,6 +488,12 @@ int main(int argc, char** argv){
         imageLayoutCompile.context.waitForCompletion();
 
         while(viewer->advanceToNextFrame() && (numFrames < 0 || (numFrames--) > 0)){
+            if(externalRenderings)
+            {
+                int frame = offlineGBuffers.size() - 1 - numFrames;     //invert numFrames as it is counting down
+                offlineGBufferStager->transferStagingDataFrom(offlineGBuffers[frame]);
+                offlineIlluminationBufferStager->transferStagingDataFrom(offlineIlluminations[frame]);
+            }
             
             viewer->handleEvents();
 

@@ -128,11 +128,11 @@ vsg::ref_ptr<vsg::Data> GBufferImporter::convertNormalToSpherical(vsg::ref_ptr<v
 
 vsg::ref_ptr<vsg::Data> GBufferImporter::compressAlbedo(vsg::ref_ptr<vsg::Data> in){
     vsg::ubvec4* albedo = new vsg::ubvec4[in->valueCount()];
-    if(vsg::ref_ptr<vsg::vec4Array2D> largeAlbedo = in)
+    if(vsg::ref_ptr<vsg::vec4Array2D> largeAlbedo = in.cast<vsg::vec4Array2D>())
         for(uint32_t i = 0; i < in->valueCount(); ++i) albedo[i] = largeAlbedo->data()[i] * 255.0f;
-    else if(vsg::ref_ptr<vsg::uivec4Array2D> largeAlbedo = in)
+    else if(vsg::ref_ptr<vsg::uivec4Array2D> largeAlbedo = in.cast<vsg::uivec4Array2D>())
         for(uint32_t i = 0; i < in->valueCount(); ++i) albedo[i] = largeAlbedo->data()[i];
-    else if(vsg::ref_ptr<vsg::usvec4Array2D> largeAlbedo = in){
+    else if(vsg::ref_ptr<vsg::usvec4Array2D> largeAlbedo = in.cast<vsg::usvec4Array2D>()){
         auto toFloat = [](uint16_t h){uint32_t t = ((h&0x8000)<<16) | (((h&0x7c00)+0x1C000)<<13) | ((h&0x03FF)<<13); return *reinterpret_cast<float*>(&t);};
         for(uint32_t i = 0; i < in->valueCount(); ++i){
             vsg::usvec4& cur = largeAlbedo->data()[i];

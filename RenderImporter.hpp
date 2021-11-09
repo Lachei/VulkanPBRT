@@ -80,7 +80,7 @@ public:
     static OfflineIlluminations importIllumination(const std::string& illuminationFormat, int numFrames);
 };
 
-class IlluminationBufferEdxporter{
+class IlluminationBufferExporter{
 public:
     static bool exportIllumination(const std::string& illuminationFormat, int numFrames, const OfflineIlluminations& illus);
 };
