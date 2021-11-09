@@ -12,7 +12,7 @@ void main(){
     //--------------------------------------------------------------------------
     // Loading all features and samples
     //--------------------------------------------------------------------------
-    vec3 noisyColor = imageLoad(noisy, curImagePos).xyz;
+    vec3 noisyColor = texelFetch(noisy, curImagePos, 0).xyz;
     vec3 pos;
     pos.z = imageLoad(depth, curImagePos).x;
     vec2 compressedNormal = imageLoad(normal, curImagePos).xy;

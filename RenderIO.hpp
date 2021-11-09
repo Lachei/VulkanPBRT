@@ -11,7 +11,7 @@
 class CopyBufferToImage: public vsg::Inherit<vsg::Command, CopyBufferToImage>{
 public:
     CopyBufferToImage(vsg::BufferInfo src, vsg::ImageInfo dst, uint32_t numMipMapLevels = 1):
-        copyData(src, dst, numMipMapLevels){}
+        copyData(src, dst, numMipMapLevels){copyData.width = dst.imageView->image->extent.width; copyData.height = dst.imageView->image->extent.height; copyData.depth = dst.imageView->image->extent.depth;}
     vsg::CopyAndReleaseImage::CopyData copyData;
     void record(vsg::CommandBuffer& commandBuffer) const override{
         copyData.record(commandBuffer);
@@ -50,10 +50,10 @@ using OfflineGBuffers = std::vector<vsg::ref_ptr<OfflineGBuffer>>;
 
 class GBufferIO{
 public:
-    static OfflineGBuffers importGBufferDepth(const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames);
-    static OfflineGBuffers importGBufferPosition(const std::string& positionFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, const std::vector<DoubleMatrix>& matrices, int numFrames);
-    static bool exportGBufferDepth(const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers);
-    static bool exportGBufferPosition(const std::string& positionFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers, const DoubleMatrices& matrices);
+    static OfflineGBuffers importGBufferDepth(const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, int verbosity = 0);
+    static OfflineGBuffers importGBufferPosition(const std::string& positionFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, const std::vector<DoubleMatrix>& matrices, int numFrames, int verbosity = 0);
+    static bool exportGBufferDepth(const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers, int verbosity = 0);
+    static bool exportGBufferPosition(const std::string& positionFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers, const DoubleMatrices& matrices, int verbosity = 0);
 private:
     static vsg::ref_ptr<vsg::Data> convertNormalToSpherical(vsg::ref_ptr<vsg::vec4Array2D> normals);
     static vsg::ref_ptr<vsg::Data> compressAlbedo(vsg::ref_ptr<vsg::Data> in);
@@ -78,6 +78,6 @@ using OfflineIlluminations = std::vector<vsg::ref_ptr<OfflineIllumination>>;
 
 class IlluminationBufferIO{
 public:
-    static OfflineIlluminations importIllumination(const std::string& illuminationFormat, int numFrames);
-    static bool exportIllumination(const std::string& illuminationFormat, int numFrames, const OfflineIlluminations& illus);
+    static OfflineIlluminations importIllumination(const std::string& illuminationFormat, int numFrames, int verbosity = 0);
+    static bool exportIllumination(const std::string& illuminationFormat, int numFrames, const OfflineIlluminations& illus, int verbosity = 0);
 };

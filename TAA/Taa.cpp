@@ -9,6 +9,8 @@ Taa::Taa(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeigh
     workWidth(workWidth),
     workHeight(workHeight)
 {
+    denoised->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+
     sampler = vsg::Sampler::create();
 
     std::string shaderPath = "shaders/taa.comp.spv";
@@ -56,13 +58,10 @@ Taa::Taa(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeigh
     finalImage = vsg::DescriptorImage::create(imageInfo, finalImageBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
     //descriptor set layout
-    vsg::DescriptorSetLayoutBindings descriptorBindings{
-        {0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-    };
-    auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
+    auto bindingMap = computeStage->getDescriptorSetLayoutBindingsMap();
+    auto descriptorSetLayout = vsg::DescriptorSetLayout::create(bindingMap.begin()->second.bindings);
+    auto denoisedInfo = denoised->imageInfoList[0];
+    denoisedInfo.sampler = sampler;
     //filling descriptor set
     //vsg::Descriptors descriptors{vsg::DescriptorBuffer::create(vsg::BufferInfoList{vsg::BufferInfo(buffer, 0, bufferSize)}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)};
     auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{
@@ -70,8 +69,8 @@ Taa::Taa(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeigh
                                                             accBuffer->motion->imageInfoList[0], motionBinding, 0,
                                                             VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
                                                         vsg::DescriptorImage::create(
-                                                            denoised->imageInfoList[0], denoisedBinding, 0,
-                                                            VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
+                                                            denoisedInfo, denoisedBinding, 0,
+                                                            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER),
                                                         finalImage,
                                                         accumulationImage
         });

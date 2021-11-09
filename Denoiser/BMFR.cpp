@@ -14,8 +14,13 @@ BMFR::BMFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHei
     gBuffer(gBuffer),
     sampler(vsg::Sampler::create())
 {
-    if (!illuBuffer.cast<IlluminationBufferFinalDemodulated>()) return; //demodulated illumination needed 
+    if (!illuBuffer.cast<IlluminationBufferDemodulated>() && !illuBuffer.cast<IlluminationBufferDemodulatedFloat>()){
+        std::cout << "Illumination Buffer type is required to be IlluminationBufferDemodulated/Float for BMFR" << std::endl;
+        return; //demodulated illumination needed
+    }  
     auto illumination = illuBuffer;
+    //adding usage bits to illumination buffer
+    illumination->illuminationImages[0]->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
     std::string preShaderPath = "shaders/bmfrPre.comp.spv";
     std::string fitShaderPath = "shaders/bmfrFit.comp.spv";
     std::string postShaderPath = "shaders/bmfrPost.comp.spv";
@@ -77,7 +82,7 @@ BMFR::BMFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHei
     image->arrayLayers = 1;
     image->samples = VK_SAMPLE_COUNT_1_BIT;
     image->tiling = VK_IMAGE_TILING_OPTIMAL;
-    image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+    image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -122,22 +127,10 @@ BMFR::BMFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHei
     imageInfo = { nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL };
     weights = vsg::DescriptorImage::create(imageInfo, weightsBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
-    // descriptor set layout
-    vsg::DescriptorSetLayoutBindings descriptorBindings{
-        {0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {7, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {8, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {9, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {10, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
-        {11, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}
-    };
-    auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
+    auto bindingMap = preComputeStage->getDescriptorSetLayoutBindingsMap();
+    auto descriptorSetLayout = vsg::DescriptorSetLayout::create(bindingMap.begin()->second.bindings);
+    auto illuminationInfo = illumination->illuminationImages[0]->imageInfoList[0];
+    illuminationInfo.sampler = sampler;
     // filling descriptor set
     vsg::Descriptors descriptors{
         vsg::DescriptorImage::create(gBuffer->depth->imageInfoList[0], depthBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
@@ -146,8 +139,8 @@ BMFR::BMFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHei
         vsg::DescriptorImage::create(gBuffer->albedo->imageInfoList[0], albedoBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
         vsg::DescriptorImage::create(accBuffer->motion->imageInfoList[0], motionBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
         vsg::DescriptorImage::create(accBuffer->spp->imageInfoList[0], sampleBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
-        vsg::DescriptorImage::create(illumination->illuminationImages[1]->imageInfoList[0], noisyBinding, 0,
-                                     VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
+        vsg::DescriptorImage::create(illuminationInfo, noisyBinding, 0,
+                                     VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER),
         accumulatedIllumination,
         finalIllumination,
         sampledAccIllu,

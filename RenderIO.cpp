@@ -1,12 +1,13 @@
 #include "RenderIO.hpp"
 #include <future>
 
-std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::importGBufferDepth(const std::string &depthFormat, const std::string &normalFormat, const std::string &materialFormat, const std::string &albedoFormat, int numFrames)
+std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::importGBufferDepth(const std::string &depthFormat, const std::string &normalFormat, const std::string &materialFormat, const std::string &albedoFormat, int numFrames, int verbosity)
 {
     std::vector<vsg::ref_ptr<OfflineGBuffer>> gBuffers(numFrames);
     auto options = vsg::Options::create(vsgXchange::openexr::create());
     auto execLoad = [&](int f){
-        std::cout << "Loading frame " << f << std::endl << std::flush; 
+        if(verbosity > 1)
+            std::cout << "GBuffer: Loading frame " << f << std::endl << std::flush; 
         gBuffers[f] = OfflineGBuffer::create();
         char buff[200];
         std::string filename;
@@ -38,7 +39,8 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::importGBufferDepth(const st
             return;
         }
         gBuffers[f]->albedo = compressAlbedo(gBuffers[f]->albedo);
-        std::cout << "Frame " << f << " loaded"<< std::endl << std::flush;
+        if(verbosity > 1)
+            std::cout << "GBuffer: Loaded frame " << f << std::endl << std::flush;
     };
     {   //automatic join at the end of threads scope
         std::vector<std::future<void>> threads(numFrames);
@@ -48,12 +50,13 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::importGBufferDepth(const st
     return gBuffers;
 }
 
-std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::importGBufferPosition(const std::string &positionFormat, const std::string &normalFormat, const std::string &materialFormat, const std::string &albedoFormat, const std::vector<DoubleMatrix> &matrices, int numFrames)
+std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::importGBufferPosition(const std::string &positionFormat, const std::string &normalFormat, const std::string &materialFormat, const std::string &albedoFormat, const std::vector<DoubleMatrix> &matrices, int numFrames, int verbosity)
 {
     auto options = vsg::Options::create(vsgXchange::openexr::create());
     std::vector<vsg::ref_ptr<OfflineGBuffer>> gBuffers(numFrames);
     auto execLoad = [&](int f){
-        std::cout << "Loading frame " << f << std::endl << std::flush;
+        if(verbosity > 1)
+            std::cout << "GBuffer: Loading frame " << f << std::endl << std::flush;
         gBuffers[f] = OfflineGBuffer::create();
         char buff[200];
         std::string filename;
@@ -101,7 +104,8 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::importGBufferPosition(const
             return;
         }
         gBuffers[f]->albedo = compressAlbedo(gBuffers[f]->albedo);
-        std::cout << "Frame " << f << " loaded"<< std::endl << std::flush; 
+        if(verbosity > 1)
+            std::cout << "GBuffer: Loaded frame " << f << std::endl << std::flush; 
     };
     {   //automatic join at the end of threads scope
         std::vector<std::future<void>> threads(numFrames);
@@ -142,12 +146,13 @@ vsg::ref_ptr<vsg::Data> GBufferIO::compressAlbedo(vsg::ref_ptr<vsg::Data> in){
     return vsg::ubvec4Array2D::create(in->width(), in->height(), albedo, vsg::Data::Layout{VK_FORMAT_R8G8B8A8_UNORM});
 }
 
-bool GBufferIO::exportGBufferDepth(const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers) 
+bool GBufferIO::exportGBufferDepth(const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers, int verbosity) 
 {
     auto options = vsg::Options::create(vsgXchange::openexr::create());
     bool fine = true;
     auto execStore = [&](int f){
-        std::cout << "Storing frame " << f << std::endl << std::flush;
+        if(verbosity > 1)
+            std::cout << "GBuffer: Storing frame " << f << std::endl << std::flush;
         char buff[200];
         std::string filename;
         // depth images
@@ -182,7 +187,8 @@ bool GBufferIO::exportGBufferDepth(const std::string& depthFormat, const std::st
             fine = false;
             return;
         }
-        std::cout << "Frame " << f << " stored" << std::endl << std::flush;
+        if(verbosity > 1)
+            std::cout << "GBuffer: Stored frame " << f << std::endl << std::flush;
     };
     {   //automatic join at the end of threads scope
         std::vector<std::future<void>> threads(numFrames);
@@ -191,12 +197,13 @@ bool GBufferIO::exportGBufferDepth(const std::string& depthFormat, const std::st
     return fine;
 }
 
-bool GBufferIO::exportGBufferPosition(const std::string& positionFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers, const DoubleMatrices& matrices) 
+bool GBufferIO::exportGBufferPosition(const std::string& positionFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers, const DoubleMatrices& matrices, int verbosity) 
 {
     auto options = vsg::Options::create(vsgXchange::openexr::create());
     bool fine = true;
     auto execStore = [&](int f){
-        std::cout << "Storing frame " << f << std::endl << std::flush;
+        if(verbosity > 1)
+            std::cout << "GBuffer: Storing frame " << f << std::endl << std::flush;
         char buff[200];
         std::string filename;
         // position images
@@ -232,7 +239,8 @@ bool GBufferIO::exportGBufferPosition(const std::string& positionFormat, const s
             fine = false;
             return;
         }
-        std::cout << "Frame " << f << " stored" << std::endl << std::flush;
+        if(verbosity > 1)
+            std::cout << "GBuffer: Stored frame " << f << std::endl << std::flush;
     };
     {
         std::vector<std::future<void>> threads(numFrames);
@@ -302,6 +310,7 @@ void OfflineIllumination::downloadFromIlluminationBufferCommand(vsg::ref_ptr<Ill
         copy->regions = {VkBufferImageCopy{0, static_cast<uint32_t>(noisyStaging.buffer->size), 1, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
         commands->addChild(copy);
         illuBuffer->illuminationImages[0]->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        noisyStaging.buffer->usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     }
 }
 
@@ -337,22 +346,23 @@ void OfflineIllumination::transferStagingDataFrom(vsg::ref_ptr<OfflineIlluminati
         std::cout << "Error while transferring illumination staging memory data from offline illumination buffer." << std::endl;
         return;
     }
-    memory->copy(buffer->getMemoryOffset(deviceID) + noisyStaging.offset, buffer->size, illuBuffer->noisy->dataPointer());
+    memory->copy(buffer->getMemoryOffset(deviceID) + noisyStaging.offset, noisyStaging.range, illuBuffer->noisy->dataPointer());
 }
 
 void OfflineIllumination::setupStagingBuffer(uint32_t width, uint32_t height){
-    VkDeviceSize imageTotalSize = sizeof(vsg::usvec4) * width * height;
-    VkDeviceSize alignment = 8;
+    VkDeviceSize imageTotalSize = sizeof(vsg::vec4) * width * height;
+    VkDeviceSize alignment = 16;
     VkMemoryPropertyFlags memoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    noisyStaging = stagingMemoryBufferPools->reserveBuffer(imageTotalSize, alignment, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, memoryPropertyFlags);
+    noisyStaging = stagingMemoryBufferPools->reserveBuffer(imageTotalSize, alignment, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, memoryPropertyFlags);
 }
 
-std::vector<vsg::ref_ptr<OfflineIllumination>> IlluminationBufferIO::importIllumination(const std::string &illuminationFormat, int numFrames)
+std::vector<vsg::ref_ptr<OfflineIllumination>> IlluminationBufferIO::importIllumination(const std::string &illuminationFormat, int numFrames, int verbosity)
 {
     auto options = vsg::Options::create(vsgXchange::openexr::create());
     std::vector<vsg::ref_ptr<OfflineIllumination>> illuminations(numFrames);
-    for (int f = 0; f < numFrames; ++f)
-    {
+    auto execLoad = [&](int f){
+        if(verbosity > 1)
+            std::cout << "Illumination: Loading frame " << f << std::endl << std::flush;
         char buff[100];
         std::string filename;
         // position images
@@ -364,8 +374,14 @@ std::vector<vsg::ref_ptr<OfflineIllumination>> IlluminationBufferIO::importIllum
         if (illuminations[f]->noisy = vsg::read_cast<vsg::Data>(filename, options); !illuminations[f]->noisy.valid())
         {
             std::cerr << "Failed to load image: " << filename << " texPath = " << buff << std::endl;
-            return {};
+            return;
         }
+        if(verbosity > 1)
+            std::cout << "Illumination: Loaded frame " << f << std::endl << std::flush;
+    };
+    {
+        std::vector<std::future<void>> threads(numFrames);
+        for (int f = 0; f < numFrames; ++f) threads[f] = std::async(std::launch::async, execLoad, f); 
     }
     return illuminations;
 }
@@ -432,7 +448,7 @@ void OfflineGBuffer::uploadToGBufferCommand(vsg::ref_ptr<GBuffer>& gBuffer, vsg:
     }
     if(gBuffer->material){
         commands->addChild(CopyBufferToImage::create(materialStaging, gBuffer->material->imageInfoList.front(), 1));
-        gBuffer->depth->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        gBuffer->material->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     }
 }
 
@@ -549,7 +565,7 @@ void OfflineGBuffer::transferStagingDataFrom(vsg::ref_ptr<OfflineGBuffer> other)
         std::cout << "Error while transferring depth staging memory data to offline gBuffer." << std::endl;
         return;
     }
-    memory->copy(buffer->getMemoryOffset(deviceID) + depthStaging.offset, buffer->size, other->depth->dataPointer());
+    memory->copy(buffer->getMemoryOffset(deviceID) + depthStaging.offset, depthStaging.range, other->depth->dataPointer());
 
     buffer = vsg::ref_ptr<vsg::Buffer>(normalStaging.buffer);
     memory = vsg::ref_ptr<vsg::DeviceMemory>(buffer->getDeviceMemory(deviceID));
@@ -557,7 +573,7 @@ void OfflineGBuffer::transferStagingDataFrom(vsg::ref_ptr<OfflineGBuffer> other)
         std::cout << "Error while transferring normal staging memory data to offline gBuffer." << std::endl;
         return;
     }
-    memory->copy(buffer->getMemoryOffset(deviceID) + normalStaging.offset, buffer->size, other->normal->dataPointer());
+    memory->copy(buffer->getMemoryOffset(deviceID) + normalStaging.offset, normalStaging.range, other->normal->dataPointer());
 
     buffer = vsg::ref_ptr<vsg::Buffer>(albedoStaging.buffer);
     memory = vsg::ref_ptr<vsg::DeviceMemory>(buffer->getDeviceMemory(deviceID));
@@ -565,7 +581,7 @@ void OfflineGBuffer::transferStagingDataFrom(vsg::ref_ptr<OfflineGBuffer> other)
         std::cout << "Error while transferring albedo staging memory data to offline gBuffer." << std::endl;
         return;
     }
-    memory->copy(buffer->getMemoryOffset(deviceID) + albedoStaging.offset, buffer->size, other->albedo->dataPointer());
+    memory->copy(buffer->getMemoryOffset(deviceID) + albedoStaging.offset, albedoStaging.range, other->albedo->dataPointer());
 
     buffer = vsg::ref_ptr<vsg::Buffer>(materialStaging.buffer);
     memory = vsg::ref_ptr<vsg::DeviceMemory>(buffer->getDeviceMemory(deviceID));
@@ -573,7 +589,8 @@ void OfflineGBuffer::transferStagingDataFrom(vsg::ref_ptr<OfflineGBuffer> other)
         std::cout << "Error while transferring material staging memory data to offline gBuffer." << std::endl;
         return;
     }
-    memory->copy(buffer->getMemoryOffset(deviceID) + materialStaging.offset, buffer->size, other->material->dataPointer());
+    if(other->material)
+        memory->copy(buffer->getMemoryOffset(deviceID) + materialStaging.offset, materialStaging.range, other->material->dataPointer());
 }
 
 void OfflineGBuffer::setupStagingBuffer(uint32_t width, uint32_t height)
@@ -581,15 +598,15 @@ void OfflineGBuffer::setupStagingBuffer(uint32_t width, uint32_t height)
     VkDeviceSize imageTotalSize = sizeof(float) * width * height;
     VkDeviceSize alignment = 4;
     VkMemoryPropertyFlags memoryPropertyFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-    depthStaging = stagingMemoryBufferPools->reserveBuffer(imageTotalSize, alignment, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, memoryPropertyFlags);
+    depthStaging = stagingMemoryBufferPools->reserveBuffer(imageTotalSize, alignment, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, memoryPropertyFlags);
     
     imageTotalSize = sizeof(vsg::vec2) * width * height;
     alignment = 8; //sizeof vsg::vec2
-    normalStaging = stagingMemoryBufferPools->reserveBuffer(imageTotalSize, alignment, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, memoryPropertyFlags);
+    normalStaging = stagingMemoryBufferPools->reserveBuffer(imageTotalSize, alignment, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, memoryPropertyFlags);
 
     imageTotalSize = sizeof(vsg::ubvec4) * width * height;
     alignment = 4;
-    albedoStaging = stagingMemoryBufferPools->reserveBuffer(imageTotalSize, alignment, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, memoryPropertyFlags);
+    albedoStaging = stagingMemoryBufferPools->reserveBuffer(imageTotalSize, alignment, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, memoryPropertyFlags);
 
-    materialStaging = stagingMemoryBufferPools->reserveBuffer(imageTotalSize, alignment, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, memoryPropertyFlags);
+    materialStaging = stagingMemoryBufferPools->reserveBuffer(imageTotalSize, alignment, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, memoryPropertyFlags);
 }

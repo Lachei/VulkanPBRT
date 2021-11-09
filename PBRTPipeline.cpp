@@ -20,31 +20,18 @@ namespace
     };
 }
 
-PBRTPipeline::PBRTPipeline(uint32_t width, uint32_t height, uint32_t maxRecursionDepth, vsg::Node *scene, vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<AccumulationBuffer> accumulationBuffer,
-                           IlluminationBufferType illuminationBufferType, bool writeGBuffer, RayTracingRayOrigin rayTracingRayOrigin) : width(width), height(height), maxRecursionDepth(maxRecursionDepth), accumulationBuffer(accumulationBuffer)
+PBRTPipeline::PBRTPipeline(vsg::ref_ptr<vsg::Node> scene, vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<AccumulationBuffer> accumulationBuffer,
+                 vsg::ref_ptr<IlluminationBuffer> illuminationBuffer, bool writeGBuffer, RayTracingRayOrigin rayTracingRayOrigin) : 
+    width(illuminationBuffer->illuminationImages[0]->imageInfoList[0].imageView->image->extent.width), 
+    height(illuminationBuffer->illuminationImages[0]->imageInfoList[0].imageView->image->extent.height), 
+    maxRecursionDepth(2), 
+    accumulationBuffer(accumulationBuffer),
+    illuminationBuffer(illuminationBuffer),
+    gBuffer(gBuffer)
 {
-    switch (illuminationBufferType)
-    {
-    case IlluminationBufferType::DEMODULATED:
-        illuminationBuffer = IlluminationBufferDemodulated::create(width, height);
-        break;
-    case IlluminationBufferType::FINAL_DEMODULATED:
-        illuminationBuffer = IlluminationBufferFinalDemodulated::create(width, height);
-        break;
-    case IlluminationBufferType::FINAL_DIRECT_INDIRECT:
-        illuminationBuffer = IlluminationBufferFinalDirIndir::create(width, height);
-        break;
-    case IlluminationBufferType::FINAL:
-    default:
-        illuminationBuffer = IlluminationBufferFinal::create(width, height);
-    }
-    if (writeGBuffer)
-    {
-        assert(gBuffer);
-        this->gBuffer = gBuffer;
-    }
+    if (writeGBuffer) assert(gBuffer);
     bool useExternalGBuffer = rayTracingRayOrigin == RayTracingRayOrigin::GBUFFER;
-    setupPipeline(scene, useExternalGBuffer, illuminationBufferType);
+    setupPipeline(scene, useExternalGBuffer);
 }
 void PBRTPipeline::setTlas(vsg::ref_ptr<vsg::AccelerationStructure> as)
 {
@@ -85,7 +72,7 @@ vsg::ref_ptr<IlluminationBuffer> PBRTPipeline::getIlluminationBuffer() const
 {
     return illuminationBuffer;
 }
-void PBRTPipeline::setupPipeline(vsg::Node *scene, bool useExternalGbuffer, IlluminationBufferType illuminationBufferType)
+void PBRTPipeline::setupPipeline(vsg::Node *scene, bool useExternalGbuffer)
 {
     // creating the shader stages and shader binding table
     std::string raygenPath = "shaders/raygen.rgen"; // raygen shader not yet precompiled
@@ -94,7 +81,7 @@ void PBRTPipeline::setupPipeline(vsg::Node *scene, bool useExternalGbuffer, Illu
     std::string closesthitPath = "shaders/pbr_closesthit.rchit.spv";
     std::string anyHitPath = "shaders/alpha_hit.rahit.spv";
 
-    auto raygenShader = setupRaygenShader(raygenPath, useExternalGbuffer, illuminationBufferType);
+    auto raygenShader = setupRaygenShader(raygenPath, useExternalGbuffer);
     auto raymissShader = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_MISS_BIT_KHR, "main", raymissPath);
     auto shadowMissShader = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_MISS_BIT_KHR, "main", shadowMissPath);
     auto closesthitShader = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, "main", closesthitPath);
@@ -162,13 +149,11 @@ void PBRTPipeline::setupPipeline(vsg::Node *scene, bool useExternalGbuffer, Illu
     if (accumulationBuffer)
         accumulationBuffer->updateDescriptor(bindRayTracingDescriptorSet, bindingMap);
 }
-vsg::ref_ptr<vsg::ShaderStage> PBRTPipeline::setupRaygenShader(std::string raygenPath, bool useExternalGBuffer, IlluminationBufferType illuminationBufferType)
+vsg::ref_ptr<vsg::ShaderStage> PBRTPipeline::setupRaygenShader(std::string raygenPath, bool useExternalGBuffer)
 {
     std::vector<std::string> defines; // needed defines for the correct illumination buffer
-    auto finalDemod = illuminationBuffer.cast<IlluminationBufferFinalDemodulated>();
-    auto demod = illuminationBuffer.cast<IlluminationBufferDemodulated>();
+    
     // set different raygen shaders according to state of external gbuffer and illumination buffer type
-
     if (useExternalGBuffer)
     {
         // TODO: implement things for external gBuffer
@@ -176,15 +161,15 @@ vsg::ref_ptr<vsg::ShaderStage> PBRTPipeline::setupRaygenShader(std::string rayge
     }
     else
     {
-        if (illuminationBufferType == IlluminationBufferType::FINAL)
+        if (illuminationBuffer.cast<IlluminationBufferFinal>())
         {
             defines.push_back("FINAL_IMAGE");
         }
-        else if (illuminationBufferType == IlluminationBufferType::FINAL_DIRECT_INDIRECT)
+        else if (illuminationBuffer.cast<IlluminationBufferFinalDirIndir>())
         {
             // TODO:
         }
-        else if (illuminationBufferType == IlluminationBufferType::FINAL_DEMODULATED)
+        else if (illuminationBuffer.cast<IlluminationBufferFinalDemodulated>())
         {
             defines.push_back("FINAL_IMAGE");
             defines.push_back("DEMOD_ILLUMINATION");
@@ -194,7 +179,7 @@ vsg::ref_ptr<vsg::ShaderStage> PBRTPipeline::setupRaygenShader(std::string rayge
             if (accumulationBuffer)
                 defines.push_back("PREV_GBUFFER");
         }
-        else if (demod)
+        else if (illuminationBuffer.cast<IlluminationBufferDemodulated>())
         {
             defines.push_back("DEMOD_ILLUMINATION");
             defines.push_back("DEMOD_ILLUMINATION_SQUARED");
