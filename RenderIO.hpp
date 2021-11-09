@@ -25,6 +25,12 @@ public:
 };
 using DoubleMatrices = std::vector<DoubleMatrix>;
 
+class MatrixIO{
+public:
+    static std::vector<DoubleMatrix> importMatrices(const std::string& matrixPath);
+    static bool exportMatrices(const std::string& matrixPath, const DoubleMatrices& matrices);
+};
+
 // GBuffer --------------------------------------------------------------------------
 class OfflineGBuffer: public vsg::Inherit<vsg::Object, OfflineGBuffer>{
 public:
@@ -42,20 +48,15 @@ private:
 };
 using OfflineGBuffers = std::vector<vsg::ref_ptr<OfflineGBuffer>>;
 
-class GBufferImporter{
+class GBufferIO{
 public:
     static OfflineGBuffers importGBufferDepth(const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames);
     static OfflineGBuffers importGBufferPosition(const std::string& positionFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, const std::vector<DoubleMatrix>& matrices, int numFrames);
-private:
-    static vsg::ref_ptr<vsg::Data> convertNormalToSpherical(vsg::ref_ptr<vsg::vec4Array2D> normals);
-    static vsg::ref_ptr<vsg::Data> compressAlbedo(vsg::ref_ptr<vsg::Data> in);
-};
-
-class GBufferExporter{
-public:
     static bool exportGBufferDepth(const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers);
     static bool exportGBufferPosition(const std::string& positionFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers, const DoubleMatrices& matrices);
 private:
+    static vsg::ref_ptr<vsg::Data> convertNormalToSpherical(vsg::ref_ptr<vsg::vec4Array2D> normals);
+    static vsg::ref_ptr<vsg::Data> compressAlbedo(vsg::ref_ptr<vsg::Data> in);
     static vsg::ref_ptr<vsg::Data> sphericalToCartesian(vsg::ref_ptr<vsg::vec2Array2D> normals);
     static vsg::ref_ptr<vsg::Data> depthToPosition(vsg::ref_ptr<vsg::floatArray2D> depths, const DoubleMatrix& matrix);
 };
@@ -75,18 +76,8 @@ private:
 };
 using OfflineIlluminations = std::vector<vsg::ref_ptr<OfflineIllumination>>;
 
-class IlluminationBufferImporter{
+class IlluminationBufferIO{
 public:
     static OfflineIlluminations importIllumination(const std::string& illuminationFormat, int numFrames);
-};
-
-class IlluminationBufferExporter{
-public:
     static bool exportIllumination(const std::string& illuminationFormat, int numFrames, const OfflineIlluminations& illus);
-};
-
-class MatrixIO{
-public:
-    static std::vector<DoubleMatrix> importMatrices(const std::string& matrixPath);
-    static bool exportMatrices(const std::string& matrixPath, const DoubleMatrices& matrices);
 };

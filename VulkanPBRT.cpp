@@ -7,7 +7,7 @@
 #include "PipelineStructs.hpp"
 #include "CountTrianglesVisitor.hpp"
 #include "gui.hpp"
-#include "RenderImporter.hpp"
+#include "RenderIO.hpp"
 
 #include <vsgXchange/models.h>
 #include <vsgXchange/images.h>
@@ -224,12 +224,12 @@ int main(int argc, char** argv){
                 return 1;
             }
             if(positionImages.size()){
-                offlineGBuffers = GBufferImporter::importGBufferPosition(positionImages, normalImages, materialImages, albedoImages, cameraMatrices, numFrames);
+                offlineGBuffers = GBufferIO::importGBufferPosition(positionImages, normalImages, materialImages, albedoImages, cameraMatrices, numFrames);
             }
             else{
-                offlineGBuffers = GBufferImporter::importGBufferDepth(depthImages, normalImages, materialImages, albedoImages, numFrames);
+                offlineGBuffers = GBufferIO::importGBufferDepth(depthImages, normalImages, materialImages, albedoImages, numFrames);
             }
-            offlineIlluminations = IlluminationBufferImporter::importIllumination(illuminationImages, numFrames);
+            offlineIlluminations = IlluminationBufferIO::importIllumination(illuminationImages, numFrames);
         }
 
         //create camera matrices

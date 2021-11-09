@@ -1,7 +1,7 @@
-#include "RenderImporter.hpp"
+#include "RenderIO.hpp"
 #include <future>
 
-std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferImporter::importGBufferDepth(const std::string &depthFormat, const std::string &normalFormat, const std::string &materialFormat, const std::string &albedoFormat, int numFrames)
+std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::importGBufferDepth(const std::string &depthFormat, const std::string &normalFormat, const std::string &materialFormat, const std::string &albedoFormat, int numFrames)
 {
     std::vector<vsg::ref_ptr<OfflineGBuffer>> gBuffers(numFrames);
     auto options = vsg::Options::create(vsgXchange::openexr::create());
@@ -48,7 +48,7 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferImporter::importGBufferDepth(co
     return gBuffers;
 }
 
-std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferImporter::importGBufferPosition(const std::string &positionFormat, const std::string &normalFormat, const std::string &materialFormat, const std::string &albedoFormat, const std::vector<DoubleMatrix> &matrices, int numFrames)
+std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::importGBufferPosition(const std::string &positionFormat, const std::string &normalFormat, const std::string &materialFormat, const std::string &albedoFormat, const std::vector<DoubleMatrix> &matrices, int numFrames)
 {
     auto options = vsg::Options::create(vsgXchange::openexr::create());
     std::vector<vsg::ref_ptr<OfflineGBuffer>> gBuffers(numFrames);
@@ -111,7 +111,7 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferImporter::importGBufferPosition
     return gBuffers;
 }
 
-vsg::ref_ptr<vsg::Data> GBufferImporter::convertNormalToSpherical(vsg::ref_ptr<vsg::vec4Array2D> normals) 
+vsg::ref_ptr<vsg::Data> GBufferIO::convertNormalToSpherical(vsg::ref_ptr<vsg::vec4Array2D> normals) 
 {
     if(!normals) return {};
     vsg::vec2* res = new vsg::vec2[normals->valueCount()];
@@ -126,7 +126,7 @@ vsg::ref_ptr<vsg::Data> GBufferImporter::convertNormalToSpherical(vsg::ref_ptr<v
     return vsg::vec2Array2D::create(normals->width(), normals->height(), res, vsg::Data::Layout{VK_FORMAT_R32G32_SFLOAT});
 }
 
-vsg::ref_ptr<vsg::Data> GBufferImporter::compressAlbedo(vsg::ref_ptr<vsg::Data> in){
+vsg::ref_ptr<vsg::Data> GBufferIO::compressAlbedo(vsg::ref_ptr<vsg::Data> in){
     vsg::ubvec4* albedo = new vsg::ubvec4[in->valueCount()];
     if(vsg::ref_ptr<vsg::vec4Array2D> largeAlbedo = in.cast<vsg::vec4Array2D>())
         for(uint32_t i = 0; i < in->valueCount(); ++i) albedo[i] = largeAlbedo->data()[i] * 255.0f;
@@ -142,7 +142,7 @@ vsg::ref_ptr<vsg::Data> GBufferImporter::compressAlbedo(vsg::ref_ptr<vsg::Data> 
     return vsg::ubvec4Array2D::create(in->width(), in->height(), albedo, vsg::Data::Layout{VK_FORMAT_R8G8B8A8_UNORM});
 }
 
-bool GBufferExporter::exportGBufferDepth(const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers) 
+bool GBufferIO::exportGBufferDepth(const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers) 
 {
     auto options = vsg::Options::create(vsgXchange::openexr::create());
     bool fine = true;
@@ -191,7 +191,7 @@ bool GBufferExporter::exportGBufferDepth(const std::string& depthFormat, const s
     return fine;
 }
 
-bool GBufferExporter::exportGBufferPosition(const std::string& positionFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers, const DoubleMatrices& matrices) 
+bool GBufferIO::exportGBufferPosition(const std::string& positionFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers, const DoubleMatrices& matrices) 
 {
     auto options = vsg::Options::create(vsgXchange::openexr::create());
     bool fine = true;
@@ -241,7 +241,7 @@ bool GBufferExporter::exportGBufferPosition(const std::string& positionFormat, c
     return fine;
 }
 
-vsg::ref_ptr<vsg::Data> GBufferExporter::sphericalToCartesian(vsg::ref_ptr<vsg::vec2Array2D> normals)
+vsg::ref_ptr<vsg::Data> GBufferIO::sphericalToCartesian(vsg::ref_ptr<vsg::vec2Array2D> normals)
 {
     if(!normals) return {};
     vsg::vec4* res = new vsg::vec4[normals->valueCount()];
@@ -255,7 +255,7 @@ vsg::ref_ptr<vsg::Data> GBufferExporter::sphericalToCartesian(vsg::ref_ptr<vsg::
     return vsg::vec4Array2D::create(normals->width(), normals->height(), res, vsg::Data::Layout{VK_FORMAT_R32G32B32A32_SFLOAT});
 }
 
-vsg::ref_ptr<vsg::Data> GBufferExporter::depthToPosition(vsg::ref_ptr<vsg::floatArray2D> depths, const DoubleMatrix& matrix)
+vsg::ref_ptr<vsg::Data> GBufferIO::depthToPosition(vsg::ref_ptr<vsg::floatArray2D> depths, const DoubleMatrix& matrix)
 {
     if(!depths) return {};
     vsg::vec4* res = new vsg::vec4[depths->valueCount()];
@@ -347,7 +347,7 @@ void OfflineIllumination::setupStagingBuffer(uint32_t width, uint32_t height){
     noisyStaging = stagingMemoryBufferPools->reserveBuffer(imageTotalSize, alignment, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, memoryPropertyFlags);
 }
 
-std::vector<vsg::ref_ptr<OfflineIllumination>> IlluminationBufferImporter::importIllumination(const std::string &illuminationFormat, int numFrames)
+std::vector<vsg::ref_ptr<OfflineIllumination>> IlluminationBufferIO::importIllumination(const std::string &illuminationFormat, int numFrames)
 {
     auto options = vsg::Options::create(vsgXchange::openexr::create());
     std::vector<vsg::ref_ptr<OfflineIllumination>> illuminations(numFrames);
