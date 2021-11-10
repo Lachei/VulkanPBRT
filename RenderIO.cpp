@@ -3,6 +3,8 @@
 
 std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::importGBufferDepth(const std::string &depthFormat, const std::string &normalFormat, const std::string &materialFormat, const std::string &albedoFormat, int numFrames, int verbosity)
 {
+    if(verbosity > 0)
+        std::cout << "Start loading GBuffer" << std::endl;
     std::vector<vsg::ref_ptr<OfflineGBuffer>> gBuffers(numFrames);
     auto options = vsg::Options::create(vsgXchange::openexr::create());
     auto execLoad = [&](int f){
@@ -46,12 +48,15 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::importGBufferDepth(const st
         std::vector<std::future<void>> threads(numFrames);
         for (int f = 0; f < numFrames; ++f) threads[f] = std::async(std::launch::async, execLoad, f);
     }
-    std::cout << "done" << std::endl;
+    if(verbosity > 0)
+        std::cout << "Done loading GBuffer" << std::endl;
     return gBuffers;
 }
 
 std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::importGBufferPosition(const std::string &positionFormat, const std::string &normalFormat, const std::string &materialFormat, const std::string &albedoFormat, const std::vector<DoubleMatrix> &matrices, int numFrames, int verbosity)
 {
+    if(verbosity > 0)
+        std::cout << "Start loading GBuffer" << std::endl;
     auto options = vsg::Options::create(vsgXchange::openexr::create());
     std::vector<vsg::ref_ptr<OfflineGBuffer>> gBuffers(numFrames);
     auto execLoad = [&](int f){
@@ -78,10 +83,11 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::importGBufferPosition(const
             }
             float* depth = new float[posArray->valueCount()];
             auto toVec3 = [&](vsg::vec4 v){return vsg::vec3(v.x, v.y, v.z);};
-            vsg::vec3 cameraPos = toVec3(matrices[f].invView[3]);
+            vsg::vec4 cameraPos = matrices[f].invView[3];
+            cameraPos /= cameraPos.w;
             for(uint32_t i = 0; i < posArray->valueCount() ; ++i){
                 vsg::vec3 p = toVec3(posArray->data()[i]);
-                depth[i] = vsg::length(cameraPos - p);
+                depth[i] = vsg::length(toVec3(cameraPos) - p);
             }
             gBuffers[f]->depth = vsg::floatArray2D::create(pos->width(), pos->height(), depth, vsg::Data::Layout{VK_FORMAT_R32_SFLOAT});
         }
@@ -111,7 +117,8 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::importGBufferPosition(const
         std::vector<std::future<void>> threads(numFrames);
         for (int f = 0; f < numFrames; ++f) threads[f] = std::async(std::launch::async, execLoad, f); 
     }
-    std::cout << "done" << std::endl;
+    if(verbosity > 0)
+        std::cout << "Done loading GBuffer" << std::endl;
     return gBuffers;
 }
 
@@ -148,6 +155,8 @@ vsg::ref_ptr<vsg::Data> GBufferIO::compressAlbedo(vsg::ref_ptr<vsg::Data> in){
 
 bool GBufferIO::exportGBufferDepth(const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers, int verbosity) 
 {
+    if(verbosity > 0)
+        std::cout << "Start exporting GBuffer" << std::endl;
     auto options = vsg::Options::create(vsgXchange::openexr::create());
     bool fine = true;
     auto execStore = [&](int f){
@@ -194,11 +203,15 @@ bool GBufferIO::exportGBufferDepth(const std::string& depthFormat, const std::st
         std::vector<std::future<void>> threads(numFrames);
         for (int f = 0; f < numFrames; ++f) threads[f] = std::async(std::launch::async, execStore, f); 
     }
+    if(verbosity > 0)
+        std::cout << "Done exporting GBuffer" << std::endl;
     return fine;
 }
 
 bool GBufferIO::exportGBufferPosition(const std::string& positionFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers, const DoubleMatrices& matrices, int verbosity) 
 {
+    if(verbosity > 0)
+        std::cout << "Start exporting GBuffer" << std::endl;
     auto options = vsg::Options::create(vsgXchange::openexr::create());
     bool fine = true;
     auto execStore = [&](int f){
@@ -246,6 +259,8 @@ bool GBufferIO::exportGBufferPosition(const std::string& positionFormat, const s
         std::vector<std::future<void>> threads(numFrames);
         for (int f = 0; f < numFrames; ++f) threads[f] = std::async(std::launch::async, execStore, f); 
     }
+    if(verbosity > 0)
+        std::cout << "Done exporting GBuffer" << std::endl;
     return fine;
 }
 
@@ -274,6 +289,7 @@ vsg::ref_ptr<vsg::Data> GBufferIO::depthToPosition(vsg::ref_ptr<vsg::floatArray2
         uint32_t y = i / depths->width();
         vsg::vec2 p{(x + .5f) / depths->width() * 2 - 1, (y + .5f) / depths->height() * 2 - 1};
         vsg::vec4 dir = matrix.invView * vsg::vec4{p.x, p.y, 1, 0};
+        dir /= dir.w;
         vsg::vec3 direction = vsg::normalize(vsg::vec3{dir.x, dir.y, dir.z});
         direction *= depths->data()[i];
         vsg::vec3 pos = cameraPos + direction;
@@ -358,6 +374,8 @@ void OfflineIllumination::setupStagingBuffer(uint32_t width, uint32_t height){
 
 std::vector<vsg::ref_ptr<OfflineIllumination>> IlluminationBufferIO::importIllumination(const std::string &illuminationFormat, int numFrames, int verbosity)
 {
+    if(verbosity > 0)
+        std::cout << "Start loading Illumination" << std::endl;
     auto options = vsg::Options::create(vsgXchange::openexr::create());
     std::vector<vsg::ref_ptr<OfflineIllumination>> illuminations(numFrames);
     auto execLoad = [&](int f){
@@ -383,6 +401,8 @@ std::vector<vsg::ref_ptr<OfflineIllumination>> IlluminationBufferIO::importIllum
         std::vector<std::future<void>> threads(numFrames);
         for (int f = 0; f < numFrames; ++f) threads[f] = std::async(std::launch::async, execLoad, f); 
     }
+    if(verbosity > 0)
+        std::cout << "Done loading Illumination" << std::endl;
     return illuminations;
 }
 

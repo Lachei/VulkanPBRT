@@ -12,13 +12,15 @@ layout(binding = 8, r8) uniform image2D sampleCounts;
 layout(binding = 9) uniform sampler2D prevSampleCounts;
 layout(binding = 10) uniform sampler2D prevOutput;
 layout(binding = 11, rgba16f) uniform image2D illumination;
-
+layout(binding = 12) uniform sampler2D prevIlluminationSquared;
+layout(binding = 13, rgba16f) uniform image2D illuminationSquared;
 
 layout(push_constant) uniform PushConstants 
 {
 	mat4 view;
 	mat4 inverseView;
 	mat4 prevView;
+    vec4 prevOrigin;
 	uint frameNumber;
 } camParams;
 
@@ -28,17 +30,25 @@ const float BLEND_ALPHA = .1;
 
 void main(){
     ivec2 imageSize = textureSize(srcImage, 0);
+    if(gl_GlobalInvocationID.x >= imageSize.x || gl_GlobalInvocationID.y >= imageSize.y) return;
     vec3 prevColor;
 	vec3 prevColorSquared;
     vec3 normal;
+    normal.xy = imageLoad(normalImage, ivec2(gl_GlobalInvocationID.xy)).xy;
+    normal = vec3(sin(normal.x) * cos(normal.y), sin(normal.x) * sin(normal.y), cos(normal.x));
 	float truePrevDepth;
 	bool reprojected = false;
 	float pixelSpp = 1.0 / 256.0; //has to be normalized as only floating point 8 bit interp is supported
-	mat4 prevProj = camParams.inverseView;
-	vec4 p = vec4(1);
+    vec4 curOrigin = camParams.inverseView[3];
+    curOrigin /= curOrigin.w;
+    vec4 prevOrigin = camParams.prevOrigin;
+    vec2 clipSpaceCoord = ((vec2(gl_GlobalInvocationID.xy) + vec2(.5)) / vec2(imageSize) * 2 - 1);
+    vec4 curDir = camParams.inverseView * vec4(clipSpaceCoord.x, clipSpaceCoord.y, 1, 0);
+    curDir = normalize(curDir);
+    float depth = imageLoad(depthImage, ivec2(gl_GlobalInvocationID.xy)).x;
+	vec4 p = curOrigin + depth * curDir;
+	float preDepth = length(p.xyz - prevOrigin.xyz);
 	vec4 prevPos = camParams.prevView * p;
-	float preDepth = length(prevPos.xyz);
-	prevPos = prevProj * prevPos;
 	prevPos /= prevPos.w; // xy now holds the prev image position
 	prevPos.xy += 1;
 	prevPos.xy *= .5;

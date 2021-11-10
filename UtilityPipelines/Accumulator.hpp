@@ -7,9 +7,11 @@
 
 class Accumulator : public vsg::Inherit<vsg::Object, Accumulator>
 {
+private:
+    int width, height;
 public:
     // Always takes the first image in the illumination buffer and accumulates it
-    Accumulator(vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<IlluminationBuffer> illuminationBuffer, DoubleMatrices &matricesint, int workWidth = 16, int workHeight = 16);
+    Accumulator(vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<IlluminationBuffer> illuminationBuffer, DoubleMatrices &matrices, int workWidth = 16, int workHeight = 16);
 
     void compileImages(vsg::Context &context);
     void updateImageLayouts(vsg::Context &context);
@@ -24,6 +26,7 @@ private:
     struct PushConstants
     {
         vsg::mat4 view, invView, prevView;
+        vsg::vec4 prevPos;
         int frameNumber;
     };
     class PCValue : public vsg::Inherit<vsg::Value<PushConstants>, PCValue>
@@ -32,7 +35,7 @@ private:
         PCValue(){}
     };
     std::string shaderPath = "shaders/accumulator.comp.spv";
-    int width, height, workWidth, workHeight;
+    int workWidth, workHeight;
     vsg::ref_ptr<GBuffer> gBuffer;
     vsg::ref_ptr<IlluminationBuffer> originalIllumination;
     DoubleMatrices matrices;

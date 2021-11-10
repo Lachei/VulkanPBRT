@@ -9,6 +9,7 @@
 #include "gui.hpp"
 #include "RenderIO.hpp"
 #include "UtilityPipelines/FormatConverter.hpp"
+#include "UtilityPipelines/Accumulator.hpp"
 
 #include <vsgXchange/models.h>
 #include <vsgXchange/images.h>
@@ -313,6 +314,16 @@ int main(int argc, char** argv){
             offlineIlluminationBufferStager->uploadToIlluminationBufferCommand(illuminationBuffer, commands, imageLayoutCompile.context);
         }
 
+        vsg::ref_ptr<Accumulator> accumulator;
+        if(externalRenderings && denoisingType != DenoisingType::None){
+            accumulator = Accumulator::create(gBuffer, illuminationBuffer, cameraMatrices);
+            accumulator->addDispatchToCommandGraph(commands);
+            accumulationBuffer = accumulator->accumulationBuffer;
+            illuminationBuffer->compile(imageLayoutCompile.context);
+            illuminationBuffer->updateImageLayouts(imageLayoutCompile.context);
+            illuminationBuffer = accumulator->accumulatedIllumination;  //swap illumination buffer to accumulated illumination for correct use in the following pipelines
+        }
+
         vsg::ref_ptr<vsg::DescriptorImage> finalDescriptorImage;  
         switch(denoisingType){
         case DenoisingType::None:
@@ -504,6 +515,8 @@ int main(int argc, char** argv){
                 int frame = offlineGBuffers.size() - 1 - numFrames;     //invert numFrames as it is counting down
                 offlineGBufferStager->transferStagingDataFrom(offlineGBuffers[frame]);
                 offlineIlluminationBufferStager->transferStagingDataFrom(offlineIlluminations[frame]);
+                if(accumulator)
+                    accumulator->setFrameIndex(frame);
             }
             
             viewer->handleEvents();
