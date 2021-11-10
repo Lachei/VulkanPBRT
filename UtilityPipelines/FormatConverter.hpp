@@ -1,9 +1,10 @@
 #pragma once
 #include <vsg/all.h>
 
-class FormatConverter: public vsg::Inherit<vsg::Object, FormatConverter>{
+class FormatConverter: public vsg::Inherit<vsg::Object, FormatConverter>
+{
 public:
-    FormatConverter(vsg::ref_ptr<vsg::ImageView> srcImage, VkFormat dstFormat, int workX = 16, int workY = 16);
+    FormatConverter(vsg::ref_ptr<vsg::ImageView> srcImage, VkFormat dstFormat, int workWidth = 16, int workHeight = 16);
 
     void compileImages(vsg::Context& context);
     void updateImageLayouts(vsg::Context& context);
