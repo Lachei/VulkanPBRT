@@ -1,1 +1,77 @@
 #version 450
+
+layout(binding = 0) uniform sampler2D srcImage;
+layout(binding = 1, r32f) uniform image2D depthImage;
+layout(binding = 2, rg32f) uniform image2D normalImage;
+layout(binding = 3, rgba8) uniform image2D materialImage;
+layout(binding = 4, rgba8) uniform image2D albedoImage;
+layout(binding = 5) uniform sampler2D prevDepth;
+layout(binding = 6) uniform sampler2D prevNormal;
+layout(binding = 7, r16f) uniform image2D motion;
+layout(binding = 8, r8) uniform image2D sampleCounts;
+layout(binding = 9) uniform sampler2D prevSampleCounts;
+layout(binding = 10) uniform sampler2D prevOutput;
+layout(binding = 11, rgba16f) uniform image2D illumination;
+
+
+layout(push_constant) uniform PushConstants 
+{
+	mat4 view;
+	mat4 inverseView;
+	mat4 prevView;
+	uint frameNumber;
+} camParams;
+
+layout (local_size_x_id = 0,local_size_y_id = 1,local_size_z=1) in;
+
+const float BLEND_ALPHA = .1;
+
+void main(){
+    ivec2 imageSize = textureSize(srcImage, 0);
+    vec3 prevColor;
+	vec3 prevColorSquared;
+    vec3 normal;
+	float truePrevDepth;
+	bool reprojected = false;
+	float pixelSpp = 1.0 / 256.0; //has to be normalized as only floating point 8 bit interp is supported
+	mat4 prevProj = camParams.inverseView;
+	vec4 p = vec4(1);
+	vec4 prevPos = camParams.prevView * p;
+	float preDepth = length(prevPos.xyz);
+	prevPos = prevProj * prevPos;
+	prevPos /= prevPos.w; // xy now holds the prev image position
+	prevPos.xy += 1;
+	prevPos.xy *= .5;
+	prevPos.xy *= vec2(imageSize.xy) / vec2(imageSize.xy - .5);
+	ivec2 prevPixelIndex = ivec2(prevPos.xy * (imageSize.xy - vec2(1)) + .5f);
+	if(camParams.frameNumber > 0){
+		//depth check
+		truePrevDepth = texture(prevDepth, prevPos.xy).x;
+		float depthDissim = (truePrevDepth / preDepth) - 1;	//using relative error of depths to blend pixels further away form camera together
+		if(all(greaterThanEqual(prevPos.xy, vec2(0))) && all(lessThanEqual(prevPos.xy, vec2(1))) && abs(depthDissim) <= .01f){		//dissimilarity in depth values shoudl be smaller than 1%
+			//normal check
+			vec3 prevNor;
+			prevNor.xy = texture(prevNormal, prevPos.xy).xy;
+			prevNor = vec3(sin(prevNor.x) * cos(prevNor.y), sin(prevNor.x) * sin(prevNor.y), cos(prevNor.x));
+			if(dot(normal, prevNor) > .7f){	//we do have a point which can be reprojected
+				reprojected = true;
+				prevColor = texture(prevOutput, prevPos.xy).xyz;
+				pixelSpp += texture(prevSampleCounts, prevPos.xy).x;
+			}
+		}
+	}
+	if(reprojected){
+		imageStore(motion, ivec2(gl_GlobalInvocationID.xy), vec4(prevPos.xy, 1, 1));
+	}
+	else{
+		imageStore(motion, ivec2(gl_GlobalInvocationID.xy), vec4(-1));
+	}
+	imageStore(sampleCounts, ivec2(gl_GlobalInvocationID.xy), vec4(pixelSpp));
+
+    vec3 demodulated = texelFetch(srcImage, ivec2(gl_GlobalInvocationID.xy), 0).xyz;
+	if(reprojected){
+		float blendAlpha = max(1.f / (pixelSpp * 256.0), BLEND_ALPHA);
+		demodulated = mix(prevColor, demodulated, blendAlpha);
+	}
+	imageStore(illumination, ivec2(gl_GlobalInvocationID.xy), vec4(demodulated, 1));
+}

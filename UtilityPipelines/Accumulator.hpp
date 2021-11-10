@@ -23,7 +23,8 @@ public:
 private:
     struct PushConstants
     {
-        vsg::mat4 view, invView;
+        vsg::mat4 view, invView, prevView;
+        int frameNumber;
     };
     class PCValue : public vsg::Inherit<vsg::Value<PushConstants>, PCValue>
     {
@@ -38,5 +39,6 @@ private:
     int frameIndex = 0;
     vsg::ref_ptr<vsg::BindComputePipeline> bindPipeline;
     vsg::ref_ptr<vsg::BindDescriptorSet> bindDescriptorSet;
-    vsg::ref_ptr<PCValue> pushConstants;
+    vsg::ref_ptr<vsg::PushConstants> pushConstants;
+    vsg::ref_ptr<PCValue> pushConstantsValue;
 };

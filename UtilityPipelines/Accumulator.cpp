@@ -1,4 +1,5 @@
 #include "Accumulator.hpp"
+
 Accumulator::Accumulator(vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<IlluminationBuffer> illuminationBuffer, DoubleMatrices& matricesint, int workWidth, int workHeight):
     width(gBuffer->depth->imageInfoList[0].imageView->image->extent.width),
     height(gBuffer->depth->imageInfoList[0].imageView->image->extent.height),
@@ -30,9 +31,11 @@ Accumulator::Accumulator(vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<Illuminatio
     gBuffer->updateDescriptor(bindDescriptorSet, bindingMap);
     accumulationBuffer->updateDescriptor(bindDescriptorSet, bindingMap);
     
-    pushConstants = PCValue::create();
-    pushConstants->value().view = matrices[frameIndex].view;
-    pushConstants->value().invView = matrices[frameIndex].invView;
+    pushConstantsValue = PCValue::create();
+    pushConstantsValue->value().view = matrices[frameIndex].view;
+    pushConstantsValue->value().invView = matrices[frameIndex].invView;
+    pushConstantsValue->value().frameNumber = frameIndex;
+    pushConstants = vsg::PushConstants::create(VK_SHADER_STAGE_COMPUTE_BIT, 0, pushConstantsValue);
 }
 
 void Accumulator::compileImages(vsg::Context &context) 
@@ -59,4 +62,9 @@ void Accumulator::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandG
 void Accumulator::setFrameIndex(int frame) 
 {
     frameIndex = frame;
+    pushConstantsValue->value().view = matrices[frameIndex].view;
+    pushConstantsValue->value().invView = matrices[frameIndex].invView;
+    if(frameIndex != 0)
+        pushConstantsValue->value().prevView = matrices[frameIndex - 1].view;
+    pushConstantsValue->value().frameNumber = frameIndex;
 }

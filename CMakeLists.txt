@@ -47,6 +47,7 @@ set(SHADERS
     bmfrFit.comp
     bmfrFitLegacy.comp
     bmfrPost.comp
+    accumulator.comp
 )
 
 set(UNCOMPILED_SHADERS
