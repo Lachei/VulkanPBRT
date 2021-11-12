@@ -89,10 +89,10 @@ vsg::ref_ptr<IlluminationBuffer> PBRTPipeline::getIlluminationBuffer() const
 void PBRTPipeline::setupPipeline(vsg::Node* scene, bool useExternalGbuffer, IlluminationBufferType illuminationBufferType)
 {
     //creating the shader stages and shader binding table
-    std::string raygenPath = "shaders/raygen.rgen"; //raygen shader not yet precompiled
-    std::string raymissPath = "shaders/miss.rmiss.spv";
+    std::string raygenPath = "shaders/ptRaygen.rgen"; //raygen shader not yet precompiled
+    std::string raymissPath = "shaders/ptMiss.rmiss.spv";
     std::string shadowMissPath = "shaders/shadow.rmiss.spv";
-    std::string closesthitPath = "shaders/pbr_closesthit.rchit.spv";
+    std::string closesthitPath = "shaders/ptClosesthit.rchit.spv";
     std::string anyHitPath = "shaders/alpha_hit.rahit.spv";
 
     auto raygenShader = setupRaygenShader(raygenPath, useExternalGbuffer, illuminationBufferType);

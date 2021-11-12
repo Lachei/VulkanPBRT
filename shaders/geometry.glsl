@@ -39,6 +39,21 @@ Vertex unpackVertex(uint index, uint objId){
     return v;
 };
 
+WaveFrontMaterial unpackMaterial(WaveFrontMaterialPacked p){
+    WaveFrontMaterial m;
+    m.ambient = p.ambientShininess.xyz;
+    m.diffuse = p.diffuseIor.xyz;
+    m.specular = p.specularDissolve.xyz;
+    m.transmittance = p.transmittanceIllum.xyz;
+    m.emission = p.emissionTextureId.xyz;
+    m.shininess = p.ambientShininess.w;
+    m.ior = p.diffuseIor.w;
+    m.dissolve = p.specularDissolve.w;
+    m.illum = int(p.transmittanceIllum.w);
+    m.alphaCutoff = p.emissionTextureId.w;
+    return m;
+};
+
 //tangent bitangent calculation as in https://wiki.delphigl.com/index.php/TBN_Matrix
 vec3 getTangent(vec3 A, vec3 B, vec3 C,  vec2 Auv, vec2 Buv, vec2 Cuv)
 {
@@ -73,11 +88,6 @@ vec3 getNormal(mat3 TBN, sampler2D normalMap, vec2 uv)
     vec3 tangentNormal = texture(normalMap, uv).xyz * 2.0 - 1.0;
   
     return normalize(TBN * tangentNormal);
-}
-
-vec3 blerp(vec2 b, vec3 p1, vec3 p2, vec3 p3)
-{
-    return (1.0 - b.x - b.y) * p1 + b.x * p2 + b.y * p3;
 }
 
 #endif //GEOMETRY_H

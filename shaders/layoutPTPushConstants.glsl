@@ -1,5 +1,5 @@
-#ifndef LAYOUTRTPUSHCONSTANTS_H 
-#define LAYOUTRTPUSHCONSTANTS_H
+#ifndef LAYOUTPTPUSHCONSTANTS_H 
+#define LAYOUTPTPUSHCONSTANTS_H
 
 layout(push_constant) uniform PushConstants 
 {
@@ -10,4 +10,4 @@ layout(push_constant) uniform PushConstants
 	uint sampleNumber;
 } camParams;
 
-#endif //LAYOUTRTPUSHCONSTANTS_H
+#endif //LAYOUTPTPUSHCONSTANTS_H

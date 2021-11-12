@@ -1,5 +1,5 @@
-#ifndef LAYOUTRTIMAGES_H
-#define LAYOUTRTIMAGES_H
+#ifndef LAYOUTPTIMAGES_H
+#define LAYOUTPTIMAGES_H
 
 #ifdef FINAL_IMAGE
 layout(binding = 1, set = 0, rgba8) uniform image2D outputImage;
@@ -30,4 +30,4 @@ layout(binding = 27, rgba16f) uniform image2D illuminationSquared;
 layout(binding = 28) uniform sampler2D prevIlluminationSquared;
 #endif
 
-#endif //LAYOUTRTIMAGES_H
+#endif //LAYOUTPTIMAGES_H

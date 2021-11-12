@@ -1,6 +1,12 @@
 #ifndef SAMPLING_H
 #define SAMPLING_H
 
+#include "ptConstants.glsl"
+#include "math.glsl"
+#include "random.glsl"
+#include "color.glsl"
+#include "brdf.glsl"
+
 // sampling half-angle directions from GGX normal distribution
 vec3 sampleGGX(vec2 r, float alpha2){
     float phi = 2 * PI * r.x;
@@ -38,12 +44,6 @@ vec3 sampleBRDF(SurfaceInfo s, RandomEngine re, vec3 v,out vec3 l,out float pdf)
     }
     pdf = pdfBRDF(s, v, l, h);
     return BRDF(v, l, h, s);
-}
-
-float powerHeuristics(float a, float b){
-    float f = a * a;
-    float g = b * b;
-    return f / (f + g);
 }
 
 #endif //SAMPLING_H

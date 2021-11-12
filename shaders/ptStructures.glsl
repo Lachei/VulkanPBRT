@@ -67,17 +67,6 @@ struct RandomEngine{
     uvec2 state;
 };
 
-struct PBRInfo
-{
-    float NdotL;                  // cos angle between normal and light direction
-    float NdotV;                  // cos angle between normal and view direction
-    float NdotH;                  // cos angle between normal and half vector
-    float LdotH;                  // cos angle between light direction and half vector
-    float VdotH;                  // cos angle between view direction and half vector
-    float VdotL;                  // cos angle between view direction and light direction
-    SurfaceInfo s;                // surface information
-};
-
 // Encapsulate the various inputs used by the various functions in the shading equation
 // We store values in this struct to simplify the integration of alternative implementations
 // of the shading terms, outlined in the Readme.MD Appendix.

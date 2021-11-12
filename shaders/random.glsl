@@ -4,10 +4,6 @@
 // Improvement could be made by using https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-37-efficient-random-number-generation-and-application
 // for shorter version see https://math.stackexchange.com/questions/337782/pseudo-random-number-generation-on-the-gpu
 
-struct RandomEngine{
-    uvec2 state;
-};
-
 uint rotl(uint x, uint k){
     return (x << k) | (x >> (32 - k));
 }
@@ -39,11 +35,6 @@ vec2 randomVec2(inout RandomEngine e){
 
 vec3 randomVec3(inout RandomEngine e){
     return vec3(randomFloat(e), randomFloat(e), randomFloat(e));
-}
-
-vec2 sampleTriangle(vec2 u){
-    float uxsqrt = sqrt(u.x);
-    return vec2(1.0f - uxsqrt, u.y * uxsqrt);
 }
 
 // Thomas Wang 32-bit hash.

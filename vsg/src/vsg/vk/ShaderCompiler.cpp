@@ -230,7 +230,7 @@ bool ShaderCompiler::compile(ShaderStages& shaders, const std::vector<std::strin
             INFO_OUTPUT << std::endl
                         << "----  " << getFriendlyNameForShader(vsg_shader) << "  ----" << std::endl
                         << std::endl;
-            INFO_OUTPUT << debugFormatShaderSource(vsg_shader->module->source) << std::endl;
+            INFO_OUTPUT << debugFormatShaderSource(finalShaderSource) << std::endl;
             INFO_OUTPUT << "Warning: GLSL source failed to parse." << std::endl;
             INFO_OUTPUT << "glslang info log: " << std::endl
                         << shader->getInfoLog();
@@ -545,7 +545,8 @@ std::string ShaderCompiler::readShaderSource(const Path& filename, const Paths& 
     std::ifstream fin(foundFile);
     std::stringstream buffer;
     buffer << fin.rdbuf();
-    return buffer.str();
+    std::string ret = insertIncludes(buffer.str(), paths); //recursiveley resolve includes
+    return ret;
 }
 
 void ShaderCompiler::apply(Node& node)

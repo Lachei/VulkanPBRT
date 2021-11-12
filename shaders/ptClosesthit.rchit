@@ -3,14 +3,17 @@
 #extension GL_EXT_ray_tracing : enable
 #extension GL_EXT_nonuniform_qualifier : enable
 
-#include "rtStructures.glsl"
-#include "layoutRTGeometry.glsl"
-#include "layoutRTGeometryImages.glsl"
-#incldue "layoutRtUniform.glsl"
+#include "ptStructures.glsl"
+#include "layoutPTGeometry.glsl"
+#include "layoutPTGeometryImages.glsl"
+#include "layoutPTUniform.glsl"
 
-layout(location = 0) rayPayloadEXT bool shadowed;
-layout(location = 1) rayPayloadEXT RayPayload rayPayload;
+layout(location = 1) rayPayloadInEXT RayPayload rayPayload;
 hitAttributeEXT vec2 attribs;
+
+#include "ptConstants.glsl"
+#include "geometry.glsl"
+#include "color.glsl"
 
 void main()
 {
@@ -20,9 +23,9 @@ void main()
     uint indexStride = int(instances.i[gl_InstanceCustomIndexEXT].indexStride);
     uvec3 index = unpackIndex(objId, gl_PrimitiveID, indexStride);
 
-    Vertex v0 = unpack(index.x, objId);
-	Vertex v1 = unpack(index.y, objId);
-	Vertex v2 = unpack(index.z, objId);
+    Vertex v0 = unpackVertex(index.x, objId);
+	Vertex v1 = unpackVertex(index.y, objId);
+	Vertex v2 = unpackVertex(index.z, objId);
 
     const vec3 bar = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
     vec2 texCoord = v0.uv * bar.x + v1.uv * bar.y + v2.uv * bar.z;
@@ -43,7 +46,7 @@ void main()
     mat3 TBN = gramSchmidt(T, B, normal);
     normal = getNormal(TBN, normalMap[nonuniformEXT(objId)], texCoord);
 
-    WaveFrontMaterial mat = unpack(materials.m[objId]);
+    WaveFrontMaterial mat = unpackMaterial(materials.m[objId]);
     float perceptualRoughness = 0;
     float metallic;
     vec4 baseColor = diffuse * vec4(mat.ambient, 1);
@@ -78,12 +81,11 @@ void main()
     vec3 specularEnvironmentR0 = specularColor.rgb;
     vec3 specularEnvironmentR90 = vec3(1) * reflectance90;
     vec3 v = normalize(-gl_WorldRayDirectionEXT);
-
-    rayPayload.si = SurfaceInfo(perceptualRoughness, metallic, specularEnvironmentR0, specularEnvironmentR90, alphaRoughness, diffuseColor, specularColor, normal, TBN);
-
     //surface emission
-    rayPayload.emissiveColor = mat.emission * SRGBtoLINEAR(texture(emissiveMap[nonuniformEXT(objId)], texCoord)).rgb;
-    if(dot(v, normal) < 0) rayPayload.emissiveColor = vec3(0);
+    vec3 emissiveColor = mat.emission * SRGBtoLINEAR(texture(emissiveMap[nonuniformEXT(objId)], texCoord)).rgb;
+    if(dot(v, normal) < 0) emissiveColor = vec3(0);
+
+    rayPayload.si = SurfaceInfo(perceptualRoughness, metallic, alphaRoughness, specularEnvironmentR0, specularEnvironmentR90, diffuseColor, specularColor, emissiveColor, normal, TBN);
 
     rayPayload.position = position;
 }

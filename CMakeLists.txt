@@ -46,11 +46,30 @@ set(SHADERS
     bmfrFit.comp
     bmfrFitLegacy.comp
     bmfrPost.comp
+    ptRaygen.rgen
+    ptClosesthit.rchit
+    ptMiss.rmiss
 )
 
 set(UNCOMPILED_SHADERS
-    raygen.rgen
-    general.glsl
+    brdf.glsl
+    geometry.glsl
+    layoutPTAccel.glsl
+    layoutPTGeometry.glsl
+    layoutPTGeometryImages.glsl
+    layoutPTImages.glsl
+    layoutPTLights.glsl
+    layoutPTPushConstants.glsl
+    layoutPTUniform.glsl
+    lighting.glsl
+    math.glsl
+    ptConstants.glsl
+    ptStructures.glsl
+    random.glsl
+    sampling.glsl
+    camera.glsl
+    color.glsl
+    ptRaygen.rgen
 )
 
 add_executable(VulkanPBRT ${SRC} ${VSG_ALL})

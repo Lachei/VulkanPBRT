@@ -1,5 +1,5 @@
-#ifndef LAYOUTRTUNIFORM_H
-#define LAYOUTRTUNIFORM_H
+#ifndef LAYOUTPTUNIFORM_H
+#define LAYOUTPTUNIFORM_H
 
 layout(binding = 26) uniform Infos{
   uint lightCount;
@@ -7,4 +7,4 @@ layout(binding = 26) uniform Infos{
   uint maxRecursionDepth;
 }infos;
 
-#endif // LAYOUTRTUNIFORM_H
+#endif // LAYOUTPTUNIFORM_H
