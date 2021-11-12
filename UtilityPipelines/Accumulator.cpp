@@ -71,7 +71,7 @@ void Accumulator::setFrameIndex(int frame)
     pushConstantsValue->value().invView = matrices[frameIndex].invView;
     if(frameIndex != 0){
         pushConstantsValue->value().prevView = matrices[frameIndex - 1].view;
-        pushConstantsValue->value().prevPos = matrices[frameIndex - 1].invView[3];
+        pushConstantsValue->value().prevPos = matrices[frameIndex - 1].invView[2];
         pushConstantsValue->value().prevPos /= pushConstantsValue->value().prevPos.w;
     }
     pushConstantsValue->value().frameNumber = frameIndex;

@@ -83,7 +83,7 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::importGBufferPosition(const
             }
             float* depth = new float[posArray->valueCount()];
             auto toVec3 = [&](vsg::vec4 v){return vsg::vec3(v.x, v.y, v.z);};
-            vsg::vec4 cameraPos = matrices[f].invView[3];
+            vsg::vec4 cameraPos = matrices[f].invView[2];
             cameraPos /= cameraPos.w;
             for(uint32_t i = 0; i < posArray->valueCount() ; ++i){
                 vsg::vec3 p = toVec3(posArray->data()[i]);
@@ -283,16 +283,17 @@ vsg::ref_ptr<vsg::Data> GBufferIO::depthToPosition(vsg::ref_ptr<vsg::floatArray2
     if(!depths) return {};
     vsg::vec4* res = new vsg::vec4[depths->valueCount()];
     auto toVec3 = [&](vsg::vec4 v){return vsg::vec3(v.x, v.y, v.z);};
-    vsg::vec3 cameraPos = toVec3(matrix.invView[3]);
+    vsg::vec4 cameraPos = matrix.invView[2];
+    cameraPos /= cameraPos.w;
     for(uint32_t i = 0; i < depths->valueCount(); ++i){
         uint32_t x = i % depths->width();
         uint32_t y = i / depths->width();
         vsg::vec2 p{(x + .5f) / depths->width() * 2 - 1, (y + .5f) / depths->height() * 2 - 1};
-        vsg::vec4 dir = matrix.invView * vsg::vec4{p.x, p.y, 1, 0};
-        dir /= dir.w;
+        vsg::vec4 dir = matrix.invView * vsg::vec4{p.x, p.y, 1, 1};
+        dir /= dir.w + 1e-9;
         vsg::vec3 direction = vsg::normalize(vsg::vec3{dir.x, dir.y, dir.z});
         direction *= depths->data()[i];
-        vsg::vec3 pos = cameraPos + direction;
+        vsg::vec3 pos = toVec3(cameraPos) - direction;
         res[i].x = pos.x;
         res[i].y = pos.y;
         res[i].z = pos.z;
