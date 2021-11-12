@@ -1,5 +1,6 @@
 #ifndef LAYOUTPTGEOMETRY_H
 #define LAYOUTPTGEOMETRY_H
+#include "ptStructures.glsl"
 
 layout(binding = 2) buffer Pos {float p[]; }     pos[];  //non interleaved positions, normals and texture arrays
 layout(binding = 3) buffer Nor {float n[]; }     nor[];

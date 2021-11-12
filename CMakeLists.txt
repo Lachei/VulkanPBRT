@@ -31,14 +31,8 @@ set(SRC ${SRC_TOP} ${SRC_NESTED})
 list(FILTER SRC EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/vsg/.*" )
 
 set(SHADERS
-    pbr_closesthit.rchit
-    miss.rmiss
     shadow.rmiss
-    raygen.rgen
-    alpha_hit.rahit
-    simple_closesthit.rchit
-    simple_miss.rmiss
-    simple_raygen.rgen
+    ptAlphaHit.rahit
     bfr.comp
     taa.comp
     bfrBlender.comp
