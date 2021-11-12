@@ -10,7 +10,7 @@ layout(binding = 4, rg16f) uniform image2D motion;
 layout(binding = 5, r8) uniform image2D samples;
 layout(binding = 6) uniform sampler2DArray denoisedSampled; //one spot for current frame denoised illumination, one for previous
 layout(binding = 7, rgba8) uniform image2D finalImage;
-layout(binding = 8, rgba16f) uniform image2D noisy;
+layout(binding = 8) uniform sampler2D noisy;
 layout(binding = 9, rgba16f) uniform image2DArray denoised;
 
 layout(push_constant) uniform PushConstants 
@@ -217,7 +217,7 @@ void main(){
     //--------------------------------------------------------------------------
     //  Noise accumulation done by raytracer, only reading out accumulated illumination
     //--------------------------------------------------------------------------
-    vec3 new_color = imageLoad(noisy, cur_image_pos).xyz;
+    vec3 new_color = texelFetch(noisy, cur_image_pos,0).xyz;
     float cur_screen_depth = imageLoad(depth, cur_image_pos).x;
     vec2 compressedNormal = imageLoad(normal, cur_image_pos).xy;
     vec3 normal;

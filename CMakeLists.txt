@@ -1,4 +1,4 @@
- cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.7)
  
 project(VulkanPBRT
     VERSION 1.0.0
@@ -26,7 +26,8 @@ file(GLOB SRC_TOP
        ${PROJECT_SOURCE_DIR}/*.cpp)
 file(GLOB_RECURSE SRC_NESTED
        ${PROJECT_SOURCE_DIR}/TAA/*.cpp
-	   ${PROJECT_SOURCE_DIR}/Denoiser/*.cpp)
+	   ${PROJECT_SOURCE_DIR}/Denoiser/*.cpp
+       ${PROJECT_SOURCE_DIR}/UtilityPipelines/*.cpp)
 set(SRC ${SRC_TOP} ${SRC_NESTED})
 list(FILTER SRC EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/vsg/.*" )
 
@@ -46,11 +47,13 @@ set(SHADERS
     bmfrFit.comp
     bmfrFitLegacy.comp
     bmfrPost.comp
+    accumulator.comp
 )
 
 set(UNCOMPILED_SHADERS
     raygen.rgen
     general.glsl
+    formatConverter.comp
 )
 
 add_executable(VulkanPBRT ${SRC} ${VSG_ALL})

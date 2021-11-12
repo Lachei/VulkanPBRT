@@ -8,7 +8,7 @@ layout(binding = 4, rg16f) uniform image2D motion;
 layout(binding = 5, r8) uniform image2D samples;
 layout(binding = 6) uniform sampler2DArray denoisedSampled; //one spot for current frame denoised illumination, one for previous
 layout(binding = 7, rgba8) uniform image2D finalImage;
-layout(binding = 8, rgba16f) uniform image2D noisy;
+layout(binding = 8) uniform sampler2D noisy;
 layout(binding = 9, rgba16f) uniform image2DArray denoised;
 layout(binding = 10, r16f) uniform image2DArray featureBuffer;
 layout(binding = 11, r32f) uniform image2DArray weights;
@@ -36,7 +36,7 @@ const float EPS = 1e-6;
 const vec2 pixelOffsets[] = { {.7, .85}, {.95, .5}, {.43, .76}, {.97, .03}, {.37, .58}, {.03, .36}, {.81, .46}, {0, .78}, {.36, -.08}, {-.06, 0}, {.95, .1}, {.85, .61}, {.06, .1}, {.43, .16}, {0, .5}, {.73, .38} };
 const uint ALPHA_SIZE = 13;  //contains the features and the noisy pixels: 1, vec3 normal, vec3 worldPos, vec3 worldPos^2
 const float SECOND_BLEND_ALPHA = 0.1f;
-const float NOISE_AMOUNT = 1e-2;
+const float NOISE_AMOUNT = 1e-4;
 const int R_EDGE = int(ALPHA_SIZE) - 2;
 const int PIXEL_BLOCK = PIXEL_BLOCK_WIDTH * PIXEL_BLOCK_WIDTH;
 //-------------------------------------------------------

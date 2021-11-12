@@ -6,7 +6,7 @@
 #extension GL_GOOGLE_include_directive : enable
 
 layout(binding = 0, rg16f) uniform image2D prev_frame_pixel;
-layout(binding = 1, rgba16f) uniform image2D denoised;
+layout(binding = 1) uniform sampler2D denoised;
 layout(binding = 2, rgba8) uniform image2D finalImage;
 layout(binding = 3) uniform sampler2D accumulation;
 //Note: the resulting tone mapped colors for the current imamge are in accs while the samples of the previous frame are in prev_accs
@@ -49,7 +49,7 @@ void main(){
 	vec2 imSize = vec2(IMAGE_WIDTH, IMAGE_HEIGHT);
 	if(gl_GlobalInvocationID.x >= imSize.x || gl_GlobalInvocationID.y >= imSize.y) return;
 
-	vec3 cur_albedo = imageLoad(denoised, ivec2(gl_GlobalInvocationID.xy)).xyz;
+	vec3 cur_albedo = texelFetch(denoised, ivec2(gl_GlobalInvocationID.xy), 0).xyz;
 
 	// Loads value wich tells where this pixel was in the previous frame.
 	vec2 prev_frame_pixel = imageLoad(prev_frame_pixel,ivec2(gl_GlobalInvocationID)).xy;
@@ -71,7 +71,7 @@ void main(){
 				
 				vec3 sample_color;
 				if(x==0 && y == 0) sample_color = cur_albedo;
-				else sample_color = imageLoad(denoised, ivec2(sample_location)).xyz;			//getting the new tone mapped value
+				else sample_color = texelFetch(denoised, ivec2(sample_location), 0).xyz;			//getting the new tone mapped value
 
 				sample_color = RGB_to_YCoCg(sample_color);
 
