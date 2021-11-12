@@ -63,10 +63,6 @@ struct Light{
     vec4 strengths;
 };
 
-struct RandomEngine{
-    uvec2 state;
-};
-
 // Encapsulate the various inputs used by the various functions in the shading equation
 // We store values in this struct to simplify the integration of alternative implementations
 // of the shading terms, outlined in the Readme.MD Appendix.
