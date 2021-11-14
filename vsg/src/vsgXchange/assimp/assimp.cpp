@@ -10,6 +10,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
+#include "3DFrontImporter.h"
+
 #include <vsgXchange/models.h>
 
 #include "assimp_pbr.h"
@@ -268,6 +270,7 @@ bool assimp::getFeatures(Features& features) const
 {
     std::string suported_extensions;
     Assimp::Importer importer;
+    importer.RegisterLoader(new AI3DFrontImporter);
     importer.GetExtensionList(suported_extensions);
 
     vsg::ReaderWriter::FeatureMask supported_features = static_cast<vsg::ReaderWriter::FeatureMask>(vsg::ReaderWriter::READ_FILENAME | vsg::ReaderWriter::READ_ISTREAM | vsg::ReaderWriter::READ_MEMORY);
@@ -829,6 +832,7 @@ assimp::Implementation::BindState assimp::Implementation::processMaterials(const
 vsg::ref_ptr<vsg::Object> assimp::Implementation::read(const vsg::Path& filename, vsg::ref_ptr<const vsg::Options> options) const
 {
     Assimp::Importer importer;
+    importer.RegisterLoader(new AI3DFrontImporter);
 
     if (const auto ext = vsg::lowerCaseFileExtension(filename); importer.IsExtensionSupported(ext))
     {
@@ -867,6 +871,7 @@ vsg::ref_ptr<vsg::Object> assimp::Implementation::read(std::istream& fin, vsg::r
     if (!options) return {};
 
     Assimp::Importer importer;
+    importer.RegisterLoader(new AI3DFrontImporter);
     if (importer.IsExtensionSupported(options->extensionHint))
     {
         std::string buffer(1 << 16, 0); // 64kB
@@ -897,6 +902,7 @@ vsg::ref_ptr<vsg::Object> assimp::Implementation::read(const uint8_t* ptr, size_
     if (!options) return {};
 
     Assimp::Importer importer;
+    importer.RegisterLoader(new AI3DFrontImporter);
     if (importer.IsExtensionSupported(options->extensionHint))
     {
         if (auto scene = importer.ReadFileFromMemory(ptr, size, _importFlags); scene)
