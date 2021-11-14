@@ -1,5 +1,8 @@
 #include "3DFrontImporter.h"
 
+#include <fstream>
+#include <nlohmann/json.hpp>
+
 static const aiImporterDesc desc = {
     "3D-FRONT scene importer",
     "",
@@ -23,5 +26,8 @@ const aiImporterDesc* AI3DFrontImporter::GetInfo() const
 }
 void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene, Assimp::IOSystem* pIOHandler)
 {
+    std::ifstream scene_file(pFile);
+    nlohmann::json scene_json;
+    scene_file >> scene_json;
     // TODO
 }
