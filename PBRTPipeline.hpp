@@ -19,8 +19,8 @@ enum class RayTracingRayOrigin
 class PBRTPipeline : public vsg::Inherit<vsg::Object, PBRTPipeline>
 {
 public:
-    PBRTPipeline(uint32_t width, uint32_t height, uint32_t maxRecursionDepth, vsg::Node* scene, vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<AccumulationBuffer> accumulationBuffer,
-                 IlluminationBufferType illuminationBufferType, bool writeGBuffer, RayTracingRayOrigin rayTracingRayOrigin);
+    PBRTPipeline(vsg::ref_ptr<vsg::Node> scene, vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<AccumulationBuffer> accumulationBuffer,
+                 vsg::ref_ptr<IlluminationBuffer> illuminationBuffer, bool writeGBuffer, RayTracingRayOrigin rayTracingRayOrigin);
 
     void setTlas(vsg::ref_ptr<vsg::AccelerationStructure> as);
     void compile(vsg::Context& context);
@@ -28,8 +28,8 @@ public:
     void addTraceRaysToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants);
     vsg::ref_ptr<IlluminationBuffer> getIlluminationBuffer() const;
 private:
-    void setupPipeline(vsg::Node* scene, bool useExternalGBuffer, IlluminationBufferType illuminationBufferType);
-    vsg::ref_ptr<vsg::ShaderStage> setupRaygenShader(std::string raygenPath, bool useExternalGBuffer, IlluminationBufferType illuminationBufferType);
+    void setupPipeline(vsg::Node* scene, bool useExternalGBuffer);
+    vsg::ref_ptr<vsg::ShaderStage> setupRaygenShader(std::string raygenPath, bool useExternalGBuffer);
 
     std::vector<bool> opaqueGeometries;
     uint32_t width, height, maxRecursionDepth, samplePerPixel;

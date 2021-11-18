@@ -254,3 +254,41 @@ void IlluminationBufferDemodulated::fillImages()
     imageInfo = {nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
     illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
 }
+
+IlluminationBufferDemodulatedFloat::IlluminationBufferDemodulatedFloat(uint32_t width, uint32_t height) 
+{
+    this->width = width;
+    this->height = height;
+    illuminationBindings.push_back("illumination");
+    illuminationBindings.push_back("illuminationSquared");
+    fillImages();
+}
+
+void IlluminationBufferDemodulatedFloat::fillImages()
+{
+    auto image = vsg::Image::create();
+    image->imageType = VK_IMAGE_TYPE_2D;
+    image->format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    image->extent.width = width;
+    image->extent.height = height;
+    image->extent.depth = 1;
+    image->mipLevels = 1;
+    image->arrayLayers = 1;
+    image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+    auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+    vsg::ImageInfo imageInfo = {nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
+    illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
+
+    image = vsg::Image::create();
+    image->imageType = VK_IMAGE_TYPE_2D;
+    image->format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    image->extent.width = width;
+    image->extent.height = height;
+    image->extent.depth = 1;
+    image->mipLevels = 1;
+    image->arrayLayers = 1;
+    image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
+    imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+    imageInfo = {nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
+    illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
+}

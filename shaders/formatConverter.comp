@@ -1,0 +1,14 @@
+#version 450
+#pragma import_defines (FORMAT rgba8)
+
+layout(binding = 0) uniform sampler2D source;
+layout(binding = 1, FORMAT) uniform image2D final;
+
+layout (local_size_x_id = 0,local_size_y_id = 1,local_size_z=1) in;
+
+void main(){
+    ivec2 size = textureSize(source, 0);
+    if(gl_GlobalInvocationID.x >= size.x || gl_GlobalInvocationID.y >= size.y) return;
+    vec4 val = texelFetch(source, ivec2(gl_GlobalInvocationID), 0);
+    imageStore(final, ivec2(gl_GlobalInvocationID), val);
+}

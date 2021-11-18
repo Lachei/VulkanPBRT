@@ -7,6 +7,9 @@
 #include "PipelineStructs.hpp"
 #include "CountTrianglesVisitor.hpp"
 #include "gui.hpp"
+#include "RenderIO.hpp"
+#include "UtilityPipelines/FormatConverter.hpp"
+#include "UtilityPipelines/Accumulator.hpp"
 
 #include <vsgXchange/models.h>
 #include <vsgXchange/images.h>
@@ -82,8 +85,16 @@ int main(int argc, char** argv){
         arguments.read("--screen", windowTraits->screenNum);	
 
         auto numFrames = arguments.value(-1, "-f");
+        auto depthImages = arguments.value(std::string(), "--depths");
+        auto positionImages = arguments.value(std::string(), "--positions");
+        auto normalImages = arguments.value(std::string(), "--normals");
+        auto albedoImages = arguments.value(std::string(), "--albedos");
+        auto materialImages = arguments.value(std::string(), "--materials");
+        auto illuminationImages = arguments.value(std::string(), "--illuminations");
+        auto matricesPath = arguments.value(std::string(), "--matrices");
         auto sceneFilename = arguments.value(std::string(), "-i");
-        if (sceneFilename.empty())
+        bool externalRenderings = normalImages.size();
+        if (sceneFilename.empty() && !externalRenderings)
         {
             std::cout << "Missing input parameter \"-i <path_to_model>\"." << std::endl;
         }
@@ -122,6 +133,44 @@ int main(int argc, char** argv){
         enabledPhysicalDeviceVk12Feature.descriptorIndexing = VK_TRUE;
         enabledPhysicalDeviceVk12Feature.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
         enabledPhysicalDeviceVk12Feature.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+
+        // load scene or images
+        vsg::ref_ptr<vsg::Node> loaded_scene;
+        std::vector<vsg::ref_ptr<OfflineGBuffer>> offlineGBuffers;
+        std::vector<vsg::ref_ptr<OfflineIllumination>> offlineIlluminations;
+        std::vector<DoubleMatrix> cameraMatrices;
+        if(!externalRenderings){
+            auto options = vsg::Options::create(vsgXchange::assimp::create(), vsgXchange::dds::create(), vsgXchange::stbi::create()); //using the assimp loader
+            loaded_scene = vsg::read_cast<vsg::Node>(sceneFilename, options);
+            if(!loaded_scene){
+                std::cout << "Scene not found: " << sceneFilename << std::endl;
+                return 1;
+            }
+        }
+        else{
+            if(numFrames <= 0){
+                std::cout << "No number of frames given. For usage of external GBuffer and Illumination information use \"-f\" to inform about the number of frames." << std::endl;
+                return 1;
+            }
+            if(matricesPath.empty()){
+                std::cout << "Camera matrices are missing. Insert location of file with camera information via \"--matrices\"." << std::endl;
+                return 1;
+            }
+            cameraMatrices = MatrixIO::importMatrices(matricesPath);
+            if(cameraMatrices.empty()){
+                std::cout << "Camera matrices could not be loaded" << std::endl;
+                return 1;
+            }
+            if(positionImages.size()){
+                offlineGBuffers = GBufferIO::importGBufferPosition(positionImages, normalImages, materialImages, albedoImages, cameraMatrices, numFrames);
+            }
+            else{
+                offlineGBuffers = GBufferIO::importGBufferDepth(depthImages, normalImages, materialImages, albedoImages, numFrames);
+            }
+            offlineIlluminations = IlluminationBufferIO::importIllumination(illuminationImages, numFrames);
+            windowTraits->width = offlineGBuffers[0]->depth->width();
+            windowTraits->height = offlineGBuffers[0]->depth->height();
+        }
 
         auto window = vsg::Window::create(windowTraits);
         if(!window){
@@ -186,14 +235,6 @@ int main(int argc, char** argv){
             auto renderPass = vsg::RenderPass::create(device, attachments, subpasses, dependencies);
             window->setRenderPass(renderPass);
         }
-        
-    	// load scene
-        auto options = vsg::Options::create(vsgXchange::assimp::create(), vsgXchange::dds::create(), vsgXchange::stbi::create()); //using the assimp loader
-        vsg::ref_ptr<vsg::Node> loaded_scene = vsg::read_cast<vsg::Node>(sceneFilename, options);
-        if(!loaded_scene){
-            std::cout << "Scene not found: " << sceneFilename << std::endl;
-            return 1;
-        }        
 
         //create camera matrices
         auto perspective = vsg::Perspective::create(60, static_cast<double>(windowTraits->width) / static_cast<double>(windowTraits->height), .1, 1000);
@@ -210,20 +251,20 @@ int main(int argc, char** argv){
         auto computeConstants = vsg::PushConstants::create(VK_SHADER_STAGE_COMPUTE_BIT, 0, rayTracingPushConstantsValue);
 
         vsg::ref_ptr<GBuffer> gBuffer;
+        vsg::ref_ptr<IlluminationBuffer> illuminationBuffer;
         vsg::ref_ptr<AccumulationBuffer> accumulationBuffer;
         bool writeGBuffer;
-        IlluminationBufferType illuminationBufferType;
         if (denoisingType != DenoisingType::None)
         {
             gBuffer = GBuffer::create(windowTraits->width, windowTraits->height);
             accumulationBuffer = AccumulationBuffer::create(windowTraits->width, windowTraits->height);
             writeGBuffer = true;
-            illuminationBufferType = IlluminationBufferType::FINAL_DEMODULATED;
+            illuminationBuffer = IlluminationBufferDemodulated::create(windowTraits->width, windowTraits->height);
         }
         else
         {
             writeGBuffer = false;
-            illuminationBufferType = IlluminationBufferType::FINAL;
+            illuminationBuffer = IlluminationBufferFinal::create(windowTraits->width, windowTraits->height);
         }
         if (useTaa && !accumulationBuffer)
         {
@@ -232,36 +273,58 @@ int main(int argc, char** argv){
         
         // raytracing pipeline setup
         uint32_t maxRecursionDepth = 2;
-        auto pbrtPipeline = PBRTPipeline::create(windowTraits->width, windowTraits->height, maxRecursionDepth, loaded_scene, gBuffer, accumulationBuffer,
-                illuminationBufferType, writeGBuffer, RayTracingRayOrigin::CAMERA);
+        vsg::ref_ptr<PBRTPipeline> pbrtPipeline;
+        if(!externalRenderings)
+        {
+            pbrtPipeline = PBRTPipeline::create(loaded_scene, gBuffer, accumulationBuffer, illuminationBuffer, writeGBuffer, RayTracingRayOrigin::CAMERA);
 
-        // setup tlas
-        vsg::BuildAccelerationStructureTraversal buildAccelStruct(device);
-        loaded_scene->accept(buildAccelStruct);
-        pbrtPipeline->setTlas(buildAccelStruct.tlas);      
-
+            // setup tlas
+            vsg::BuildAccelerationStructureTraversal buildAccelStruct(device);
+            loaded_scene->accept(buildAccelStruct);
+            pbrtPipeline->setTlas(buildAccelStruct.tlas);      
+        }
+        else{
+            if(!gBuffer)
+                gBuffer = GBuffer::create(offlineGBuffers[0]->depth->width(), offlineGBuffers[0]->depth->height());
+            switch(offlineIlluminations[0]->noisy->getFormat()){
+            case VK_FORMAT_R16G16B16A16_SFLOAT: illuminationBuffer = IlluminationBufferDemodulated::create(offlineIlluminations[0]->noisy->width(), offlineIlluminations[0]->noisy->height()); break;
+            case VK_FORMAT_R32G32B32A32_SFLOAT: illuminationBuffer = IlluminationBufferDemodulatedFloat::create(offlineIlluminations[0]->noisy->width(), offlineIlluminations[0]->noisy->height()); break;
+            default:
+                std::cout << "Offline illumination buffer image format not compatible" << std::endl;
+                return 1;
+            }
+        }
         // -------------------------------------------------------------------------------------
         // image layout conversions and correct binding of different denoising tequniques
         // -------------------------------------------------------------------------------------
         vsg::CompileTraversal imageLayoutCompile(window);
-        if (gBuffer)
-        {
-            gBuffer->compile(imageLayoutCompile.context);
-            gBuffer->updateImageLayouts(imageLayoutCompile.context);
-        }
-        if (accumulationBuffer)
-        {
-            accumulationBuffer->compile(imageLayoutCompile.context);
-            accumulationBuffer->updateImageLayouts(imageLayoutCompile.context);
-        }
-        pbrtPipeline->compile(imageLayoutCompile.context);
-        pbrtPipeline->updateImageLayouts(imageLayoutCompile.context);
-
         auto commands = vsg::Commands::create();
-        pbrtPipeline->addTraceRaysToCommandGraph(commands, pushConstants);
-        
-        vsg::ref_ptr<vsg::DescriptorImage> finalDescriptorImage;
-        vsg::ref_ptr<IlluminationBuffer> illuminationBuffer = pbrtPipeline->getIlluminationBuffer();
+        auto offlineGBufferStager = OfflineGBuffer::create();
+        auto offlineIlluminationBufferStager = OfflineIllumination::create();
+        if(pbrtPipeline){
+            pbrtPipeline->addTraceRaysToCommandGraph(commands, pushConstants);
+            illuminationBuffer = pbrtPipeline->getIlluminationBuffer();
+        }
+        else{
+            if(offlineGBuffers.size() < numFrames || offlineIlluminations.size() < numFrames){
+                std::cout << "Missing offline GBuffer or offline Illumination Buffer info" << std::endl;
+                return 1;
+            }
+            offlineGBufferStager->uploadToGBufferCommand(gBuffer, commands, imageLayoutCompile.context);
+            offlineIlluminationBufferStager->uploadToIlluminationBufferCommand(illuminationBuffer, commands, imageLayoutCompile.context);
+        }
+
+        vsg::ref_ptr<Accumulator> accumulator;
+        if(externalRenderings && denoisingType != DenoisingType::None){
+            accumulator = Accumulator::create(gBuffer, illuminationBuffer, cameraMatrices);
+            accumulator->addDispatchToCommandGraph(commands);
+            accumulationBuffer = accumulator->accumulationBuffer;
+            illuminationBuffer->compile(imageLayoutCompile.context);
+            illuminationBuffer->updateImageLayouts(imageLayoutCompile.context);
+            illuminationBuffer = accumulator->accumulatedIllumination;  //swap illumination buffer to accumulated illumination for correct use in the following pipelines
+        }
+
+        vsg::ref_ptr<vsg::DescriptorImage> finalDescriptorImage;  
         switch(denoisingType){
         case DenoisingType::None:
             finalDescriptorImage = illuminationBuffer->illuminationImages[0];
@@ -301,7 +364,7 @@ int main(int argc, char** argv){
                 auto bfr16 = BFR::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer, illuminationBuffer, accumulationBuffer);
                 auto bfr32 = BFR::create(windowTraits->width, windowTraits->height, 32, 32, gBuffer, illuminationBuffer, accumulationBuffer);
                 auto blender = BFRBlender::create(windowTraits->width, windowTraits->height, 
-                                        illuminationBuffer->illuminationImages[1], illuminationBuffer->illuminationImages[2],
+                                        illuminationBuffer->illuminationImages[0], illuminationBuffer->illuminationImages[1],
                                         bfr8->getFinalDescriptorImage(), bfr16->getFinalDescriptorImage(), bfr32->getFinalDescriptorImage());
                 bfr8->compile(imageLayoutCompile.context);
                 bfr8->updateImageLayouts(imageLayoutCompile.context);
@@ -377,12 +440,34 @@ int main(int argc, char** argv){
             break;
         }
 
-        if(useTaa){
+        if(useTaa && accumulationBuffer){
             auto taa = Taa::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer, accumulationBuffer, finalDescriptorImage);
             taa->compile(imageLayoutCompile.context);
             taa->updateImageLayouts(imageLayoutCompile.context);
             taa->addDispatchToCommandGraph(commands);
             finalDescriptorImage = taa->getFinalDescriptorImage();
+        }
+        if(finalDescriptorImage->imageInfoList[0].imageView->image->format != VK_FORMAT_B8G8R8A8_UNORM){
+            auto converter = FormatConverter::create(finalDescriptorImage->imageInfoList[0].imageView, VK_FORMAT_B8G8R8A8_UNORM);
+            converter->compileImages(imageLayoutCompile.context);
+            converter->updateImageLayouts(imageLayoutCompile.context);
+            converter->addDispatchToCommandGraph(commands);
+            finalDescriptorImage = converter->finalImage;
+        }
+        if (gBuffer)
+        {
+            gBuffer->compile(imageLayoutCompile.context);
+            gBuffer->updateImageLayouts(imageLayoutCompile.context);
+        }
+        if (accumulationBuffer)
+        {
+            accumulationBuffer->compile(imageLayoutCompile.context);
+            accumulationBuffer->updateImageLayouts(imageLayoutCompile.context);
+        }
+        if (illuminationBuffer)
+        {
+            illuminationBuffer->compile(imageLayoutCompile.context);
+            illuminationBuffer->updateImageLayouts(imageLayoutCompile.context);
         }
         imageLayoutCompile.context.record();
 
@@ -396,7 +481,8 @@ int main(int argc, char** argv){
         guiValues->width = windowTraits->width;
         guiValues->height = windowTraits->height;
         CountTrianglesVisitor counter;
-        loaded_scene->accept(counter);
+        if (loaded_scene)
+            loaded_scene->accept(counter);
         guiValues->triangleCount = counter.triangleCount;
         guiValues->raysPerPixel = maxRecursionDepth * 2; //for each depth recursion one next event estimate is done
 
@@ -424,6 +510,14 @@ int main(int argc, char** argv){
         imageLayoutCompile.context.waitForCompletion();
 
         while(viewer->advanceToNextFrame() && (numFrames < 0 || (numFrames--) > 0)){
+            if(externalRenderings)
+            {
+                int frame = offlineGBuffers.size() - 1 - numFrames;     //invert numFrames as it is counting down
+                offlineGBufferStager->transferStagingDataFrom(offlineGBuffers[frame]);
+                offlineIlluminationBufferStager->transferStagingDataFrom(offlineIlluminations[frame]);
+                if(accumulator)
+                    accumulator->setFrameIndex(frame);
+            }
             
             viewer->handleEvents();
 
