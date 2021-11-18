@@ -2,16 +2,10 @@
 #extension GL_EXT_ray_tracing : require
 #extension GL_EXT_nonuniform_qualifier : enable
 
-#include "general.glsl"
-layout(binding = 2, set = 0) buffer Pos {float p[]; }     pos[];  //non interleaved positions, normals and texture arrays
-layout(binding = 3, set = 0) buffer Nor {float n[]; }     nor[];
-layout(binding = 4, set = 0) buffer Tex {float t[]; }     tex[];
-layout(binding = 5, set = 0) buffer Ind {uint i[]; }      ind[];
-layout(binding = 6) uniform sampler2D diffuseMap[];
-layout(binding = 14) buffer Instances{ObjectInstance i[]; } instances;
+#include "layoutPTGeometry.glsl"
+#include "layoutPTGeometryImages.glsl"
 
 hitAttributeEXT vec2 attribs;
-
 
 // alpha threshold used to reject intersection
 const float alphaThresh = .01f;

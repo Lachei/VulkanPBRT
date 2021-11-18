@@ -32,14 +32,8 @@ set(SRC ${SRC_TOP} ${SRC_NESTED})
 list(FILTER SRC EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/vsg/.*" )
 
 set(SHADERS
-    pbr_closesthit.rchit
-    miss.rmiss
     shadow.rmiss
-    raygen.rgen
-    alpha_hit.rahit
-    simple_closesthit.rchit
-    simple_miss.rmiss
-    simple_raygen.rgen
+    ptAlphaHit.rahit
     bfr.comp
     taa.comp
     bfrBlender.comp
@@ -47,12 +41,31 @@ set(SHADERS
     bmfrFit.comp
     bmfrFitLegacy.comp
     bmfrPost.comp
-    accumulator.comp
+    ptRaygen.rgen
+    ptClosesthit.rchit
+    ptMiss.rmiss
 )
 
 set(UNCOMPILED_SHADERS
-    raygen.rgen
-    general.glsl
+    brdf.glsl
+    geometry.glsl
+    layoutPTAccel.glsl
+    layoutPTGeometry.glsl
+    layoutPTGeometryImages.glsl
+    layoutPTImages.glsl
+    layoutPTLights.glsl
+    layoutPTPushConstants.glsl
+    layoutPTUniform.glsl
+    lighting.glsl
+    math.glsl
+    ptConstants.glsl
+    ptStructures.glsl
+    random.glsl
+    sampling.glsl
+    camera.glsl
+    color.glsl
+    ptRaygen.rgen
+    accumulator.comp
     formatConverter.comp
 )
 

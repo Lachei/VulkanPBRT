@@ -19,8 +19,6 @@ layout (local_size_x_id = 2,local_size_y_id = 3,local_size_z=1) in;
 const float stdDevMid = .5f;
 const float maxStdDev = 1.0f;
 
-#include "general.glsl"
-
 float mix3(float a, float b, float c, float t, float mid, float maxDev){
     t /= maxDev;
     t = min(t, 1);
