@@ -343,7 +343,7 @@ vsg::ref_ptr<vsg::BindDescriptorSet> RayTracingSceneDescriptorCreationVisitor::g
             l.colorAmbient = col;
             l.colorDiffuse = col;
             l.colorSpecular = {0, 0, 0};
-            l.strengths = vsg::vec3(10.5f, .0f, .0f);
+            l.strengths = vsg::vec3(.5f, .0f, .0f);
             l.dir = vsg::normalize(vsg::vec3(0.1f, 1, -5.1f));
             packedLights.push_back(l.getPacked());
         }
