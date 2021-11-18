@@ -74,12 +74,12 @@ vsg::ref_ptr<IlluminationBuffer> PBRTPipeline::getIlluminationBuffer() const
 }
 void PBRTPipeline::setupPipeline(vsg::Node *scene, bool useExternalGbuffer)
 {
-    // creating the shader stages and shader binding table
-    std::string raygenPath = "shaders/raygen.rgen"; // raygen shader not yet precompiled
-    std::string raymissPath = "shaders/miss.rmiss.spv";
+    //creating the shader stages and shader binding table
+    std::string raygenPath = "shaders/ptRaygen.rgen"; //raygen shader not yet precompiled
+    std::string raymissPath = "shaders/ptMiss.rmiss.spv";
     std::string shadowMissPath = "shaders/shadow.rmiss.spv";
-    std::string closesthitPath = "shaders/pbr_closesthit.rchit.spv";
-    std::string anyHitPath = "shaders/alpha_hit.rahit.spv";
+    std::string closesthitPath = "shaders/ptClosesthit.rchit.spv";
+    std::string anyHitPath = "shaders/ptAlphaHit.rahit.spv";
 
     auto raygenShader = setupRaygenShader(raygenPath, useExternalGbuffer);
     auto raymissShader = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_MISS_BIT_KHR, "main", raymissPath);
@@ -124,8 +124,7 @@ void PBRTPipeline::setupPipeline(vsg::Node *scene, bool useExternalGbuffer)
     shaderBindingTable->bindingTableEntries.raygenGroups = {raygenShaderGroup};
     shaderBindingTable->bindingTableEntries.raymissGroups = {raymissShaderGroup, shadowMissShaderGroup};
     shaderBindingTable->bindingTableEntries.hitGroups = {closesthitShaderGroup, transparenthitShaderGroup};
-    auto pipeline = vsg::RayTracingPipeline::create(rayTracingPipelineLayout, shaderStage, shaderGroups, shaderBindingTable,
-                                                    2 * maxRecursionDepth);
+    auto pipeline = vsg::RayTracingPipeline::create(rayTracingPipelineLayout, shaderStage, shaderGroups, shaderBindingTable);
     bindRayTracingPipeline = vsg::BindRayTracingPipeline::create(pipeline);
 
     // parsing data from scene

@@ -1,6 +1,6 @@
 #include "RenderIO.hpp"
 #include <future>
-#include <ctype.h>
+#include <cctype>
 
 std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::importGBufferDepth(const std::string &depthFormat, const std::string &normalFormat, const std::string &materialFormat, const std::string &albedoFormat, int numFrames, int verbosity)
 {

@@ -1,108 +1,50 @@
 #version 460
 #extension GL_EXT_ray_tracing : enable
+#extension GL_GOOGLE_include_directive : enable
+
 #pragma import_defines (FINAL_IMAGE, GBUFFER, PREV_GBUFFER, DEMOD_ILLUMINATION, DEMOD_ILLUMINATION_SQUARED)
 
-layout(binding = 0, set = 0) uniform accelerationStructureEXT tlas;
-#ifdef FINAL_IMAGE
-layout(binding = 1, set = 0, rgba8) uniform image2D outputImage;
-#endif
-#ifdef GBUFFER
-layout(binding = 15, set = 0, r32f) uniform image2D depthImage;
-layout(binding = 16, set = 0, rg32f) uniform image2D normalImage;
-layout(binding = 17, set = 0, rgba8) uniform image2D materialImage;
-layout(binding = 18, set = 0, rgba8) uniform image2D albedoImage;
-#endif
-#ifdef PREV_GBUFFER
-layout(binding = 19) uniform sampler2D prevDepth;
-layout(binding = 20) uniform sampler2D prevNormal;
-layout(binding = 21, r16f) uniform image2D motion;
-layout(binding = 22, r8) uniform image2D sampleCounts;
-layout(binding = 24) uniform sampler2D prevSampleCounts;
-#endif
-#ifdef DEMOD_ILLUMINATION
-layout(binding = 23) uniform sampler2D prevOutput;
-layout(binding = 25, rgba16f) uniform image2D illumination;
-#endif
-layout(binding = 26) uniform Infos{
-  uint lightCount;
-  uint minRecursionDepth;
-  uint maxRecursionDepth;
-}infos;
-#ifdef DEMOD_ILLUMINATION_SQUARED
-layout(binding = 27, rgba16f) uniform image2D illuminationSquared;
-layout(binding = 28) uniform sampler2D prevIlluminationSquared;
-#endif
+#include "ptStructures.glsl"
+#include "layoutPTAccel.glsl"
+#include "layoutPTImages.glsl"
+#include "layoutPTLights.glsl"
+#include "layoutPTUniform.glsl"
+#include "layoutPTPushConstants.glsl"
 
-layout(push_constant) uniform PushConstants 
-{
-	mat4 inverseViewMatrix;
-	mat4 inverseProjectionMatrix;
-	mat4 prevView;
-	uint frameNumber;
-	uint sampleNumber;
-} camParams;
-
-#include "general.glsl"
-
+layout(location = 0) rayPayloadEXT bool shadowed;
 layout(location = 1) rayPayloadEXT RayPayload rayPayload;
-
 uint rayFlags = gl_RayFlagsNoOpaqueEXT | gl_RayFlagsOpaqueEXT;
 uint cullMask = 0xff;
 float tmin = 0.001;
 float tmax = 10000.0;
 
-vec3 indirectLighting(vec3 pos, vec3 v, SurfaceInfo s, int recDepth){
-  vec3 l;
-  float pdf;
-  vec3 brdf = sampleBRDF(s, rayPayload.re, v, l, pdf);
-  if(brdf == vec3(0) || pdf < EPSILON){
-    return vec3(0);
-  }
+#include "camera.glsl"
+#include "lighting.glsl"
 
-  float t = dot(l, s.normal);
-  vec3 pathThroughput = rayPayload.throughput * (brdf * dot(l, s.normal)) / pdf;
-  if(recDepth > infos.minRecursionDepth) {
-    float termination = max(c_MinTermination, 1.0 - max(max(pathThroughput.x, pathThroughput.y),pathThroughput.z));
-    if(randomFloat(rayPayload.re) < c_MinTermination){
-      return vec3(0);
-    }
-    pathThroughput /= 1.0 - c_MinTermination;
-  }
-
-  rayPayload.throughput = pathThroughput;
-  traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, pos, tmin, l, tmax, 1);
-
-	//TODO: better firefly suppression (see nvpro samples for a good one)
-  return min(rayPayload.color, vec3(c_MaxRadiance));
-}
-
-void main() 
-{
-	rayPayload.re = rEInit(gl_LaunchIDEXT.xy, camParams.frameNumber);
-	rayPayload.throughput = vec3(1);
-	
-	vec2 pixelCenter = vec2(gl_LaunchIDEXT.xy) + vec2(.5);
-#ifdef FINAL_IMAGE
-#ifndef DEMOD_ILLUMINATION
-#ifndef DEMOD_ILLUMINATION_SQUARED
-	pixelCenter += randomVec2(rayPayload.re) - .5;	//can not be done when reprojecting
-#endif
-#endif
-#endif
-	const vec2 normalisedPixelCoord = pixelCenter/vec2(gl_LaunchSizeEXT.xy);
-	vec2 clipSpaceCoord = normalisedPixelCoord * 2.0 - 1.0;
-
-	vec4 worldSpacePos = camParams.inverseViewMatrix * vec4(0,0,0,1);
-	vec4 viewSpaceDir = camParams.inverseProjectionMatrix * vec4(clipSpaceCoord.x, clipSpaceCoord.y, 1, 1) ;
-	vec4 worldSpaceDir = camParams.inverseViewMatrix * vec4(normalize(viewSpaceDir.xyz), 0) ;
-
-	//first hit infos
-	traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, worldSpacePos.xyz, tmin, worldSpaceDir.xyz, tmax, 1);
-
+void main(){
+    // --------------------------------------------------------------------
+	// random engine generation + ray generation (including first hit infos and first hit direct lighting)
 	// --------------------------------------------------------------------
+    RandomEngine re = rEInit(gl_LaunchIDEXT.xy, camParams.frameNumber);
+    vec3 throughput = vec3(1);
+    vec4 worldSpacePos, worldSpaceDir;
+    bool antiAlias = false;
+    #ifdef FINAL_IMAGE
+    #ifndef DEMOD_ILLUMINATION
+    #ifndef DEMOD_ILLUMINATION_SQUARED
+    	antiAlias = true;	//can not be done when reprojecting
+    #endif
+    #endif
+    #endif
+    createRay(gl_LaunchIDEXT.xy, gl_LaunchSizeEXT.xy, antiAlias, re, worldSpacePos, worldSpaceDir);
+    traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, worldSpacePos.xyz, tmin, worldSpaceDir.xyz, tmax, 1);
+    vec3 finalColor = vec3(0);
+    finalColor += nextEventEsitmation(rayPayload.position, -normalize(worldSpaceDir.xyz), rayPayload.si, throughput, re);
+    finalColor += rayPayload.si.emissiveColor;
+    // --------------------------------------------------------------------
 	// storing GBuffer information
 	// --------------------------------------------------------------------
-	vec3 curAlbedo = (rayPayload.albedo).xyz;
+	vec3 curAlbedo = (rayPayload.si.diffuseColor + rayPayload.si.specularColor).xyz;
 	float depth = distance(rayPayload.position, worldSpacePos.xyz);
 	vec3 curNorm = rayPayload.si.normal;
 #ifdef GBUFFER
@@ -115,7 +57,7 @@ void main()
 	imageStore(albedoImage, ivec2(gl_LaunchIDEXT.xy), vec4(curAlbedo, 1));
 #endif
 
-	// --------------------------------------------------------------------
+    // --------------------------------------------------------------------
 	// accumulation information
 	// --------------------------------------------------------------------
  	vec3 prevColor;
@@ -165,23 +107,22 @@ void main()
 	imageStore(sampleCounts, ivec2(gl_LaunchIDEXT.xy), vec4(pixelSpp));
 #endif
 
-	// --------------------------------------------------------------------
+    // --------------------------------------------------------------------
 	//depth recursion
 	// --------------------------------------------------------------------
-	vec3 finalColor = rayPayload.color;
 #if defined FINAL_IMAGE || defined DEMOD_ILLUMINATION || defined DEMOD_ILLUMINATION_SQUARED
 	if(rayPayload.si.normal != vec3(1)){
 		for(int i = 0; i < infos.maxRecursionDepth; ++i){
 			vec3 v = normalize(worldSpacePos.xyz - rayPayload.position);
 			worldSpacePos = vec4(rayPayload.position, 1);
-			vec3 indir = indirectLighting(worldSpacePos.xyz, v, rayPayload.si, i);
+			vec3 indir = indirectLighting(worldSpacePos.xyz, v, rayPayload.si, i, throughput, re);
 			if(rayPayload.si.normal == vec3(1)) break;	//stop recursion when sky was hit
 			finalColor += indir;
 		}
 	}
 #endif
 
-	// --------------------------------------------------------------------
+    // --------------------------------------------------------------------
 	// final color calculations
 	// --------------------------------------------------------------------
 	finalColor = clamp(finalColor, vec3(0), vec3(c_MaxRadiance));
