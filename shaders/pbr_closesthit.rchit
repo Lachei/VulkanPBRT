@@ -183,7 +183,7 @@ void main()
   WaveFrontMaterial mat = unpack(materials.m[objId]);
   float perceptualRoughness = 0;
   float metallic;
-  vec4 baseColor = diffuse * vec4(mat.ambient, 1);
+  vec4 baseColor = diffuse;// * vec4(mat.ambient, 1);
   vec4 albedo = baseColor;
 
   const vec3 f0 = vec3(.04);
@@ -199,7 +199,7 @@ void main()
 
   metallic = convertMetallic(diffuse.rgb, specular.rgb, maxSpecular);
 
-  vec3 baseColorDiffusePart = diffuse.rgb * ((1.0 - maxSpecular) / (1 - c_MinRoughness) / max(1 - metallic, epsilon)) * mat.ambient.rgb;
+  vec3 baseColorDiffusePart = diffuse.rgb * ((1.0 - maxSpecular) / (1 - c_MinRoughness) / max(1 - metallic, epsilon));// * mat.ambient.rgb;
   vec3 baseColorSpecularPart = specular.rgb - (vec3(c_MinRoughness) * (1 - metallic) * (1 / max(metallic, epsilon))) * mat.specular.rgb;
   baseColor = vec4(mix(baseColorDiffusePart, baseColorSpecularPart, metallic * metallic), diffuse.a);
 
