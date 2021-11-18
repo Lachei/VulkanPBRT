@@ -46,8 +46,8 @@ FormatConverter::FormatConverter(vsg::ref_ptr<vsg::ImageView> srcImage, VkFormat
     int sourceIndex = vsg::ShaderStage::getSetBindingIndex(bindingMap, "source").second;
     srcImage->image->usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
     imageInfo = {vsg::Sampler::create(), srcImage, VK_IMAGE_LAYOUT_GENERAL};
-    auto srcImage = vsg::DescriptorImage::create(imageInfo, sourceIndex, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    auto descriptorSet = vsg::DescriptorSet::create(pipelineLayout->setLayouts[0], vsg::Descriptors{finalImage, srcImage});
+    auto srcDscImage = vsg::DescriptorImage::create(imageInfo, sourceIndex, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    auto descriptorSet = vsg::DescriptorSet::create(pipelineLayout->setLayouts[0], vsg::Descriptors{finalImage, srcDscImage });
     bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, descriptorSet);
 
     bindPipeline = vsg::BindComputePipeline::create(pipeline);

@@ -1,5 +1,6 @@
 #include "RenderIO.hpp"
 #include <future>
+#include <cctype>
 
 std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::importGBufferDepth(const std::string &depthFormat, const std::string &normalFormat, const std::string &materialFormat, const std::string &albedoFormat, int numFrames, int verbosity)
 {
@@ -424,7 +425,7 @@ DoubleMatrices MatrixIO::importMatrices(const std::string &matrixPath)
         f >> cur;
         if (cur.back() == ',') cur.pop_back();
         if (cur.front() == '{') cur = cur.substr(1, cur.size() - 1);
-        if (cur.size() && (std::isdigit(cur[0]) || cur[0] == '-')) {
+        if (cur.size() && (isdigit(cur[0]) || cur[0] == '-')) {
             tmp[count / 4][count % 4] = std::stof(cur);
             ++count;
             if (count == 16) {
