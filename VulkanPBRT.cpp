@@ -85,15 +85,24 @@ int main(int argc, char** argv){
         arguments.read("--screen", windowTraits->screenNum);	
 
         auto numFrames = arguments.value(-1, "-f");
-        auto depthImages = arguments.value(std::string(), "--depths");
-        auto positionImages = arguments.value(std::string(), "--positions");
-        auto normalImages = arguments.value(std::string(), "--normals");
-        auto albedoImages = arguments.value(std::string(), "--albedos");
-        auto materialImages = arguments.value(std::string(), "--materials");
-        auto illuminationImages = arguments.value(std::string(), "--illuminations");
+        auto depthPath = arguments.value(std::string(), "--depths");
+        auto exportDepthPath = arguments.value(std::string(), "--exportDepth");
+        auto positionPath = arguments.value(std::string(), "--positions");
+        auto exportPositionPath = arguments.value(std::string(), "--exportPosition");
+        auto normalPath = arguments.value(std::string(), "--normals");
+        auto exportNormalPath = arguments.value(std::string(), "--exportNormal");
+        auto albedoPath = arguments.value(std::string(), "--albedos");
+        auto exportAlbedoPath = arguments.value(std::string(), "--exportAlbedo");
+        auto materialPath = arguments.value(std::string(), "--materials");
+        auto exportMaterialPath = arguments.value(std::string(), "--exportMaterial");
+        auto illuminationPath = arguments.value(std::string(), "--illuminations");
+        auto exportIlluminationPath = arguments.value(std::string(), "--exportIllumination");
         auto matricesPath = arguments.value(std::string(), "--matrices");
+        auto exportMatricesPath = arguments.value(std::string(), "--exportMatrices");
         auto sceneFilename = arguments.value(std::string(), "-i");
-        bool externalRenderings = normalImages.size();
+        bool externalRenderings = normalPath.size();
+        bool exportIllumination = exportIlluminationPath.size();
+        bool exportGBuffer = exportNormalPath.size();
         if (sceneFilename.empty() && !externalRenderings)
         {
             std::cout << "Missing input parameter \"-i <path_to_model>\"." << std::endl;
@@ -111,6 +120,7 @@ int main(int argc, char** argv){
         }
         bool useTaa = arguments.read("--taa");
         bool useFlyNavigation = arguments.read("--fly");
+        bool highQualityIllumiation = arguments.read({"--highqual" ,"-hq"}) || exportIllumination;  //exporting illumination automatically requires hq illumination buffer
 
 #ifdef _DEBUG
         // overwriting command line options for debug
@@ -161,15 +171,33 @@ int main(int argc, char** argv){
                 std::cout << "Camera matrices could not be loaded" << std::endl;
                 return 1;
             }
-            if(positionImages.size()){
-                offlineGBuffers = GBufferIO::importGBufferPosition(positionImages, normalImages, materialImages, albedoImages, cameraMatrices, numFrames);
+            if(positionPath.size()){
+                offlineGBuffers = GBufferIO::importGBufferPosition(positionPath, normalPath, materialPath, albedoPath, cameraMatrices, numFrames);
             }
             else{
-                offlineGBuffers = GBufferIO::importGBufferDepth(depthImages, normalImages, materialImages, albedoImages, numFrames);
+                offlineGBuffers = GBufferIO::importGBufferDepth(depthPath, normalPath, materialPath, albedoPath, numFrames);
             }
-            offlineIlluminations = IlluminationBufferIO::importIllumination(illuminationImages, numFrames);
+            offlineIlluminations = IlluminationBufferIO::importIllumination(illuminationPath, numFrames);
             windowTraits->width = offlineGBuffers[0]->depth->width();
             windowTraits->height = offlineGBuffers[0]->depth->height();
+        }
+        if(exportIllumination){
+            if(numFrames <= 0){
+                std::cout << "No number of frames given. For usage of Illumination export use \"-f\" to inform about the number of frames." << std::endl;
+                return 1;
+            }
+            if(offlineIlluminations.empty()){
+                offlineIlluminations.resize(numFrames);
+            }
+        }
+        if(exportGBuffer){
+            if(numFrames <= 0){
+                std::cout << "No number of frames given. For usage of GBuffer export use \"-f\" to inform about the number of frames." << std::endl;
+                return 1;
+            }
+            if(offlineGBuffers.empty()){
+                offlineGBuffers.resize(numFrames);
+            }
         }
 
         auto window = vsg::Window::create(windowTraits);
@@ -265,6 +293,9 @@ int main(int argc, char** argv){
         {
             writeGBuffer = false;
             illuminationBuffer = IlluminationBufferFinal::create(windowTraits->width, windowTraits->height);
+        }
+        if  (highQualityIllumiation){
+            illuminationBuffer = IlluminatonBufferFinalFloat::create(windowTraits->width, windowTraits->height);
         }
         if (useTaa && !accumulationBuffer)
         {
@@ -447,6 +478,16 @@ int main(int argc, char** argv){
             taa->addDispatchToCommandGraph(commands);
             finalDescriptorImage = taa->getFinalDescriptorImage();
         }
+        if(exportGBuffer){
+            offlineGBufferStager->downloadFromGBufferCommand(gBuffer, commands, imageLayoutCompile.context);
+        }
+        if(exportIllumination){
+            if(finalDescriptorImage->imageInfoList[0].imageView->image->format != VK_FORMAT_R32G32B32A32_SFLOAT){
+                std::cout << "Final image layout is not compatible illumination buffer export" << std::endl;
+                return 1;
+            }
+            offlineIlluminationBufferStager->downloadFromIlluminationBufferCommand(illuminationBuffer, commands, imageLayoutCompile.context);
+        }
         if(finalDescriptorImage->imageInfoList[0].imageView->image->format != VK_FORMAT_B8G8R8A8_UNORM){
             auto converter = FormatConverter::create(finalDescriptorImage->imageInfoList[0].imageView, VK_FORMAT_B8G8R8A8_UNORM);
             converter->compileImages(imageLayoutCompile.context);
@@ -506,7 +547,7 @@ int main(int argc, char** argv){
         viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph});
         viewer->compile();
 
-        //waiting for image layout transitions
+        // waiting for image layout transitions
         imageLayoutCompile.context.waitForCompletion();
 
         while(viewer->advanceToNextFrame() && (numFrames < 0 || (numFrames--) > 0)){
@@ -534,6 +575,18 @@ int main(int argc, char** argv){
             viewer->present();
 
             lookAt->get(rayTracingPushConstantsValue->value().prevView);
+        }
+
+        // exporting all images
+        if(exportGBuffer){
+            if(exportDepthPath.size())
+                GBufferIO::exportGBufferDepth(exportDepthPath, exportNormalPath, exportMaterialPath, exportAlbedoPath, numFrames, offlineGBuffers);
+            if(exportPositionPath.size()){
+                GBufferIO::exportGBufferPosition(exportPositionPath, exportNormalPath, exportMaterialPath, exportAlbedoPath, numFrames, offlineGBuffers, cameraMatrices);
+            }
+        }
+        if(exportIllumination){
+            IlluminationBufferIO::exportIllumination(exportIlluminationPath, numFrames, offlineIlluminations);
         }
     }
     catch (const vsg::Exception& e){

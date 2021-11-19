@@ -408,6 +408,34 @@ std::vector<vsg::ref_ptr<OfflineIllumination>> IlluminationBufferIO::importIllum
     return illuminations;
 }
 
+bool IlluminationBufferIO::exportIllumination(const std::string& illuminationFormat, int numFrames, const OfflineIlluminations& illus, int verbosity){
+    if(verbosity > 0)
+        std::cout << "Start exporting Illumination" << std::endl;
+    auto options = vsg::Options::create(vsgXchange::openexr::create());
+    bool fine = true;
+    auto execStore = [&](int f){
+        if(verbosity > 1)
+            std::cout << "IlluminationBuffer: Storing frame" << f << std::endl << std::flush;
+        char buff[200];
+        std::string filename;
+        snprintf(buff, sizeof(buff), illuminationFormat.c_str(), f);
+        if(!vsg::write(illus[f]->noisy, filename, options)){
+            std::cout << "Faled to store image: " << filename << std::endl;
+            fine = false;
+            return;
+        }
+        if(verbosity > 1)
+            std::cout << "IlluminationBuffer: Stored frame" << f << std::endl << std::flush;
+    };
+    {   //automatic join at the end of threads scope
+        std::vector<std::future<void>> threads(numFrames);
+        for (int f = 0; f < numFrames; ++f) threads[f] = std::async(std::launch::async, execStore, f); 
+    }
+    if(verbosity > 0)
+        std::cout << "Done exporting Illumination" << std::endl;
+    return fine;
+}
+
 DoubleMatrices MatrixIO::importMatrices(const std::string &matrixPath)
 {
     //TODO: temporary implementation to parse matrices from BMFRs dataset

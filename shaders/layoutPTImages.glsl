@@ -5,6 +5,11 @@
 layout(binding = 1, set = 0, rgba8) uniform image2D outputImage;
 #endif
 
+#ifdef FINAL_IMAGE_HQ
+layout(binding = 1, set = 0, rgba32f) uniform image2D outputImage;
+#define FINAL_IMAGE
+#endif
+
 #ifdef GBUFFER
 layout(binding = 15, r32f) uniform image2D depthImage;
 layout(binding = 16, rg32f) uniform image2D normalImage;
