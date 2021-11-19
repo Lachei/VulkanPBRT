@@ -188,6 +188,10 @@ int main(int argc, char** argv){
             }
             if(offlineIlluminations.empty()){
                 offlineIlluminations.resize(numFrames);
+                for(auto& i: offlineIlluminations){
+                    i = OfflineIllumination::create();
+                    i->noisy = vsg::vec4Array2D::create(windowTraits->width, windowTraits->height);
+                }
             }
         }
         if(exportGBuffer){
@@ -479,6 +483,10 @@ int main(int argc, char** argv){
             finalDescriptorImage = taa->getFinalDescriptorImage();
         }
         if(exportGBuffer){
+            if(!gBuffer){
+                std::cout << "GBuffer information not available, export not possible" << std::endl;
+                return 1;
+            }
             offlineGBufferStager->downloadFromGBufferCommand(gBuffer, commands, imageLayoutCompile.context);
         }
         if(exportIllumination){
@@ -550,6 +558,7 @@ int main(int argc, char** argv){
         // waiting for image layout transitions
         imageLayoutCompile.context.waitForCompletion();
 
+        int numFramesC = numFrames;
         while(viewer->advanceToNextFrame() && (numFrames < 0 || (numFrames--) > 0)){
             if(externalRenderings)
             {
@@ -575,7 +584,13 @@ int main(int argc, char** argv){
             viewer->present();
 
             lookAt->get(rayTracingPushConstantsValue->value().prevView);
+
+            if(exportIllumination){
+                int frame = offlineIlluminations.size() - 1 - numFrames;
+                offlineIlluminationBufferStager->transferStagingDataTo(offlineIlluminations[frame]);
+            }
         }
+        numFrames = numFramesC;
 
         // exporting all images
         if(exportGBuffer){

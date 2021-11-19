@@ -325,7 +325,7 @@ void OfflineIllumination::downloadFromIlluminationBufferCommand(vsg::ref_ptr<Ill
         copy->srcImage = info.imageView->image;
         copy->srcImageLayout = info.imageLayout;
         copy->dstBuffer = noisyStaging.buffer;
-        copy->regions = {VkBufferImageCopy{0, static_cast<uint32_t>(noisyStaging.buffer->size), 1, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
+        copy->regions = {VkBufferImageCopy{0, 0, 0, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
         commands->addChild(copy);
         illuBuffer->illuminationImages[0]->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         noisyStaging.buffer->usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
@@ -419,6 +419,7 @@ bool IlluminationBufferIO::exportIllumination(const std::string& illuminationFor
         char buff[200];
         std::string filename;
         snprintf(buff, sizeof(buff), illuminationFormat.c_str(), f);
+        filename = buff;
         if(!vsg::write(illus[f]->noisy, filename, options)){
             std::cout << "Faled to store image: " << filename << std::endl;
             fine = false;
