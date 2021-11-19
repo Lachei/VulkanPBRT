@@ -1,11 +1,16 @@
 #include "3DFrontImporter.h"
 
 #include <assimp/scene.h>
+#include <assimp/DefaultIOSystem.h>
 #include <nlohmann/json.hpp>
 
 #include <fstream>
 #include <unordered_map>
 #include <string>
+#include <algorithm>
+#include <filesystem>
+
+namespace fs = std::filesystem;
 
 static const aiImporterDesc desc = {
     "3D-FRONT scene importer",
@@ -31,11 +36,16 @@ const aiImporterDesc* AI3DFrontImporter::GetInfo() const
 void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene, Assimp::IOSystem* pIOHandler)
 {
     std::ifstream scene_file(pFile);
+    if (!scene_file)
+    {
+        throw DeadlyImportError("Failed to open file " + pFile + ".");
+    }
+
     nlohmann::json scene_json;
     scene_file >> scene_json;
 
     // parse room meshes
-    std::unordered_map<std::string, uint32_t> mesh_uid_to_index_map;
+    std::unordered_map<std::string, std::vector<uint32_t>> model_uid_to_mesh_indices_map;
     const auto& room_meshes = scene_json["mesh"];
     pScene->mNumMeshes = room_meshes.size();
     if (pScene->mNumMeshes > 0)
@@ -99,9 +109,32 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
             // TODO: set AABB
 
             ai_mesh->mName = raw_mesh["instanceid"];
-            mesh_uid_to_index_map[raw_mesh["uid"]] = mesh_index++;
+            model_uid_to_mesh_indices_map[raw_mesh["uid"]].push_back(mesh_index++);
         }
     }
+
+    // get furniture diretories
+    auto root_path_3d_front = fs::absolute(fs::path(pFile)).parent_path().parent_path();
+    std::vector<fs::path> furniture_directories;
+    for (const auto& directory_entry : fs::directory_iterator(root_path_3d_front))
+    {
+        if (!directory_entry.is_directory())
+        {
+            continue;
+        }
+        const fs::path& directory_path = directory_entry.path();
+        std::string directory_name = directory_path.filename().string();
+        if (directory_name.find("3D-FUTURE-model") != std::string::npos)
+        {
+            furniture_directories.push_back(directory_path);
+        }
+    }
+
+    // load furniture
+    const auto& furniture = scene_json["furniture"];
+    // TODO: load objs from model directories
+    // TODO: move meshes to main aiScene and add indices to model_uid_to_mesh_indices_map
+
 
     // parse scene
     pScene->mRootNode = new aiNode;
@@ -122,28 +155,35 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
 
         for (int child_index = 0; child_index < raw_children.size(); child_index++)
         {
-            auto& raw_child = raw_children[child_index];
+            const auto& raw_child = raw_children[child_index];
             room_node->mChildren[child_index] = new aiNode;
 
             std::string instance_id = raw_child["instanceid"];
             auto& child_node = room_node->mChildren[child_index];
             child_node->mName = instance_id;
-            // TODO: add transformation
-            child_node->mParent = room_node;
-            if (instance_id.find("furniture") != std::string::npos) {
-                // TODO: include furniture
-                continue;
-            }            
 
-            
-            child_node->mNumMeshes = 1;
-            child_node->mMeshes = new unsigned int[1];
-            child_node->mMeshes[0] = mesh_uid_to_index_map[raw_child["ref"]];
+            // create transformation
+            const auto& scale = raw_child["scale"];
+            const auto& rotation = raw_child["rot"];
+            const auto& position = raw_child["pos"];
+            child_node->mTransformation = aiMatrix4x4(
+                aiVector3D(scale[0], scale[1], scale[2]),
+                aiQuaternion(rotation[0], rotation[1], rotation[2], rotation[3]),
+                aiVector3D(position[0], position[1], position[2])
+            );
+
+            child_node->mParent = room_node;
+
+            if (instance_id.find("furniture") != std::string::npos) {
+                // TODO: remove this to include furniture
+                continue;
+            }
+            auto& mesh_indices = model_uid_to_mesh_indices_map[raw_child["ref"]];
+            child_node->mNumMeshes = mesh_indices.size();
+            child_node->mMeshes = new unsigned int[child_node->mNumMeshes];
+            std::copy(mesh_indices.begin(), mesh_indices.end(), child_node->mMeshes);
         }
     }
-
-    int x = 0;
-
 
     // TODO: load furniture vertices
     // TODO: load room materials
