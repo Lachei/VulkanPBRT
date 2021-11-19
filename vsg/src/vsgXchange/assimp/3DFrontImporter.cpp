@@ -2,6 +2,8 @@
 
 #include <assimp/scene.h>
 #include <assimp/DefaultIOSystem.h>
+#include <assimp/Importer.hpp>
+#include <assimp/postprocess.h>
 #include <nlohmann/json.hpp>
 
 #include <fstream>
@@ -9,6 +11,7 @@
 #include <string>
 #include <algorithm>
 #include <filesystem>
+
 
 namespace fs = std::filesystem;
 
@@ -108,10 +111,10 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
             // TODO: load material
             // TODO: set AABB
 
-            ai_mesh->mName = raw_mesh["instanceid"];
             model_uid_to_mesh_indices_map[raw_mesh["uid"]].push_back(mesh_index++);
         }
     }
+
 
     // get furniture diretories
     auto root_path_3d_front = fs::absolute(fs::path(pFile)).parent_path().parent_path();
@@ -131,9 +134,64 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
     }
 
     // load furniture
+    Assimp::Importer importer;
     const auto& furniture = scene_json["furniture"];
-    // TODO: load objs from model directories
-    // TODO: move meshes to main aiScene and add indices to model_uid_to_mesh_indices_map
+    std::vector<aiMesh*> furniture_meshes;
+    uint32_t total_mesh_count = pScene->mNumMeshes;
+    for (const auto& piece_of_furniture : furniture)
+    {
+        const auto& model_id = piece_of_furniture["jid"];
+        for (const auto& furniture_directory : furniture_directories)
+        {
+            fs::path furniture_model_path = furniture_directory / fs::path(std::string(model_id));
+            if (!fs::exists(furniture_model_path))
+            {
+                continue;
+            }
+            std::string obj_path_str = (furniture_model_path / fs::path("raw_model.obj")).string();
+            const aiScene* furniture_model_scene = importer.ReadFile(
+                obj_path_str.c_str(),
+                aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_OptimizeMeshes | aiProcess_SortByPType |
+                aiProcess_ImproveCacheLocality | aiProcess_GenUVCoords  // same flags as in assimp.cpp
+            );
+
+            // copy meshes
+            // TODO: copy materials and textures
+            for (int i = 0; i < furniture_model_scene->mNumMeshes; i++)
+            {
+                auto* mesh_copy = new aiMesh;
+                auto* mesh_to_copy = furniture_model_scene->mMeshes[i];
+
+                // deep copy
+                std::memcpy(mesh_copy, mesh_to_copy, sizeof(aiMesh));
+                mesh_copy->mVertices = new aiVector3D[mesh_copy->mNumVertices];
+                std::memcpy(mesh_copy->mVertices, mesh_to_copy->mVertices, mesh_copy->mNumVertices * sizeof(aiVector3D));
+                mesh_copy->mNormals = new aiVector3D[mesh_copy->mNumVertices];
+                std::memcpy(mesh_copy->mNormals, mesh_to_copy->mNormals, mesh_copy->mNumVertices * sizeof(aiVector3D));
+                mesh_copy->mTextureCoords[0] = new aiVector3D[mesh_copy->mNumVertices];
+                std::memcpy(mesh_copy->mTextureCoords[0], mesh_to_copy->mTextureCoords[0], mesh_copy->mNumVertices * sizeof(aiVector3D));
+                mesh_copy->mFaces = new aiFace[mesh_copy->mNumFaces];
+                std::memcpy(mesh_copy->mFaces, mesh_to_copy->mFaces, mesh_copy->mNumFaces * sizeof(aiFace));
+                for (int face_index = 0; face_index < mesh_copy->mNumFaces; face_index++)
+                {
+                    auto& face = mesh_copy->mFaces[face_index];
+                    face.mIndices = new unsigned[face.mNumIndices];
+                    std::memcpy(face.mIndices, mesh_to_copy->mFaces[face_index].mIndices, face.mNumIndices * sizeof(unsigned));
+                }
+                // TODO: copy remaining arrays
+
+                furniture_meshes.push_back(mesh_copy);
+                model_uid_to_mesh_indices_map[piece_of_furniture["uid"]].push_back(total_mesh_count++);
+            }
+        }
+    }
+    // copy furniture data to main scene
+    aiMesh** meshes_with_furniture = new aiMesh*[total_mesh_count];
+    std::memcpy(meshes_with_furniture, pScene->mMeshes, pScene->mNumMeshes * sizeof(aiMesh*));
+    std::copy(furniture_meshes.begin(), furniture_meshes.end(), &meshes_with_furniture[pScene->mNumMeshes]);
+    delete[] pScene->mMeshes;
+    pScene->mMeshes = meshes_with_furniture;
+    pScene->mNumMeshes = total_mesh_count;    
 
 
     // parse scene
@@ -174,9 +232,10 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
 
             child_node->mParent = room_node;
 
-            if (instance_id.find("furniture") != std::string::npos) {
+            if (instance_id.find("furniture") != std::string::npos)
+            {
                 // TODO: remove this to include furniture
-                continue;
+                //continue;
             }
             auto& mesh_indices = model_uid_to_mesh_indices_map[raw_child["ref"]];
             child_node->mNumMeshes = mesh_indices.size();
