@@ -225,18 +225,13 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
             const auto& rotation = raw_child["rot"];
             const auto& position = raw_child["pos"];
             child_node->mTransformation = aiMatrix4x4(
-                aiVector3D(scale[0], scale[1], scale[2]),
-                aiQuaternion(rotation[0], rotation[1], rotation[2], rotation[3]),
-                aiVector3D(position[0], position[1], position[2])
+                aiVector3D(scale[0], scale[2], scale[1]),
+                aiQuaternion(rotation[3], rotation[0], rotation[2], rotation[1]),
+                aiVector3D(position[0], position[2], position[1])
             );
 
             child_node->mParent = room_node;
 
-            if (instance_id.find("furniture") != std::string::npos)
-            {
-                // TODO: remove this to include furniture
-                //continue;
-            }
             auto& mesh_indices = model_uid_to_mesh_indices_map[raw_child["ref"]];
             child_node->mNumMeshes = mesh_indices.size();
             child_node->mMeshes = new unsigned int[child_node->mNumMeshes];
