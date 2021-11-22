@@ -11,6 +11,7 @@
 #include <string>
 #include <algorithm>
 #include <filesystem>
+#include <cstring>
 
 
 namespace fs = std::filesystem;
@@ -44,6 +45,11 @@ static void DeepCopyAiMesh(aiMesh* source, aiMesh*& target)
             {
                 target->mTextureCoords[i] = new aiVector3D[source->mNumVertices];
                 std::memcpy(target->mTextureCoords[i], source->mTextureCoords[i], target->mNumVertices * sizeof(aiVector3D));
+                for (int tex_coord_index = 0; tex_coord_index < source->mNumVertices; tex_coord_index++)
+                {
+                    // flip tex coord v
+                    target->mTextureCoords[i][tex_coord_index].y = 1 - target->mTextureCoords[i][tex_coord_index].y;
+                }
             }    
         }  
     }
@@ -56,12 +62,6 @@ static void DeepCopyAiMesh(aiMesh* source, aiMesh*& target)
         std::memcpy(face.mIndices, source->mFaces[face_index].mIndices, face.mNumIndices * sizeof(unsigned));
     }
     // TODO: copy remaining data
-}
-
-static void DeepCopyAiMaterial(aiMaterial* source, aiMaterial*& target)
-{
-    target = new aiMaterial;
-    aiMaterial::CopyPropertyList(target, source);
 }
 
 static const aiImporterDesc desc = {
@@ -151,6 +151,9 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
                     ai_mesh->mVertices[i] = aiVector3D(raw_vertices[x_index], raw_vertices[y_index], raw_vertices[z_index]);
                     ai_mesh->mNormals[i] = aiVector3D(raw_normals[x_index], raw_normals[y_index], raw_normals[z_index]);
                     ai_mesh->mTextureCoords[0][i] = aiVector3D(raw_tex_coords[u_index], raw_tex_coords[v_index], 0);
+
+                    // flip tex coord v
+                    ai_mesh->mTextureCoords[0][i].y = 1 - ai_mesh->mTextureCoords[0][i].y;
                 }
             }
 
@@ -212,8 +215,33 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
             std::unordered_map<uint32_t, uint32_t> original_to_new_material_index_map;
             for (int i = 0; i < furniture_model_scene->mNumMaterials; i++)
             {
-                aiMaterial* material_copy;
-                DeepCopyAiMaterial(furniture_model_scene->mMaterials[i], material_copy);
+                auto* material_copy = new aiMaterial;
+                aiMaterial::CopyPropertyList(material_copy, furniture_model_scene->mMaterials[i]);
+
+                // TODO: edit texture path
+                for (int prop_index = 0; prop_index < material_copy->mNumProperties; prop_index++)
+                {
+                    auto& property = material_copy->mProperties[prop_index];
+                    if (property->mKey == aiString(_AI_MATKEY_TEXTURE_BASE))
+                    {
+                        // make texture path absolute so that vsg can find the file
+                        std::string full_path = (furniture_model_path / fs::path(&property->mData[6])).string();
+                        property->mDataLength = full_path.length() + 1;
+                        char* new_data = new char[property->mDataLength + 4];
+                        strcpy_s(&new_data[4], property->mDataLength, full_path.c_str());
+                        delete property->mData;
+                        property->mData = new_data;
+                        property->mDataLength += 4;
+
+                        // set prefix
+                        property->mData[0] = static_cast<char>(full_path.length());
+                        property->mData[1] = 0;
+                        property->mData[2] = 0;
+                        property->mData[3] = 0;
+                    }
+                }
+
+
                 furniture_materials.push_back(material_copy);
                 original_to_new_material_index_map[i] = total_material_count++;
             }
@@ -253,7 +281,6 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
         pScene->mMaterials = all_materials;
         pScene->mNumMaterials = total_material_count;
     }
-
 
     // parse scene
     pScene->mRootNode = new aiNode;
