@@ -1,5 +1,8 @@
 #pragma once
 #include <assimp/BaseImporter.h>
+
+#include <filesystem>
+
 /*
  * Importer for scenes from the 3D-FRONT data set.
  * https://tianchi.aliyun.com/specials/promotion/alibaba-3d-scene-dataset
@@ -14,4 +17,6 @@ public:
     const aiImporterDesc* GetInfo() const override;
 protected:
     void InternReadFile(const std::string& pFile, aiScene* pScene, Assimp::IOSystem* pIOHandler) override;
+    void FindMaterialAndFurnitureDirectories(const std::string& file_path, std::vector<std::filesystem::path>& material_directories,
+        std::vector<std::filesystem::path>& furniture_directories);
 };
