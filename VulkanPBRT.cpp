@@ -201,6 +201,13 @@ int main(int argc, char** argv){
             }
             if(offlineGBuffers.empty()){
                 offlineGBuffers.resize(numFrames);
+                for(auto& i: offlineGBuffers){
+                    i = OfflineGBuffer::create();
+                    i->depth = vsg::floatArray2D::create(windowTraits->width, windowTraits->height);
+                    i->normal = vsg::vec2Array2D::create(windowTraits->width, windowTraits->height);
+                    i->albedo = vsg::ubvec4Array2D::create(windowTraits->width, windowTraits->height);
+                    i->material = vsg::ubvec4Array2D::create(windowTraits->width, windowTraits->height);
+                }
             }
         }
 
@@ -298,8 +305,12 @@ int main(int argc, char** argv){
             writeGBuffer = false;
             illuminationBuffer = IlluminationBufferFinal::create(windowTraits->width, windowTraits->height);
         }
-        if  (highQualityIllumiation){
+        if (highQualityIllumiation){
             illuminationBuffer = IlluminatonBufferFinalFloat::create(windowTraits->width, windowTraits->height);
+        }
+        if (exportIllumination && !gBuffer){
+            writeGBuffer = true;
+            gBuffer = GBuffer::create(windowTraits->width, windowTraits->height);
         }
         if (useTaa && !accumulationBuffer)
         {
@@ -588,6 +599,10 @@ int main(int argc, char** argv){
             if(exportIllumination){
                 int frame = offlineIlluminations.size() - 1 - numFrames;
                 offlineIlluminationBufferStager->transferStagingDataTo(offlineIlluminations[frame]);
+            }
+            if(exportGBuffer){
+                int frame = offlineIlluminations.size() - 1 - numFrames;
+                offlineGBufferStager->transferStagingDataTo(offlineGBuffers[frame]);
             }
         }
         numFrames = numFramesC;
