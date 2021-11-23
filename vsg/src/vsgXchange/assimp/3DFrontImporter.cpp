@@ -119,7 +119,7 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
             }
             else
             {
-                use_color = std::string(raw_material["texture"]) == "";
+                use_color = std::string(raw_material["texture"]).empty();
             }
             if (use_color)
             {
@@ -176,7 +176,6 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
             if (obj_type.find("Ceiling") != std::string::npos)
             {
                 auto& material = pScene->mMaterials[ai_mesh->mMaterialIndex];
-                // TODO: use base color
                 aiColor3D emissive_color(_ceiling_light_strength);
                 material->AddProperty(&emissive_color, 1, AI_MATKEY_COLOR_EMISSIVE);
             }
@@ -201,8 +200,8 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
                     int u_index = i * 2;
                     int v_index = u_index + 1;
 
-                    ai_mesh->mVertices[i] = aiVector3D(raw_vertices[x_index], raw_vertices[y_index], raw_vertices[z_index]);
-                    ai_mesh->mNormals[i] = aiVector3D(raw_normals[x_index], raw_normals[y_index], raw_normals[z_index]);
+                    ai_mesh->mVertices[i] = aiVector3D(raw_vertices[x_index], raw_vertices[y_index], -float(raw_vertices[z_index]));
+                    ai_mesh->mNormals[i] = aiVector3D(raw_normals[x_index], -float(raw_normals[y_index]), raw_normals[z_index]);
                     ai_mesh->mTextureCoords[0][i] = aiVector3D(raw_tex_coords[u_index], raw_tex_coords[v_index], 0);
 
                     // flip tex coord v
@@ -269,7 +268,7 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
                 auto* material_copy = new aiMaterial;
                 aiMaterial::CopyPropertyList(material_copy, furniture_model_scene->mMaterials[i]);
 
-                // TODO: edit texture path
+                // edit texture path
                 for (int prop_index = 0; prop_index < material_copy->mNumProperties; prop_index++)
                 {
                     auto& property = material_copy->mProperties[prop_index];
