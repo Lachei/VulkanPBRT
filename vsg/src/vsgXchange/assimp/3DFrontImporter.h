@@ -17,6 +17,9 @@ public:
     const aiImporterDesc* GetInfo() const override;
 protected:
     void InternReadFile(const std::string& pFile, aiScene* pScene, Assimp::IOSystem* pIOHandler) override;
-    void FindMaterialAndFurnitureDirectories(const std::string& file_path, std::vector<std::filesystem::path>& material_directories,
+private:
+    void FindDataDirectories(const std::string& file_path, std::vector<std::filesystem::path>& texture_directories,
         std::vector<std::filesystem::path>& furniture_directories);
+
+    float _ceiling_light_strength = 0.8f;
 };
