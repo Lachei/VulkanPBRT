@@ -163,6 +163,13 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::VertexIndexDraw& vid)
             if (vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3 + 2];
             else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3 + 2];
             l.v2 = ((vsg::vec3*)vid.arrays[0]->dataPointer())[index];
+            //transforming the light position
+            auto t = _transformStack.top() * vsg::dvec4{l.v0.x, l.v0.y, l.v0.z, 1};
+            l.v0 = {static_cast<float>(t.x), static_cast<float>(t.y), static_cast<float>(t.z)};
+            t = _transformStack.top() * vsg::dvec4{l.v1.x, l.v1.y, l.v1.z, 1};
+            l.v1 = {static_cast<float>(t.x), static_cast<float>(t.y), static_cast<float>(t.z)};
+            t = _transformStack.top() * vsg::dvec4{l.v2.x, l.v2.y, l.v2.z, 1};
+            l.v2 = {static_cast<float>(t.x), static_cast<float>(t.y), static_cast<float>(t.z)};
             packedLights.push_back(l.getPacked());
         }
     }
@@ -203,7 +210,8 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::BindDescriptorSet& bds
                 WaveFrontMaterialPacked mat;
                 std::memcpy(&mat.ambientShininess, &vsgMat.baseColorFactor, sizeof(vsg::vec4));
                 std::memcpy(&mat.specularDissolve, &vsgMat.specularFactor, sizeof(vsg::vec4));
-                std::memcpy(&mat.diffuseIor, &vsgMat.diffuseFactor, sizeof(vsg::vec4));
+                //std::memcpy(&mat.diffuseIor, &vsgMat.diffuseFactor, sizeof(vsg::vec4));
+                std::memcpy(&mat.diffuseIor, &vsgMat.baseColorFactor, sizeof(vsg::vec4));
                 std::memcpy(&mat.emissionTextureId, &vsgMat.emissiveFactor, sizeof(vsg::vec4));
                 if (vsgMat.emissiveFactor.r + vsgMat.emissiveFactor.g + vsgMat.emissiveFactor.b != 0) meshEmissive = true;
                 else meshEmissive = false;

@@ -37,7 +37,7 @@ void main()
     mat4 normalObj = transpose(inverse(instance.objectMat));
     normal = normalize((normalObj * vec4(normal, 0)).xyz);
     if(v0.uv == v1.uv) v1.uv += vec2(epsilon,0);
-    if(v0.uv == v2.uv) v2.uv += vec2(0,2 * epsilon);
+    if(v0.uv == v2.uv) v2.uv += vec2(0,epsilon);
     if(v1.uv == v2.uv) v2.uv += vec2(epsilon);
     vec3 T = (normalObj * vec4(getTangent(v0.pos, v1.pos, v2.pos, v0.uv, v1.uv, v2.uv).xyz, 0)).xyz;
     //T = (instance.objectMat * vec4(T, 0)).xyz;
@@ -62,7 +62,7 @@ void main()
 
     float metallic = convertMetallic(diffuse.rgb, specular.rgb, maxSpecular);
 
-    vec3 baseColorDiffusePart = diffuse.rgb * ((1.0 - maxSpecular) / (1 - c_MinRoughness) / max(1 - metallic, epsilon)) * mat.ambient.rgb;
+    vec3 baseColorDiffusePart = diffuse.rgb * ((1.0 - maxSpecular) / (1 - c_MinRoughness) / max(1 - metallic, epsilon)) * mat.diffuse.rgb;
     vec3 baseColorSpecularPart = specular.rgb - (vec3(c_MinRoughness) * (1 - metallic) * (1 / max(metallic, epsilon))) * mat.specular.rgb;
     vec4 baseColor = vec4(mix(baseColorDiffusePart, baseColorSpecularPart, metallic * metallic), diffuse.a);
 
