@@ -128,13 +128,12 @@ vec3 indirectLighting(vec3 pos, vec3 v, SurfaceInfo s, int recDepth, inout vec3 
     }
     pathThroughput /= 1.0 - c_MinTermination;
   }
-
   throughput = pathThroughput;
+
   traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, pos, tmin, l, tmax, 1);
 
 	//TODO: better firefly suppression (see nvpro samples for a good one)
-	//return nextEventEsitmation(rayPayload.position, v, rayPayload.si, throughput, re) + rayPayload.si.emissiveColor;
-    return rayPayload.si.emissiveColor * throughput;
+  return nextEventEsitmation(rayPayload.position, v, rayPayload.si, throughput, re) + rayPayload.si.emissiveColor * throughput;
 }
 
 #endif //LIGHTING_H
