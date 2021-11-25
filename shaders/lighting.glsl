@@ -96,6 +96,8 @@ vec3 nextEventEsitmation(vec3 pos, vec3 o, SurfaceInfo s, vec3 throughput, inout
   if(s.normal == vec3(1,1,1)) return vec3(0);
   vec3 light  = vec3(0);
 
+  return vec3(0);
+
   vec3 l;
   float lightPdf;
   vec3 lightCol = sampleLight(pos, s.normal, re, l, lightPdf);
@@ -131,7 +133,8 @@ vec3 indirectLighting(vec3 pos, vec3 v, SurfaceInfo s, int recDepth, inout vec3 
   traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, pos, tmin, l, tmax, 1);
 
 	//TODO: better firefly suppression (see nvpro samples for a good one)
-  return nextEventEsitmation(rayPayload.position, v, rayPayload.si, throughput, re) + rayPayload.si.emissiveColor;
+	//return nextEventEsitmation(rayPayload.position, v, rayPayload.si, throughput, re) + rayPayload.si.emissiveColor;
+    return rayPayload.si.emissiveColor * throughput;
 }
 
 #endif //LIGHTING_H

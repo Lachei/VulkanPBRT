@@ -20,7 +20,7 @@ static void DeepCopyAiMesh(aiMesh* source, aiMesh*& target)
 {
     target = new aiMesh;
     *target = *source;
-    if (source->mNumVertices > 0) 
+    if (source->mNumVertices > 0)
     {
         target->mVertices = new aiVector3D[source->mNumVertices];
         std::memcpy(target->mVertices, source->mVertices, target->mNumVertices * sizeof(aiVector3D));
@@ -50,8 +50,8 @@ static void DeepCopyAiMesh(aiMesh* source, aiMesh*& target)
                     // flip tex coord v
                     target->mTextureCoords[i][tex_coord_index].y = 1 - target->mTextureCoords[i][tex_coord_index].y;
                 }
-            }    
-        }  
+            }
+        }
     }
     target->mFaces = new aiFace[source->mNumFaces];
     std::memcpy(target->mFaces, source->mFaces, target->mNumFaces * sizeof(aiFace));
@@ -96,23 +96,66 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
     scene_file >> scene_json;
 
     std::vector<fs::path> furniture_directories;
-    std::vector<fs::path> material_directories;
-    FindMaterialAndFurnitureDirectories(pFile, material_directories, furniture_directories);
+    std::vector<fs::path> texture_directories;
+    FindDataDirectories(pFile, texture_directories, furniture_directories);
 
-    // TODO: load materials
+    // load materials
     std::unordered_map<std::string, uint32_t> material_id_to_index_map;
-    //const auto& materials = scene_json["material"];
-    //pScene->mNumMaterials = materials.size();
-    //if (pScene->mNumMaterials > 0)
-    //{
-    //    pScene->mMaterials = new aiMaterial*[pScene->mNumMeshes];
-    //    uint32_t material_index = 0;
-    //    for (const auto& raw_materials : materials)
-    //    {
-    //        pScene->mMaterials[material_index] = new aiMaterial;
-    //        auto& ai_mesh = pScene->mMeshes[material_index];
-    //    }
-    //}
+    const auto& materials = scene_json["material"];
+    pScene->mNumMaterials = materials.size();
+    if (pScene->mNumMaterials > 0)
+    {
+        pScene->mMaterials = new aiMaterial*[pScene->mNumMaterials];
+        uint32_t material_index = 0;
+        for (const auto& raw_material : materials)
+        {
+            pScene->mMaterials[material_index] = new aiMaterial;
+            auto& ai_material = pScene->mMaterials[material_index];
+
+            bool use_color;
+            if (const auto& iterator = raw_material.find("use_color"); iterator != raw_material.end())
+            {
+                use_color = iterator.value();
+            }
+            else
+            {
+                use_color = std::string(raw_material["texture"]).empty();
+            }
+            //if (use_color)
+            {
+                const auto& raw_color = raw_material["color"];
+                aiColor4D color(static_cast<float>(raw_color[0]) / 255.f, static_cast<float>(raw_color[1]) / 255.f,
+                                static_cast<float>(raw_color[2]) / 255.f,
+                                static_cast<float>(raw_color[3]) / 255.f);
+                // TODO: change to AI_MATKEY_COLOR_DIFFUSE
+                ai_material->AddProperty(&color, 1, AI_MATKEY_COLOR_AMBIENT);
+            }
+
+            const auto& material_id = raw_material["jid"];
+            if (material_id != "")
+            {
+                for (const auto& texture_directory : texture_directories)
+                {
+                    fs::path texture_path = texture_directory / fs::path(std::string(material_id));
+                    if (!fs::exists(texture_path))
+                    {
+                        continue;
+                    }
+                    // add texture
+                    aiString text_path_str((texture_path / fs::path("texture.png")).string());
+                    const int uvwIndex = 0;
+                    ai_material->AddProperty(&text_path_str, AI_MATKEY_TEXTURE_DIFFUSE(0));
+                    ai_material->AddProperty(&uvwIndex, 1, AI_MATKEY_UVWSRC_DIFFUSE(0));
+                    const int address_mode = aiTextureMapMode_Wrap;
+                    ai_material->AddProperty<int>(&address_mode, 1, AI_MATKEY_MAPPINGMODE_U(aiTextureType_DIFFUSE, 0));
+                    ai_material->AddProperty<int>(&address_mode, 1, AI_MATKEY_MAPPINGMODE_V(aiTextureType_DIFFUSE, 0));
+                    // we have our texture and don't need to check the other directories
+                    break;
+                }
+            }
+            material_id_to_index_map[raw_material["uid"]] = material_index++;
+        }
+    }
 
     // load base meshes
     std::unordered_map<std::string, std::vector<uint32_t>> model_uid_to_mesh_indices_map;
@@ -128,6 +171,17 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
             auto& ai_mesh = pScene->mMeshes[mesh_index];
             ai_mesh->mPrimitiveTypes = aiPrimitiveType_TRIANGLE;
             ai_mesh->mNumUVComponents[0] = 2;
+
+            ai_mesh->mMaterialIndex = material_id_to_index_map[raw_mesh["material"]];
+            const auto& obj_type = std::string(raw_mesh["type"]);
+            if (obj_type.find("Ceiling") != std::string::npos)
+            {
+                auto& material = pScene->mMaterials[ai_mesh->mMaterialIndex];
+                aiColor3D emissive_color(_ceiling_light_strength);
+                material->AddProperty(&emissive_color, 1, AI_MATKEY_COLOR_EMISSIVE);
+            }
+
+            bool is_floor = obj_type.find("Floor") != std::string::npos;            
 
             // parse vertices, normals and tex coords
             const auto& raw_vertices = raw_mesh["xyz"];
@@ -150,6 +204,11 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
 
                     ai_mesh->mVertices[i] = aiVector3D(raw_vertices[x_index], raw_vertices[y_index], raw_vertices[z_index]);
                     ai_mesh->mNormals[i] = aiVector3D(raw_normals[x_index], raw_normals[y_index], raw_normals[z_index]);
+                    if (is_floor)
+                    {
+                        //ai_mesh->mVertices[i].y += 5;
+                    }
+
                     ai_mesh->mTextureCoords[0][i] = aiVector3D(raw_tex_coords[u_index], raw_tex_coords[v_index], 0);
 
                     // flip tex coord v
@@ -160,6 +219,7 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
             // parse indices
             const auto& raw_indices = raw_mesh["faces"];
             ai_mesh->mNumFaces = raw_indices.size() / 3;
+            assert(ai_mesh->mNumFaces * 3 == ai_mesh->mNumVertices);
             if (ai_mesh->mNumFaces > 0)
             {
                 ai_mesh->mFaces = new aiFace[ai_mesh->mNumFaces];
@@ -173,18 +233,16 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
                     auto& face = ai_mesh->mFaces[i];
                     face.mNumIndices = 3;
                     face.mIndices = new unsigned int[3];
-                    face.mIndices[0] = raw_indices[index_0];
+                    face.mIndices[0] = raw_indices[index_2];
                     face.mIndices[1] = raw_indices[index_1];
-                    face.mIndices[2] = raw_indices[index_2];
+                    face.mIndices[2] = raw_indices[index_0];
                 }
             }
-            // TODO: load material
-            // TODO: set AABB
 
             model_uid_to_mesh_indices_map[raw_mesh["uid"]].push_back(mesh_index++);
         }
     }
-    
+
 
     // load furniture
     Assimp::Importer importer;
@@ -207,7 +265,7 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
             const aiScene* furniture_model_scene = importer.ReadFile(
                 obj_path_str.c_str(),
                 aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_OptimizeMeshes | aiProcess_SortByPType |
-                aiProcess_ImproveCacheLocality | aiProcess_GenUVCoords  // same flags as in assimp.cpp
+                aiProcess_ImproveCacheLocality | aiProcess_GenUVCoords // same flags as in assimp.cpp
             );
             assert(furniture_model_scene->mNumTextures == 0);
 
@@ -218,7 +276,7 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
                 auto* material_copy = new aiMaterial;
                 aiMaterial::CopyPropertyList(material_copy, furniture_model_scene->mMaterials[i]);
 
-                // TODO: edit texture path
+                // edit texture path
                 for (int prop_index = 0; prop_index < material_copy->mNumProperties; prop_index++)
                 {
                     auto& property = material_copy->mProperties[prop_index];
@@ -269,7 +327,7 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
     pScene->mMeshes = meshes_with_furniture;
     pScene->mNumMeshes = total_mesh_count;
     // copy material data pointers to main scene
-    if (total_material_count > 0) 
+    if (total_material_count > 0)
     {
         auto* all_materials = new aiMaterial*[total_material_count];
         if (pScene->mMaterials && pScene->mNumMaterials > 0)
@@ -308,15 +366,22 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
             auto& child_node = room_node->mChildren[child_index];
             child_node->mName = instance_id;
 
-            // create transformation
-            const auto& scale = raw_child["scale"];
-            const auto& rotation = raw_child["rot"];
-            const auto& position = raw_child["pos"];
-            child_node->mTransformation = aiMatrix4x4(
-                aiVector3D(scale[0], scale[2], scale[1]),
-                aiQuaternion(rotation[3], rotation[0], rotation[2], rotation[1]),
-                aiVector3D(position[0], position[2], position[1])
-            );
+            if (instance_id.find("furniture") != std::string::npos)
+            {
+                // create transformation
+                const auto& scale = raw_child["scale"];
+                const auto& rotation = raw_child["rot"];
+                const auto& position = raw_child["pos"];
+                child_node->mTransformation = aiMatrix4x4(
+                    aiVector3D(scale[0], scale[1], scale[2]),
+                    aiQuaternion(rotation[3], rotation[0], rotation[2], rotation[1]),
+                    aiVector3D(position[0], position[2], position[1])
+                );
+                aiMatrix4x4 scale_matrix;
+                aiMatrix4x4::Scaling(aiVector3D(1, -1, 1), scale_matrix);
+                child_node->mTransformation = scale_matrix * child_node->mTransformation;
+            }
+            
 
             child_node->mParent = room_node;
 
@@ -327,8 +392,8 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
         }
     }
 }
-void AI3DFrontImporter::FindMaterialAndFurnitureDirectories(const std::string& file_path,
-    std::vector<fs::path>& material_directories, std::vector<fs::path>& furniture_directories)
+void AI3DFrontImporter::FindDataDirectories(const std::string& file_path,
+                                            std::vector<fs::path>& texture_directories, std::vector<fs::path>& furniture_directories)
 {
     auto root_path_3d_front = fs::absolute(fs::path(file_path)).parent_path().parent_path();
     for (const auto& directory_entry : fs::directory_iterator(root_path_3d_front))
@@ -345,7 +410,7 @@ void AI3DFrontImporter::FindMaterialAndFurnitureDirectories(const std::string& f
         }
         else if (directory_name.find("3D-FRONT-texture") != std::string::npos)
         {
-            material_directories.push_back(directory_path);
+            texture_directories.push_back(directory_path);
         }
     }
 }
