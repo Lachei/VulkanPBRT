@@ -596,6 +596,9 @@ int main(int argc, char** argv){
 
             lookAt->get(rayTracingPushConstantsValue->value().prevView);
 
+            if(exportGBuffer || exportIllumination){
+                viewer->deviceWaitIdle();
+            }
             if(exportIllumination){
                 int frame = offlineIlluminations.size() - 1 - numFrames;
                 offlineIlluminationBufferStager->transferStagingDataTo(offlineIlluminations[frame]);
