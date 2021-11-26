@@ -2,11 +2,11 @@
 #define LAYOUTPTIMAGES_H
 
 #ifdef FINAL_IMAGE
-layout(binding = 1, set = 0, rgba8) uniform image2D outputImage;
+layout(binding = 1, rgba8) uniform image2D outputImage;
 #endif
 
 #ifdef FINAL_IMAGE_HQ
-layout(binding = 1, set = 0, rgba32f) uniform image2D outputImage;
+layout(binding = 1, rgba32f) uniform image2D outputImage;
 #define FINAL_IMAGE
 #endif
 

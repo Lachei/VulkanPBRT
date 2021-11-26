@@ -345,7 +345,7 @@ void OfflineIllumination::downloadFromIlluminationBufferCommand(vsg::ref_ptr<Ill
         copy->srcImage = info.imageView->image;
         copy->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
         copy->dstBuffer = noisyStaging.buffer;
-        copy->regions = {VkBufferImageCopy{0, 0, 0, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
+        copy->regions = {VkBufferImageCopy{noisyStaging.offset, 0, 0, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
         commands->addChild(copy);
         // transfer image layout back
         memBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
@@ -553,7 +553,7 @@ void OfflineGBuffer::downloadFromGBufferCommand(vsg::ref_ptr<GBuffer>& gBuffer, 
         copy->srcImage = info.imageView->image;
         copy->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
         copy->dstBuffer = depthStaging.buffer;
-        copy->regions = {VkBufferImageCopy{0,0, 0, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
+        copy->regions = {VkBufferImageCopy{depthStaging.offset,0, 0, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
         commands->addChild(copy);
         // transfer image layout back
         memBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
@@ -580,7 +580,7 @@ void OfflineGBuffer::downloadFromGBufferCommand(vsg::ref_ptr<GBuffer>& gBuffer, 
         copy->srcImage = info.imageView->image;
         copy->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
         copy->dstBuffer = normalStaging.buffer;
-        copy->regions = {VkBufferImageCopy{0, 0, 0, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
+        copy->regions = {VkBufferImageCopy{normalStaging.offset, 0, 0, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
         commands->addChild(copy);
         // transfer image layout back
         memBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
@@ -607,7 +607,7 @@ void OfflineGBuffer::downloadFromGBufferCommand(vsg::ref_ptr<GBuffer>& gBuffer, 
         copy->srcImage = info.imageView->image;
         copy->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
         copy->dstBuffer = albedoStaging.buffer;
-        copy->regions = {VkBufferImageCopy{0, 0, 0, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
+        copy->regions = {VkBufferImageCopy{albedoStaging.offset, 0, 0, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
         commands->addChild(copy);
         // transfer image layout back
         memBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
@@ -634,7 +634,7 @@ void OfflineGBuffer::downloadFromGBufferCommand(vsg::ref_ptr<GBuffer>& gBuffer, 
         copy->srcImage = info.imageView->image;
         copy->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
         copy->dstBuffer = materialStaging.buffer;
-        copy->regions = {VkBufferImageCopy{0, 0, 0, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
+        copy->regions = {VkBufferImageCopy{materialStaging.offset, 0, 0, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
         commands->addChild(copy);
         // transfer image layout back
         memBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
