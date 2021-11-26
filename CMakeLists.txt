@@ -15,6 +15,8 @@ set(vsg_glslang_DIR ${CMAKE_SOURCE_DIR}/vsg)
 find_dependency(vsg_glslang)
 
 add_subdirectory(vsg)
+add_subdirectory(vsgXchange)
+add_subdirectory(vsgImGui)
 add_subdirectory(Denoiser)
 add_subdirectory(TAA)
 
@@ -71,7 +73,7 @@ set(UNCOMPILED_SHADERS
 add_executable(VulkanPBRT ${SRC})
 
 target_compile_definitions(VulkanPBRT PRIVATE ${EXTRA_DEFINES})
-target_link_libraries(VulkanPBRT Vulkan::Vulkan 
+target_link_libraries(VulkanPBRT vsg::vsg vsgImGui::vsgImGui vsgXchange::vsgXchange Vulkan::Vulkan 
     glslang::glslang glslang::MachineIndependent glslang::OSDependent glslang::OGLCompiler glslang::SPIRV glslang::GenericCodeGen glslang::SPIRV-Tools-opt glslang::SPIRV-Tools
      Threads::Threads OpenEXR::IlmImf)
 if(UNIX)
