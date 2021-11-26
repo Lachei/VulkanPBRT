@@ -17,9 +17,8 @@ find_dependency(vsg_glslang)
 add_subdirectory(vsg)
 add_subdirectory(Denoiser)
 add_subdirectory(TAA)
-set(IMGUI_HEADER
-    vsg/src/imgui/)
-include_directories(vsg/include ${glslang_INCLUDE_DIRS} ${IMGUI_HEADER} ${OpenEXR_INCLUDE_DIRS})
+
+include_directories(${OpenEXR_INCLUDE_DIRS})
 set(CMAKE_CXX_STANDARD 17)
 
 file(GLOB SRC_TOP
@@ -69,7 +68,7 @@ set(UNCOMPILED_SHADERS
     formatConverter.comp
 )
 
-add_executable(VulkanPBRT ${SRC} ${VSG_ALL})
+add_executable(VulkanPBRT ${SRC})
 
 target_compile_definitions(VulkanPBRT PRIVATE ${EXTRA_DEFINES})
 target_link_libraries(VulkanPBRT Vulkan::Vulkan 
