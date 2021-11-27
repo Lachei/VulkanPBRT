@@ -196,7 +196,7 @@ set(SOURCES
     utils/CommandLine.cpp
     utils/Builder.cpp
     
-    ../../SPIRV-Reflect/spirv_reflect.c
+    ../SPIRV-Reflect/spirv_reflect.c
 )
 
 # add platform specific Window implementation
