@@ -2,7 +2,6 @@
 
 #include<vsg/core/Object.h>
 #include<vsg/raytracing/RayTracingShaderGroup.h>
-#include<vsg/raytracing/RayTracingPipeline.h>
 
 namespace vsg
 {
