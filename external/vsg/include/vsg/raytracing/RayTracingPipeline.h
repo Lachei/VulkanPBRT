@@ -13,6 +13,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 </editor-fold> */
 
 #include <vsg/raytracing/RayTracingShaderGroup.h>
+#include <vsg/raytracing/RayTracingShaderBindingTable.h>
 #include <vsg/state/PipelineLayout.h>
 #include <vsg/state/ShaderStage.h>
 #include <vsg/state/StateCommand.h>
@@ -25,7 +26,7 @@ namespace vsg
     public:
         RayTracingPipeline();
 
-        RayTracingPipeline(PipelineLayout* pipelineLayout, const ShaderStages& shaderStages, const RayTracingShaderGroups& shaderGroups);
+        RayTracingPipeline(PipelineLayout* pipelineLayout, const ShaderStages& shaderStages, const RayTracingShaderGroups& shaderGroups, ref_ptr<RayTracingShaderBindingTable> bindingTable, int maxRecursionDepth);
 
         void read(Input& input) override;
         void write(Output& output) const override;
@@ -71,6 +72,7 @@ namespace vsg
         vk_buffer<ref_ptr<Implementation>> _implementation;
 
         ref_ptr<PipelineLayout> _pipelineLayout;
+        ref_ptr<RayTracingShaderBindingTable> _bindingTable;
         ShaderStages _shaderStages;
         RayTracingShaderGroups _rayTracingShaderGroups;
         uint32_t _maxRecursionDepth = 1;

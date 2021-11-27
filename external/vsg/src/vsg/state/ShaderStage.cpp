@@ -14,6 +14,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/io/read.h>
 #include <vsg/state/ShaderStage.h>
 #include <vsg/traversals/CompileTraversal.h>
+#include <vsg/core/Exception.h>
 #include <SPIRV-Reflect/spirv_reflect.h>
 
 using namespace vsg;
@@ -301,7 +302,7 @@ BindingMap ShaderStage::mergeBindingMaps(const std::vector<BindingMap>& maps)
             auto& resNames = result[entry.first].names;
             const auto& bindings = entry.second.bindings;
             const auto& names = entry.second.names;
-            for(int i = 0; i < bindings.size(); ++i){
+            for(int i = 0; i < static_cast<int>(bindings.size()); ++i){
                 // only add binding if not yet in the binding vector of the result
                 if(std::find_if(resBindings.begin(), resBindings.end(), [&](VkDescriptorSetLayoutBinding& b){return b.binding == bindings[i].binding;}) == resBindings.end()){
                     resBindings.push_back(bindings[i]);
@@ -327,7 +328,7 @@ BindingMap ShaderStage::mergeBindingMaps(const std::vector<BindingMap>& maps)
 SetBindingIndex ShaderStage::getSetBindingIndex(const BindingMap& map, const std::string_view& name)
 {
     for(auto& entry: map){
-        for(int i = 0; i < entry.second.names.size(); ++i){
+        for(int i = 0; i < static_cast<int>(entry.second.names.size()); ++i){
             if(entry.second.names[i] == name){
                 return {entry.first, entry.second.bindings[i].binding};
             }

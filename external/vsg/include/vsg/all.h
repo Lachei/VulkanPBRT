@@ -251,6 +251,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/raytracing/RayTracingShaderGroup.h>
 #include <vsg/raytracing/TopLevelAccelerationStructure.h>
 #include <vsg/raytracing/TraceRays.h>
+#include <vsg/raytracing/RayTracingShaderBindingTable.h>
 
 // RTX mesh  header files
 #include <vsg/rtx/DrawMeshTasks.h>

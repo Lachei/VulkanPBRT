@@ -13,6 +13,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 </editor-fold> */
 
 #include <vsg/state/ShaderModule.h>
+#include <vsg/state/DescriptorSetLayout.h>
 
 namespace vsg
 {
@@ -25,6 +26,7 @@ namespace vsg
     };
     using BindingMap = std::map<uint32_t, NamesBindingsPair>;
     using SetBindingIndex = std::pair<uint32_t, uint32_t>;
+    using PushConstantRanges = std::vector<VkPushConstantRange>;
 
     class VSG_DECLSPEC ShaderStage : public Inherit<Object, ShaderStage>
     {
