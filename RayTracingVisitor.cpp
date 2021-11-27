@@ -6,25 +6,23 @@ RayTracingSceneDescriptorCreationVisitor::RayTracingSceneDescriptorCreationVisit
     auto white = vsg::ubvec4Array2D::create(1, 1, vsg::Data::Layout{ VK_FORMAT_R8G8B8A8_UNORM });
     std::copy(&w, &w + 1, white->data());
 
-    vsg::SamplerImage image;
-    image.data = white;
-    image.sampler = vsg::Sampler::create();
-    image.sampler->addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    image.sampler->addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    image.sampler->addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    image.sampler->anisotropyEnable = VK_FALSE;
-    image.sampler->maxLod = 1;
-    _defaultTexture = vsg::DescriptorImage::create(image);
+    auto sampler = vsg::Sampler::create();
+    sampler->addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler->addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler->addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler->anisotropyEnable = VK_FALSE;
+    sampler->maxLod = 1;
+    _defaultTexture = vsg::DescriptorImage::create(sampler, white, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 }
 void RayTracingSceneDescriptorCreationVisitor::apply(vsg::Object& object)
 {
     object.traverse(*this);
 }
-void RayTracingSceneDescriptorCreationVisitor::apply(vsg::MatrixTransform& mt)
+void RayTracingSceneDescriptorCreationVisitor::apply(vsg::Transform& t)
 {
-    _transformStack.pushAndPreMult(mt.getMatrix());
+    _transformStack.push(t);
 
-    mt.traverse(*this);
+    t.traverse(*this);
 
     _transformStack.pop();
 }
@@ -45,23 +43,23 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::VertexIndexDraw& vid)
     {
         instance.meshId = _positions.size();
         _vertexIndexDrawMap[&vid] = instance;
-        auto positions = vsg::DescriptorBuffer::create(vid.arrays[0], 2, _positions.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+        auto positions = vsg::DescriptorBuffer::create(vid.arrays[0]->data, 2, _positions.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
         _positions.push_back(positions);
         std::vector<vsg::vec3> nors(1);
-        std::memcpy(nors.data(), vid.arrays[1]->dataPointer(), sizeof(vsg::vec3));
+        std::memcpy(nors.data(), vid.arrays[1]->data->dataPointer(), sizeof(vsg::vec3));
         if (vsg::length2(nors[0]) == 0)
         {
             //normals have to be computed
-            nors.resize(vid.arrays[1]->dataSize() / sizeof(nors[0]));
-            std::memcpy(nors.data(), vid.arrays[1]->dataPointer(), vid.arrays[1]->dataSize());
+            nors.resize(vid.arrays[1]->data->dataSize() / sizeof(nors[0]));
+            std::memcpy(nors.data(), vid.arrays[1]->data->dataPointer(), vid.arrays[1]->data->dataSize());
             std::vector<float> weightSum(nors.size(), 0);
-            std::vector<vsg::vec3> positions(vid.arrays[0]->dataSize() / sizeof(vsg::vec3));
-            std::memcpy(positions.data(), vid.arrays[0]->dataPointer(), vid.arrays[0]->dataSize());
-            if (vid.indices->stride() == 4)
+            std::vector<vsg::vec3> positions(vid.arrays[0]->data->dataSize() / sizeof(vsg::vec3));
+            std::memcpy(positions.data(), vid.arrays[0]->data->dataPointer(), vid.arrays[0]->data->dataSize());
+            if (vid.indices->data->stride() == 4)
             {
                 //integer indices
-                std::vector<uint32_t> indices(vid.indices->dataSize() / sizeof(uint32_t));
-                std::memcpy(indices.data(), vid.indices->dataPointer(), vid.indices->dataSize());
+                std::vector<uint32_t> indices(vid.indices->data->dataSize() / sizeof(uint32_t));
+                std::memcpy(indices.data(), vid.indices->data->dataPointer(), vid.indices->data->dataSize());
                 for (int tri = 0; tri < indices.size() / 3; ++tri)
                 {
                     uint32_t indA = indices[3 * tri], indB = indices[3 * tri + 1], indC = indices[3 * tri + 2];
@@ -83,8 +81,8 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::VertexIndexDraw& vid)
             else
             {
                 //short indices
-                std::vector<uint16_t> indices(vid.indices->dataSize() / sizeof(uint16_t));
-                std::memcpy(indices.data(), vid.indices->dataPointer(), vid.indices->dataSize());
+                std::vector<uint16_t> indices(vid.indices->data->dataSize() / sizeof(uint16_t));
+                std::memcpy(indices.data(), vid.indices->data->dataPointer(), vid.indices->data->dataSize());
                 for (int tri = 0; tri < indices.size() / 3; ++tri)
                 {
                     uint32_t indA = indices[3 * tri], indB = indices[3 * tri + 1], indC = indices[3 * tri + 2];
@@ -104,43 +102,43 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::VertexIndexDraw& vid)
                 }
             }
             //for(auto& normal: nors) normal = vsg::normalize(normal);
-            std::memcpy(vid.arrays[1]->dataPointer(), nors.data(), vid.arrays[1]->dataSize());
+            std::memcpy(vid.arrays[1]->data->dataPointer(), nors.data(), vid.arrays[1]->data->dataSize());
         }
-        auto normals = vsg::DescriptorBuffer::create(vid.arrays[1], 3, _normals.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+        auto normals = vsg::DescriptorBuffer::create(vid.arrays[1]->data, 3, _normals.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
         _normals.push_back(normals);
         // auto fill up tex coords if not provided
         vsg::ref_ptr<vsg::DescriptorBuffer> texCoords;
-        int v = vid.arrays[2]->valueCount();
-        if (vid.arrays[2]->valueCount() == 0)
+        int v = vid.arrays[2]->data->valueCount();
+        if (vid.arrays[2]->data->valueCount() == 0)
         {
-            auto data = vsg::vec2Array::create(vid.arrays[0]->valueCount());
-            for (int i = 0; i < vid.indices->valueCount() / 3; ++i)
+            auto data = vsg::vec2Array::create(vid.arrays[0]->data->valueCount());
+            for (int i = 0; i < vid.indices->data->valueCount() / 3; ++i)
             {
                 uint32_t index = 0;
-                if (vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3];
-                else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3];
+                if (vid.indices->data->stride() == 2) index = ((uint16_t*)(vid.indices->data->dataPointer()))[i * 3];
+                else index = ((uint32_t*)(vid.indices->data->dataPointer()))[i * 3];
                 data->at(index) = vsg::vec2(0, 0);
-                if (vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3 + 1];
-                else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3 + 1];
+                if (vid.indices->data->stride() == 2) index = ((uint16_t*)(vid.indices->data->dataPointer()))[i * 3 + 1];
+                else index = ((uint32_t*)(vid.indices->data->dataPointer()))[i * 3 + 1];
                 data->at(index) = vsg::vec2(0, 1);
-                if (vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3 + 2];
-                else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3 + 2];
+                if (vid.indices->data->stride() == 2) index = ((uint16_t*)(vid.indices->data->dataPointer()))[i * 3 + 2];
+                else index = ((uint32_t*)(vid.indices->data->dataPointer()))[i * 3 + 2];
                 data->at(index) = vsg::vec2(1, 0);
             }
-            vid.arrays[2] = data;
+            vid.arrays[2]->data = data;
         }
-        else texCoords = vsg::DescriptorBuffer::create(vid.arrays[2], 4, _texCoords.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+        else texCoords = vsg::DescriptorBuffer::create(vid.arrays[2]->data, 4, _texCoords.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
         _texCoords.push_back(texCoords);
-        auto indices = vsg::DescriptorBuffer::create(vid.indices, 5, _indices.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+        auto indices = vsg::DescriptorBuffer::create(vid.indices->data, 5, _indices.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
         _indices.push_back(indices);
-        instance.indexStride = vid.indices->stride();
+        instance.indexStride = vid.indices->data->stride();
     }
     _instancesArray.push_back(instance);
 
     //if emissive mesh create a mesh light for each triangle
     if (meshEmissive)
     {
-        for (int i = 0; i < vid.indices->valueCount() / 3; ++i)
+        for (int i = 0; i < vid.indices->data->valueCount() / 3; ++i)
         {
             vsg::Light l{};
             l.radius = 0;
@@ -154,15 +152,15 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::VertexIndexDraw& vid)
             l.strengths = vsg::vec3(0, 0, 1);
 
             uint32_t index = 0;
-            if (vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3];
-            else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3];
-            l.v0 = ((vsg::vec3*)vid.arrays[0]->dataPointer())[index];
-            if (vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3 + 1];
-            else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3 + 1];
-            l.v1 = ((vsg::vec3*)vid.arrays[0]->dataPointer())[index];
-            if (vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3 + 2];
-            else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3 + 2];
-            l.v2 = ((vsg::vec3*)vid.arrays[0]->dataPointer())[index];
+            if (vid.indices->data->stride() == 2) index = ((uint16_t*)(vid.indices->data->dataPointer()))[i * 3];
+            else index = ((uint32_t*)(vid.indices->data->dataPointer()))[i * 3];
+            l.v0 = ((vsg::vec3*)vid.arrays[0]->data->dataPointer())[index];
+            if (vid.indices->data->stride() == 2) index = ((uint16_t*)(vid.indices->data->dataPointer()))[i * 3 + 1];
+            else index = ((uint32_t*)(vid.indices->data->dataPointer()))[i * 3 + 1];
+            l.v1 = ((vsg::vec3*)vid.arrays[0]->data->dataPointer())[index];
+            if (vid.indices->data->stride() == 2) index = ((uint16_t*)(vid.indices->data->dataPointer()))[i * 3 + 2];
+            else index = ((uint32_t*)(vid.indices->data->dataPointer()))[i * 3 + 2];
+            l.v2 = ((vsg::vec3*)vid.arrays[0]->data->dataPointer())[index];
             //transforming the light position
             auto t = _transformStack.top() * vsg::dvec4{l.v0.x, l.v0.y, l.v0.z, 1};
             l.v0 = {static_cast<float>(t.x), static_cast<float>(t.y), static_cast<float>(t.z)};
@@ -180,7 +178,7 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::StateGroup& sg)
         firstStageGroup = false;
     else
     {
-        vsg::StateGroup::StateCommands& sc = sg.getStateCommands();
+        vsg::StateGroup::StateCommands& sc = sg.stateCommands;
         for (auto& state : sc)
         {
             auto bds = state.cast<vsg::BindDescriptorSet>();
@@ -202,11 +200,11 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::BindDescriptorSet& bds
         if (descriptor->descriptorType == VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER) //pbr material
         {
             auto d = descriptor.cast<vsg::DescriptorBuffer>();
-            if (d->bufferInfoList[0].data->dataSize() == sizeof(VsgPbrMaterial))
+            if (d->bufferInfoList[0]->data->dataSize() == sizeof(VsgPbrMaterial))
             {
                 // pbr material
                 VsgPbrMaterial vsgMat;
-                std::memcpy(&vsgMat, d->bufferInfoList[0].data->dataPointer(), sizeof(VsgPbrMaterial));
+                std::memcpy(&vsgMat, d->bufferInfoList[0]->data->dataPointer(), sizeof(VsgPbrMaterial));
                 WaveFrontMaterialPacked mat;
                 std::memcpy(&mat.ambientShininess, &vsgMat.baseColorFactor, sizeof(vsg::vec4));
                 std::memcpy(&mat.specularDissolve, &vsgMat.specularFactor, sizeof(vsg::vec4));
@@ -225,7 +223,7 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::BindDescriptorSet& bds
             {
                 // normal material
                 VsgMaterial vsgMat;
-                std::memcpy(&vsgMat, d->bufferInfoList[0].data->dataPointer(), sizeof(VsgMaterial));
+                std::memcpy(&vsgMat, d->bufferInfoList[0]->data->dataPointer(), sizeof(VsgMaterial));
                 WaveFrontMaterialPacked mat;
                 std::memcpy(&mat.ambientShininess, &vsgMat.ambient, sizeof(vsg::vec4));
                 std::memcpy(&mat.specularDissolve, &vsgMat.specular, sizeof(vsg::vec4));
@@ -254,7 +252,7 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::BindDescriptorSet& bds
             setTextures.insert(6);
             // check for opaqueness
             {
-                auto data = d->imageInfoList[0].imageView->image->data;
+                auto data = d->imageInfoList[0]->imageView->image->data;
                 //int amt = data->dataSize() / data->stride();
                 for (int i = 0; i < data->dataSize() / data->stride() && isOpaque.back(); ++i)
                 {

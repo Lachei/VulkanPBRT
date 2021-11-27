@@ -12,7 +12,7 @@ BFRBlender::BFRBlender(uint32_t width, uint32_t height, vsg::ref_ptr<vsg::Descri
     width(width), height(height), workWidth(workWidth), workHeight(workHeight), filterRadius(filterRadius)
 {
     std::string shaderPath = "shaders/bfrBlender.comp.spv";
-    auto computeStage = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_COMPUTE_BIT, "main", shaderPath);
+    auto computeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", shaderPath);
     computeStage->specializationConstants = vsg::ShaderStage::SpecializationConstants{
         {0, vsg::intValue::create(width)},
         {1, vsg::intValue::create(height)},
@@ -36,7 +36,7 @@ BFRBlender::BFRBlender(uint32_t width, uint32_t height, vsg::ref_ptr<vsg::Descri
     image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    vsg::ImageInfo imageInfo = { nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL };
+    auto imageInfo = vsg::ImageInfo::create( vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL );
     finalImage = vsg::DescriptorImage::create(imageInfo, finalBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
     vsg::DescriptorSetLayoutBindings descriptorBindings{
@@ -81,7 +81,7 @@ void BFRBlender::updateImageLayouts(vsg::Context& context)
 {
     VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     auto finalLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-                                                       VK_IMAGE_LAYOUT_GENERAL, 0, 0, finalImage->imageInfoList[0].imageView->image,
+                                                       VK_IMAGE_LAYOUT_GENERAL, 0, 0, finalImage->imageInfoList[0]->imageView->image,
                                                        resourceRange);
     auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                                                         VK_DEPENDENCY_BY_REGION_BIT,
@@ -97,7 +97,7 @@ void BFRBlender::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGr
 }
 void BFRBlender::copyFinalImage(vsg::ref_ptr<vsg::Commands> commands, vsg::ref_ptr<vsg::Image> dstImage)
 {
-    auto srcImage = finalImage->imageInfoList[0].imageView->image;
+    auto srcImage = finalImage->imageInfoList[0]->imageView->image;
 
     VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     auto srcBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL,

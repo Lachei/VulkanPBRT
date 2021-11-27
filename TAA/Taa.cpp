@@ -54,7 +54,7 @@ Taa::Taa(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeigh
     image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    imageInfo = vsg::ImageInfo::create( nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL );
+    imageInfo = vsg::ImageInfo::create( vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL );
     finalImage = vsg::DescriptorImage::create(imageInfo, finalImageBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
     //descriptor set layout

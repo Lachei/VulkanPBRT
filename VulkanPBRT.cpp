@@ -242,9 +242,9 @@ int main(int argc, char** argv){
 
         // set push constants
         auto rayTracingPushConstantsValue = RayTracingPushConstantsValue::create();
-        perspective->get_inverse(rayTracingPushConstantsValue->value().projInverse);
-        lookAt->get_inverse(rayTracingPushConstantsValue->value().viewInverse);
-        lookAt->get(rayTracingPushConstantsValue->value().prevView);
+        rayTracingPushConstantsValue->value().projInverse = perspective->inverse();
+        rayTracingPushConstantsValue->value().viewInverse = lookAt->inverse();
+        rayTracingPushConstantsValue->value().prevView = lookAt->transform();
         rayTracingPushConstantsValue->value().frameNumber = 0;
         rayTracingPushConstantsValue->value().sampleNumber = 0;
         auto pushConstants = vsg::PushConstants::create(VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, rayTracingPushConstantsValue);
@@ -286,7 +286,7 @@ int main(int argc, char** argv){
         else{
             if(!gBuffer)
                 gBuffer = GBuffer::create(offlineGBuffers[0]->depth->width(), offlineGBuffers[0]->depth->height());
-            switch(offlineIlluminations[0]->noisy->getFormat()){
+            switch(offlineIlluminations[0]->noisy->getLayout().format){
             case VK_FORMAT_R16G16B16A16_SFLOAT: illuminationBuffer = IlluminationBufferDemodulated::create(offlineIlluminations[0]->noisy->width(), offlineIlluminations[0]->noisy->height()); break;
             case VK_FORMAT_R32G32B32A32_SFLOAT: illuminationBuffer = IlluminationBufferDemodulatedFloat::create(offlineIlluminations[0]->noisy->width(), offlineIlluminations[0]->noisy->height()); break;
             default:
@@ -447,8 +447,8 @@ int main(int argc, char** argv){
             taa->addDispatchToCommandGraph(commands);
             finalDescriptorImage = taa->getFinalDescriptorImage();
         }
-        if(finalDescriptorImage->imageInfoList[0].imageView->image->format != VK_FORMAT_B8G8R8A8_UNORM){
-            auto converter = FormatConverter::create(finalDescriptorImage->imageInfoList[0].imageView, VK_FORMAT_B8G8R8A8_UNORM);
+        if(finalDescriptorImage->imageInfoList[0]->imageView->image->format != VK_FORMAT_B8G8R8A8_UNORM){
+            auto converter = FormatConverter::create(finalDescriptorImage->imageInfoList[0]->imageView, VK_FORMAT_B8G8R8A8_UNORM);
             converter->compileImages(imageLayoutCompile.context);
             converter->updateImageLayouts(imageLayoutCompile.context);
             converter->addDispatchToCommandGraph(commands);
@@ -493,7 +493,7 @@ int main(int argc, char** argv){
 
         auto commandGraph = vsg::CommandGraph::create(window);
         commandGraph->addChild(commands);
-        commandGraph->addChild(vsg::CopyImageViewToWindow::create(finalDescriptorImage->imageInfoList[0].imageView, window));
+        commandGraph->addChild(vsg::CopyImageViewToWindow::create(finalDescriptorImage->imageInfoList[0]->imageView, window));
         commandGraph->addChild(renderGraph);
         
         //close handler to close and imgui handler to forward to imgui
@@ -522,7 +522,7 @@ int main(int argc, char** argv){
             viewer->handleEvents();
 
             //update push constants
-            lookAt->get_inverse(rayTracingPushConstantsValue->value().viewInverse);
+            rayTracingPushConstantsValue->value().viewInverse = lookAt->inverse();
 
             rayTracingPushConstantsValue->value().frameNumber++;
             rayTracingPushConstantsValue->value().sampleNumber++;
@@ -533,7 +533,7 @@ int main(int argc, char** argv){
             viewer->recordAndSubmit();
             viewer->present();
 
-            lookAt->get(rayTracingPushConstantsValue->value().prevView);
+            rayTracingPushConstantsValue->value().prevView = lookAt->transform();
         }
     }
     catch (const vsg::Exception& e){

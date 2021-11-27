@@ -20,13 +20,13 @@ BMFR::BMFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHei
     }  
     auto illumination = illuBuffer;
     //adding usage bits to illumination buffer
-    illumination->illuminationImages[0]->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+    illumination->illuminationImages[0]->imageInfoList[0]->imageView->image->usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
     std::string preShaderPath = "shaders/bmfrPre.comp.spv";
     std::string fitShaderPath = "shaders/bmfrFit.comp.spv";
     std::string postShaderPath = "shaders/bmfrPost.comp.spv";
-    auto preComputeStage = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_COMPUTE_BIT, "main", preShaderPath);
-    auto fitComputeStage = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_COMPUTE_BIT, "main", fitShaderPath);
-    auto postComputeStage = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_COMPUTE_BIT, "main", postShaderPath);
+    auto preComputeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", preShaderPath);
+    auto fitComputeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", fitShaderPath);
+    auto postComputeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", postShaderPath);
     preComputeStage->specializationConstants = vsg::ShaderStage::SpecializationConstants{
         {0, vsg::intValue::create(width)},
         {1, vsg::intValue::create(height)},
@@ -67,9 +67,9 @@ BMFR::BMFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHei
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
     imageView->viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-    vsg::ImageInfo imageInfo = { nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL };
+    auto imageInfo = vsg::ImageInfo::create( vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL );
     accumulatedIllumination = vsg::DescriptorImage::create(imageInfo, denoisedBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-    imageInfo.sampler = sampler;
+    imageInfo->sampler = sampler;
     auto sampledAccIllu = vsg::DescriptorImage::create(imageInfo, sampledDenIlluBinding, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
     image = vsg::Image::create();
@@ -86,7 +86,7 @@ BMFR::BMFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHei
     image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    imageInfo = { nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL };
+    imageInfo = vsg::ImageInfo::create( vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL );
     finalIllumination = vsg::DescriptorImage::create(imageInfo, finalBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
     //feature buffer image array
@@ -105,7 +105,7 @@ BMFR::BMFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHei
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
     imageView->viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-    imageInfo = { nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL };
+    imageInfo = vsg::ImageInfo::create( vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL );
     featureBuffer = vsg::DescriptorImage::create(imageInfo, featureBufferBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
     //weights buffer
@@ -124,13 +124,13 @@ BMFR::BMFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHei
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
     imageView->viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-    imageInfo = { nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL };
+    imageInfo = vsg::ImageInfo::create( vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL );
     weights = vsg::DescriptorImage::create(imageInfo, weightsBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
     auto bindingMap = preComputeStage->getDescriptorSetLayoutBindingsMap();
     auto descriptorSetLayout = vsg::DescriptorSetLayout::create(bindingMap.begin()->second.bindings);
     auto illuminationInfo = illumination->illuminationImages[0]->imageInfoList[0];
-    illuminationInfo.sampler = sampler;
+    illuminationInfo->sampler = sampler;
     // filling descriptor set
     vsg::Descriptors descriptors{
         vsg::DescriptorImage::create(gBuffer->depth->imageInfoList[0], depthBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
@@ -174,18 +174,18 @@ void BMFR::updateImageLayouts(vsg::Context& context)
     VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 2};
     auto accIlluLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
                                                          VK_IMAGE_LAYOUT_GENERAL, 0, 0,
-                                                         accumulatedIllumination->imageInfoList[0].imageView->image, resourceRange);
+                                                         accumulatedIllumination->imageInfoList[0]->imageView->image, resourceRange);
     resourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     auto finalIluLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
                                                           VK_IMAGE_LAYOUT_GENERAL, 0, 0,
-                                                          finalIllumination->imageInfoList[0].imageView->image, resourceRange);
+                                                          finalIllumination->imageInfoList[0]->imageView->image, resourceRange);
     resourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, amtOfFeatures};
     auto featureBufferLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
                                                                VK_IMAGE_LAYOUT_GENERAL, 0, 0,
-                                                               featureBuffer->imageInfoList[0].imageView->image, resourceRange);
+                                                               featureBuffer->imageInfoList[0]->imageView->image, resourceRange);
     resourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, (amtOfFeatures - 3) * 3};
     auto weightsLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-                                                         VK_IMAGE_LAYOUT_GENERAL, 0, 0, weights->imageInfoList[0].imageView->image,
+                                                         VK_IMAGE_LAYOUT_GENERAL, 0, 0, weights->imageInfoList[0]->imageView->image,
                                                          resourceRange);
 
     auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,

@@ -1,8 +1,8 @@
 #include "Accumulator.hpp"
 
 Accumulator::Accumulator(vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<IlluminationBuffer> illuminationBuffer, DoubleMatrices& matrices, int workWidth, int workHeight):
-    width(gBuffer->depth->imageInfoList[0].imageView->image->extent.width),
-    height(gBuffer->depth->imageInfoList[0].imageView->image->extent.height),
+    width(gBuffer->depth->imageInfoList[0]->imageView->image->extent.width),
+    height(gBuffer->depth->imageInfoList[0]->imageView->image->extent.height),
     matrices(matrices),
     workWidth(workWidth),
     workHeight(workHeight),
@@ -10,7 +10,7 @@ Accumulator::Accumulator(vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<Illuminatio
     accumulatedIllumination(IlluminationBufferDemodulated::create(width, height)),
     originalIllumination(illuminationBuffer)
 {
-    auto computeStage = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_COMPUTE_BIT, "main", shaderPath);
+    auto computeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", shaderPath);
     computeStage->specializationConstants = vsg::ShaderStage::SpecializationConstants{
         {0, vsg::intValue::create(workWidth)}, 
         {1, vsg::intValue::create(workHeight)}
@@ -23,9 +23,9 @@ Accumulator::Accumulator(vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<Illuminatio
     bindPipeline = vsg::BindComputePipeline::create(pipeline);
 
     // adding image usage bit for illumination buffer type
-    illuminationBuffer->illuminationImages[0]->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+    illuminationBuffer->illuminationImages[0]->imageInfoList[0]->imageView->image->usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
     vsg::Descriptors descriptors;
-    vsg::ImageInfo imageInfo{vsg::Sampler::create(), illuminationBuffer->illuminationImages[0]->imageInfoList[0].imageView, VK_IMAGE_LAYOUT_GENERAL};
+    auto imageInfo = vsg::ImageInfo::create(vsg::Sampler::create(), illuminationBuffer->illuminationImages[0]->imageInfoList[0]->imageView, VK_IMAGE_LAYOUT_GENERAL);
     int srcIndex = vsg::ShaderStage::getSetBindingIndex(bindingMap, "srcImage").second;
     auto descriptorImage = vsg::DescriptorImage::create(imageInfo, srcIndex);
     descriptors.push_back(descriptorImage);
