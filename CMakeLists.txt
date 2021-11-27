@@ -6,27 +6,9 @@ project(VulkanPBRT
     LANGUAGES C CXX
 )
 
-find_package(Vulkan REQUIRED)
-find_package(Threads REQUIRED)
-find_package(assimp 5.0 CONFIG REQUIRED)
-find_package(OpenEXR REQUIRED)
-
-#message(${assimp_FOUND})
-#message("${assimp_INCLUDE_DIRS}")
-#message("${ASSIMP_LIBRARIES}")
-#message("${ASSIMP_LIBRARY_DIRS}")
-
 include(ExternalProject)
-#include(external/vsg/CMakeLists.txt)
-#include(external/vsgXchange/CMakeLists.txt)
-#include(external/vsgImGui/CMakeLists.txt)
-#add_subdirectory(external/vsg)
-#add_subdirectory(external/vsgXchange)
-#add_subdirectory(external/vsgImGui)
-#find_package(vsg REQUIRED)
-#find_package(vsgXchange REQUIRED)
-#find_package(vsgImGui REQUIRED))
-set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${CMAKE_BINARY_DIR}/external/vsg/lib/cmake/vsg_glslang ${CMAKE_BINARY_DIR}/external/vsg/lib/cmake/vsg)
+
+set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${CMAKE_BINARY_DIR}/external/vsg/lib/cmake/vsg_glslang ${CMAKE_BINARY_DIR}/external/vsg/lib/cmake/vsg ${CMAKE_BINARY_DIR}/external/vsgXchange/lib/cmake/vsgXchange/)
 string(REPLACE ";" "|" CMAKE_PREFIX_PATH_ALT_SEP "${CMAKE_PREFIX_PATH}")
 set(common_args
     -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
@@ -49,6 +31,10 @@ ExternalProject_Add(vsgImGui
     LIST_SEPARATOR |
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/external/vsgImGui/ ${common_args}
 )
+find_package(vsg REQUIRED)
+find_package(vsgXchange REQUIRED)
+find_package(vsgImGui REQUIRED)
+
 add_subdirectory(Denoiser)
 add_subdirectory(TAA)
 
@@ -107,14 +93,7 @@ add_dependencies(vsgXchange vsg)
 add_dependencies(vsgImGui vsg vsgXchange)
 add_dependencies(VulkanPBRT vsg vsgXchange vsgImGui)
 
-target_compile_definitions(VulkanPBRT PRIVATE ${EXTRA_DEFINES})
-target_link_libraries(VulkanPBRT Vulkan::Vulkan 
-     Threads::Threads OpenEXR::IlmImf)
-if(UNIX)
-    target_link_libraries(VulkanPBRT xcb ${ASSIMP_LIBRARIES})
-elseif(WIN32)
-    target_link_libraries(VulkanPBRT assimp::assimp)
-endif()
+target_link_libraries(VulkanPBRT vsg::vsg vsgXchange::vsgXchange vsgImGui::vsgImGui)
 
 ## compilation of shader files
 function(add_shader TARGET SHADER)
