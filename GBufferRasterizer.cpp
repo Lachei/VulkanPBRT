@@ -136,10 +136,10 @@ void GBufferRasterizer::setupGraphicsPipeline()
     depthImage->usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
     vsg::ImageViews attachmentViews{
-        gBuffer->albedo->imageInfoList[0].imageView,
-        gBuffer->depth->imageInfoList[0].imageView,
-        gBuffer->normal->imageInfoList[0].imageView,
-        gBuffer->material->imageInfoList[0].imageView,
+        gBuffer->albedo->imageInfoList[0]->imageView,
+        gBuffer->depth->imageInfoList[0]->imageView,
+        gBuffer->normal->imageInfoList[0]->imageView,
+        gBuffer->material->imageInfoList[0]->imageView,
         vsg::ImageView::create(depthImage)
     };
 

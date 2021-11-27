@@ -10,8 +10,8 @@
 // vk copy Buffer to image wrapper class
 class CopyBufferToImage: public vsg::Inherit<vsg::Command, CopyBufferToImage>{
 public:
-    CopyBufferToImage(vsg::BufferInfo src, vsg::ImageInfo dst, uint32_t numMipMapLevels = 1):
-        copyData(src, dst, numMipMapLevels){copyData.width = dst.imageView->image->extent.width; copyData.height = dst.imageView->image->extent.height; copyData.depth = dst.imageView->image->extent.depth;}
+    CopyBufferToImage(vsg::ref_ptr<vsg::BufferInfo> src, vsg::ref_ptr<vsg::ImageInfo> dst, uint32_t numMipMapLevels = 1):
+        copyData(src, dst, numMipMapLevels){copyData.width = dst->imageView->image->extent.width; copyData.height = dst->imageView->image->extent.height; copyData.depth = dst->imageView->image->extent.depth;}
     vsg::CopyAndReleaseImage::CopyData copyData;
     void record(vsg::CommandBuffer& commandBuffer) const override{
         copyData.record(commandBuffer);
@@ -42,7 +42,7 @@ public:
     void transferStagingDataTo(vsg::ref_ptr<OfflineGBuffer> other);
     void transferStagingDataFrom(vsg::ref_ptr<OfflineGBuffer> other);
 private:
-    vsg::BufferInfo depthStaging, normalStaging, materialStaging, albedoStaging;
+    vsg::ref_ptr<vsg::BufferInfo> depthStaging, normalStaging, materialStaging, albedoStaging;
     vsg::ref_ptr<vsg::MemoryBufferPools> stagingMemoryBufferPools;
     void setupStagingBuffer(uint32_t width, uint32_t height);
 };
@@ -70,7 +70,7 @@ public:
     void transferStagingDataTo(vsg::ref_ptr<OfflineIllumination>& illuBuffer);
     void transferStagingDataFrom(vsg::ref_ptr<OfflineIllumination>& illuBuffer);
 private:
-    vsg::BufferInfo noisyStaging;
+    vsg::ref_ptr<vsg::BufferInfo> noisyStaging;
     vsg::ref_ptr<vsg::MemoryBufferPools> stagingMemoryBufferPools;
     void setupStagingBuffer(uint32_t widht, uint32_t height);
 };

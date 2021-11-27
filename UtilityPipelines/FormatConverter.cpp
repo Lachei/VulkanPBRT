@@ -24,7 +24,7 @@ FormatConverter::FormatConverter(vsg::ref_ptr<vsg::ImageView> srcImage, VkFormat
     };
     auto shaderCompiler = vsg::ShaderCompiler::create();
     vsg::Paths searchPaths{"shaders"};
-    shaderCompiler->compile(computeStage, defines, searchPaths);
+    //shaderCompiler->compile(computeStage, defines, searchPaths);
 
     auto bindingMap = computeStage->getDescriptorSetLayoutBindingsMap();
     auto descriptorSetLayout = vsg::DescriptorSetLayout::create(bindingMap.begin()->second.bindings);
