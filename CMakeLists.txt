@@ -21,17 +21,23 @@ set(common_args
     -DCMAKE_PREFIX_PATH:STRING=${CMAKE_PREFIX_PATH_ALT_SEP}
 )
 ExternalProject_Add(vsg
-    SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/vsg/"
+    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/vsg
+    BINARY_DIR ${CMAKE_BINARY_DIR}/external/vsg/bin
+    INSTALL_DIR ${CMAKE_BINARY_DIR}/external/vsg/install
     LIST_SEPARATOR |
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/external/vsg/ ${common_args}
 )
 ExternalProject_Add(vsgXchange
-    SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/vsgXchange"
+    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/vsgXchange
+    BINARY_DIR ${CMAKE_BINARY_DIR}/external/vsgXchange/bin
+    INSTALL_DIR ${CMAKE_BINARY_DIR}/external/vsgXchange/install
     LIST_SEPARATOR |
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/external/vsgXchange/ ${common_args}
 )
 ExternalProject_Add(vsgImGui
-    SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/vsgImGui"
+    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/vsgImGui
+    BINARY_DIR ${CMAKE_BINARY_DIR}/external/vsgImGui/bin
+    INSTALL_DIR ${CMAKE_BINARY_DIR}/external/vsgImGui/install
     LIST_SEPARATOR |
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/external/vsgImGui/ ${common_args}
 )
