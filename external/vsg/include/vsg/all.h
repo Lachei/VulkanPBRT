@@ -176,6 +176,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/viewer/WindowAdapter.h>
 #include <vsg/viewer/WindowResizeHandler.h>
 #include <vsg/viewer/WindowTraits.h>
+#include <vsg/viewer/FlyNavigation.h>
 
 // Vulkan related header files
 #include <vsg/vk/AllocationCallbacks.h>
