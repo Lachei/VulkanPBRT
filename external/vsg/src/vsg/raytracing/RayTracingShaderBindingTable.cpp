@@ -1,4 +1,4 @@
-#include<vsg/rtx/RayTracingShaderBindingTable.h>
+#include<vsg/raytracing/RayTracingShaderBindingTable.h>
 #include<vsg/vk/Context.h>
 #include<vsg/vk/Extensions.h>
 #include<vsg/core/Exception.h>
@@ -27,18 +27,18 @@ void vsg::RayTracingShaderBindingTable::compile(Context& context){
     bindingTableOffsets[2] = bindingTableOffsets[1] + bindingTableEntries.raymissGroups.size() * handleSizeAligned;
     bindingTableOffsets[3] = bindingTableOffsets[2] + bindingTableEntries.hitGroups.size() * handleSizeAligned;
     bindingTable.resize(4);
-    bindingTable[0].buffer = bindingTableBuffer;
-    bindingTable[0].offset = bindingTableOffsets[0];
-    bindingTable[0].range = bindingTableOffsets[1] - bindingTableOffsets[0];
-    bindingTable[1].buffer = bindingTableBuffer;
-    bindingTable[1].offset = bindingTableOffsets[1];
-    bindingTable[1].range = bindingTableOffsets[2] - bindingTableOffsets[1];
-    bindingTable[2].buffer = bindingTableBuffer;
-    bindingTable[2].offset = bindingTableOffsets[2];
-    bindingTable[2].range = bindingTableOffsets[3] - bindingTableOffsets[2];
-    bindingTable[3].buffer = bindingTableBuffer;
-    bindingTable[3].offset = bindingTableOffsets[3];
-    bindingTable[3].range = sbtSize - bindingTableOffsets[3];
+    bindingTable[0]->buffer = bindingTableBuffer;
+    bindingTable[0]->offset = bindingTableOffsets[0];
+    bindingTable[0]->range = bindingTableOffsets[1] - bindingTableOffsets[0];
+    bindingTable[1]->buffer = bindingTableBuffer;
+    bindingTable[1]->offset = bindingTableOffsets[1];
+    bindingTable[1]->range = bindingTableOffsets[2] - bindingTableOffsets[1];
+    bindingTable[2]->buffer = bindingTableBuffer;
+    bindingTable[2]->offset = bindingTableOffsets[2];
+    bindingTable[2]->range = bindingTableOffsets[3] - bindingTableOffsets[2];
+    bindingTable[3]->buffer = bindingTableBuffer;
+    bindingTable[3]->offset = bindingTableOffsets[3];
+    bindingTable[3]->range = sbtSize - bindingTableOffsets[3];
     auto memory = bindingTableBuffer->getDeviceMemory(context.deviceID);
     void* d;
     memory->map(bindingTableBuffer->getMemoryOffset(context.device->deviceID), handleSizeAligned, 0, &d);
