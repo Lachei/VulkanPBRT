@@ -1,5 +1,5 @@
 # collect all the headers in the source directory
-file(GLOB HEADERS ${CMAKE_SOURCE_DIR}/include/vsg/*.h ${CMAKE_SOURCE_DIR}/include/vsg/*/*.h)
+file(GLOB HEADERS ${CMAKE_SOURCE_DIR}/include/vsg/*.h ${CMAKE_SOURCE_DIR}/include/vsg/*/*.h ${CMAKE_SOURCE_DIR}/include/SPIRV-Reflect/*.h)
 
 # for out of source builds collect all the auto-generated headers in the build directory
 if (NOT (${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR}))
@@ -143,6 +143,7 @@ set(SOURCES
     viewer/RecordAndSubmitTask.cpp
     viewer/WindowResizeHandler.cpp
     viewer/View.cpp
+    viewer/FlyNavigation.cpp
 
     raytracing/AccelerationGeometry.cpp
     raytracing/AccelerationStructure.cpp
@@ -153,6 +154,7 @@ set(SOURCES
     raytracing/RayTracingShaderGroup.cpp
     raytracing/TopLevelAccelerationStructure.cpp
     raytracing/TraceRays.cpp
+    raytracing/RayTracingShaderBindingTable.cpp
 
     rtx/DrawMeshTasks.cpp
     rtx/DrawMeshTasksIndirect.cpp
@@ -196,9 +198,8 @@ set(SOURCES
     utils/CommandLine.cpp
     utils/Builder.cpp
     
-    ../SPIRV-Reflect/spirv_reflect.c
+    SPIRV-Reflect/spirv_reflect.cpp
 )
-
 # add platform specific Window implementation
 
 
