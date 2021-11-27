@@ -44,6 +44,9 @@ include(gdal/build_vars.cmake)
 # add optional CURL component
 include(curl/build_vars.cmake)
 
+# add optional OpenEXR component
+include(openexr/build_vars.cmake)
+
 # create the version header
 set(VSGXCHANGE_VERSION_HEADER "${PROJECT_BINARY_DIR}/include/vsgXchange/Version.h")
 configure_file("${CMAKE_SOURCE_DIR}/src/all/Version.h.in" "${VSGXCHANGE_VERSION_HEADER}")
