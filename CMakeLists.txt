@@ -8,7 +8,11 @@ project(VulkanPBRT
 
 include(ExternalProject)
 
-set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${CMAKE_BINARY_DIR}/external/vsg/lib/cmake/vsg_glslang ${CMAKE_BINARY_DIR}/external/vsg/lib/cmake/vsg ${CMAKE_BINARY_DIR}/external/vsgXchange/lib/cmake/vsgXchange/)
+set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} 
+        ${CMAKE_BINARY_DIR}/external/vsg/lib/cmake/vsg_glslang 
+        ${CMAKE_BINARY_DIR}/external/vsg/lib/cmake/vsg 
+        ${CMAKE_BINARY_DIR}/external/vsgXchange/lib/cmake/vsgXchange/
+        ${CMAKE_BINARY_DIR}/external/vsgImGui/lib/cmake/vsgImGui/)
 string(REPLACE ";" "|" CMAKE_PREFIX_PATH_ALT_SEP "${CMAKE_PREFIX_PATH}")
 set(common_args
     -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
@@ -33,7 +37,7 @@ ExternalProject_Add(vsgImGui
 )
 find_package(vsg REQUIRED)
 find_package(vsgXchange REQUIRED)
-find_package(vsgImGui REQUIRED)
+find_package(vsgImGui CONFIG REQUIRED)
 
 add_subdirectory(Denoiser)
 add_subdirectory(TAA)

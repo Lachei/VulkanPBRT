@@ -1,9 +1,9 @@
 #pragma once
 
+#include <vsg/all.h>
+#include <vsgImGui/imgui.h>
 #include <vsgImGui/RenderImGui.h>
 #include <vsgImGui/SendEventsToImGui.h>
-#include <imgui.h>
-#include <vsg/all.h>
 
 class Gui{
 public:
