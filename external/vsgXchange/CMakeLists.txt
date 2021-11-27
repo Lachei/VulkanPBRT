@@ -47,6 +47,6 @@ vsg_add_option_maintainer(
 
 # source directory for main vsgXchange library
 add_subdirectory(src)
-#add_subdirectory(applications/vsgconv)
+add_subdirectory(applications/vsgconv)
 
 vsg_add_feature_summary()
