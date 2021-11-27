@@ -19,6 +19,13 @@ namespace vsg
     // forward declare
     class Context;
 
+    struct NamesBindingsPair{
+        std::vector<std::string> names;
+        vsg::DescriptorSetLayoutBindings bindings;
+    };
+    using BindingMap = std::map<uint32_t, NamesBindingsPair>;
+    using SetBindingIndex = std::pair<uint32_t, uint32_t>;
+
     class VSG_DECLSPEC ShaderStage : public Inherit<Object, ShaderStage>
     {
     public:
@@ -48,8 +55,20 @@ namespace vsg
         // compile the Vulkan object, context parameter used for Device
         void compile(Context& context);
 
+        // SPRIV-Reflect code
+        static BindingMap mergeBindingMaps(const std::vector<BindingMap>& maps);
+        static SetBindingIndex getSetBindingIndex(const BindingMap& map, const std::string_view& name);
+        const BindingMap& getDescriptorSetLayoutBindingsMap();
+        const vsg::PushConstantRanges& getPushConstantRanges();
+
     protected:
         virtual ~ShaderStage();
+
+        // SPIRV-Reflect data
+        void _createReflectData();
+        bool _reflected = false;
+        BindingMap _descriptorSetLayoutBindingsMap;
+        vsg::PushConstantRanges _pushConstantRanges;
     };
     VSG_type_name(vsg::ShaderStage);
 
