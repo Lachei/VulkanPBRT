@@ -8,18 +8,51 @@ project(VulkanPBRT
 
 find_package(Vulkan REQUIRED)
 find_package(Threads REQUIRED)
-find_package(assimp CONFIG REQUIRED)
+find_package(assimp 5.0 CONFIG REQUIRED)
 find_package(OpenEXR REQUIRED)
-include(CMakeFindDependencyMacro)
-set(vsg_glslang_DIR ${CMAKE_SOURCE_DIR}/vsg)
-find_dependency(vsg_glslang)
 
-add_subdirectory(vsg)
+#message(${assimp_FOUND})
+#message("${assimp_INCLUDE_DIRS}")
+#message("${ASSIMP_LIBRARIES}")
+#message("${ASSIMP_LIBRARY_DIRS}")
+
+include(ExternalProject)
+#include(external/vsg/CMakeLists.txt)
+#include(external/vsgXchange/CMakeLists.txt)
+#include(external/vsgImGui/CMakeLists.txt)
+#add_subdirectory(external/vsg)
+#add_subdirectory(external/vsgXchange)
+#add_subdirectory(external/vsgImGui)
+#find_package(vsg REQUIRED)
+#find_package(vsgXchange REQUIRED)
+#find_package(vsgImGui REQUIRED))
+set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} ${CMAKE_BINARY_DIR}/external/vsg/lib/cmake/vsg_glslang ${CMAKE_BINARY_DIR}/external/vsg/lib/cmake/vsg)
+string(REPLACE ";" "|" CMAKE_PREFIX_PATH_ALT_SEP "${CMAKE_PREFIX_PATH}")
+set(common_args
+    -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
+    -DCMAKE_CXX_FLAGS_DEBUG:STRING=${CMAKE_CXX_FLAGS_DEBUG}
+    -DCMAKE_CXX_FLAGS_RELEASE:STRING=${CMAKE_CXX_FLAGS_RELEASE}
+    -DCMAKE_PREFIX_PATH:STRING=${CMAKE_PREFIX_PATH_ALT_SEP}
+)
+ExternalProject_Add(vsg
+    URL "${CMAKE_CURRENT_SOURCE_DIR}/external/vsg"
+    LIST_SEPARATOR |
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/external/vsg/ ${common_args}
+)
+ExternalProject_Add(vsgXchange
+    URL "${CMAKE_CURRENT_SOURCE_DIR}/external/vsgXchange"
+    LIST_SEPARATOR |
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/external/vsgXchange/ ${common_args}
+)
+ExternalProject_Add(vsgImGui
+    URL "${CMAKE_CURRENT_SOURCE_DIR}/external/vsgImGui"
+    LIST_SEPARATOR |
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/external/vsgImGui/ ${common_args}
+)
 add_subdirectory(Denoiser)
 add_subdirectory(TAA)
-set(IMGUI_HEADER
-    vsg/src/imgui/)
-include_directories(vsg/include ${glslang_INCLUDE_DIRS} ${IMGUI_HEADER} ${OpenEXR_INCLUDE_DIRS})
+
+include_directories(${OpenEXR_INCLUDE_DIRS})
 set(CMAKE_CXX_STANDARD 17)
 
 file(GLOB SRC_TOP
@@ -69,11 +102,13 @@ set(UNCOMPILED_SHADERS
     formatConverter.comp
 )
 
-add_executable(VulkanPBRT ${SRC} ${VSG_ALL})
+add_executable(VulkanPBRT ${SRC})
+add_dependencies(vsgXchange vsg)
+add_dependencies(vsgImGui vsg vsgXchange)
+add_dependencies(VulkanPBRT vsg vsgXchange vsgImGui)
 
 target_compile_definitions(VulkanPBRT PRIVATE ${EXTRA_DEFINES})
 target_link_libraries(VulkanPBRT Vulkan::Vulkan 
-    glslang::glslang glslang::MachineIndependent glslang::OSDependent glslang::OGLCompiler glslang::SPIRV glslang::GenericCodeGen glslang::SPIRV-Tools-opt glslang::SPIRV-Tools
      Threads::Threads OpenEXR::IlmImf)
 if(UNIX)
     target_link_libraries(VulkanPBRT xcb ${ASSIMP_LIBRARIES})
