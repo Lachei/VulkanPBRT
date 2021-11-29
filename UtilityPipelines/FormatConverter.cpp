@@ -22,9 +22,11 @@ FormatConverter::FormatConverter(vsg::ref_ptr<vsg::ImageView> srcImage, VkFormat
         {0, vsg::intValue::create(workWidth)}, 
         {1, vsg::intValue::create(workHeight)}
     };
-    auto shaderCompiler = vsg::ShaderCompiler::create();
-    vsg::Paths searchPaths{"shaders"};
-    //shaderCompiler->compile(computeStage, defines, searchPaths);
+    auto compileHints = vsg::ShaderCompileSettings::create();
+    compileHints->vulkanVersion = VK_API_VERSION_1_2;
+    compileHints->target = vsg::ShaderCompileSettings::SPIRV_1_4;
+    compileHints->defines = defines;
+    computeStage->module->hints = compileHints;
 
     auto bindingMap = computeStage->getDescriptorSetLayoutBindingsMap();
     auto descriptorSetLayout = vsg::DescriptorSetLayout::create(bindingMap.begin()->second.bindings);

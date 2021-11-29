@@ -195,9 +195,11 @@ vsg::ref_ptr<vsg::ShaderStage> PBRTPipeline::setupRaygenShader(std::string rayge
 
     auto options = vsg::Options::create(vsgXchange::glsl::create());
     auto raygenShader = vsg::ShaderStage::read(VK_SHADER_STAGE_RAYGEN_BIT_KHR, "main", raygenPath, options);
-    auto shaderCompiler = vsg::ShaderCompiler::create();
-    vsg::Paths searchPaths{"shaders"};
-    //shaderCompiler->compile(raygenShader, defines, searchPaths);
+    auto compileHints = vsg::ShaderCompileSettings::create();
+    compileHints->vulkanVersion = VK_API_VERSION_1_2;
+    compileHints->target = vsg::ShaderCompileSettings::SPIRV_1_4;
+    compileHints->defines = defines;
+    raygenShader->module->hints = compileHints;
 
     return raygenShader;
 }
