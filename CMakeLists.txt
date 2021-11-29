@@ -6,45 +6,11 @@ project(VulkanPBRT
     LANGUAGES C CXX
 )
 
-include(ExternalProject)
-
-set(CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH} 
-        ${CMAKE_BINARY_DIR}/external/vsg/lib/cmake/vsg_glslang 
-        ${CMAKE_BINARY_DIR}/external/vsg/lib/cmake/vsg 
-        ${CMAKE_BINARY_DIR}/external/vsgXchange/lib/cmake/vsgXchange/
-        ${CMAKE_BINARY_DIR}/external/vsgImGui/lib/cmake/vsgImGui/)
-string(REPLACE ";" "|" CMAKE_PREFIX_PATH_ALT_SEP "${CMAKE_PREFIX_PATH}")
-set(common_args
-    -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
-    -DCMAKE_CXX_FLAGS_DEBUG:STRING=${CMAKE_CXX_FLAGS_DEBUG}
-    -DCMAKE_CXX_FLAGS_RELEASE:STRING=${CMAKE_CXX_FLAGS_RELEASE}
-    -DCMAKE_PREFIX_PATH:STRING=${CMAKE_PREFIX_PATH_ALT_SEP}
-)
-ExternalProject_Add(vsg
-    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/vsg
-    BINARY_DIR ${CMAKE_BINARY_DIR}/external/vsg/bin
-    INSTALL_DIR ${CMAKE_BINARY_DIR}/external/vsg/install
-    LIST_SEPARATOR |
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/external/vsg/ ${common_args}
-)
-ExternalProject_Add(vsgXchange
-    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/vsgXchange
-    BINARY_DIR ${CMAKE_BINARY_DIR}/external/vsgXchange/bin
-    INSTALL_DIR ${CMAKE_BINARY_DIR}/external/vsgXchange/install
-    LIST_SEPARATOR |
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/external/vsgXchange/ ${common_args}
-)
-ExternalProject_Add(vsgImGui
-    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/vsgImGui
-    BINARY_DIR ${CMAKE_BINARY_DIR}/external/vsgImGui/bin
-    INSTALL_DIR ${CMAKE_BINARY_DIR}/external/vsgImGui/install
-    LIST_SEPARATOR |
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/external/vsgImGui/ ${common_args}
-)
-
-find_package(vsg QUIET)
-find_package(vsgXchange QUIET)
-find_package(vsgImGui CONFIG QUIET)
+set(SLAVE_PROJECTS true)    #information for the subprojects to not find packes via find_package they can assume the packages exist
+add_subdirectory(external/vsg)
+add_subdirectory(external/vsgXchange)
+add_subdirectory(external/vsgImGui)
+set(SLAVE_PROJECTS false)
 
 add_subdirectory(Denoiser)
 add_subdirectory(TAA)
@@ -100,16 +66,8 @@ set(UNCOMPILED_SHADERS
 )
 
 add_executable(VulkanPBRT ${SRC})
-add_dependencies(vsgXchange vsg)
-add_dependencies(vsgImGui vsg vsgXchange)
-add_dependencies(VulkanPBRT vsg vsgXchange vsgImGui)
 
-if(${vsg_FOUND} AND ${vsgXchange_FOUND} AND ${vsgImGui_FOUND})
-    message("VSG libraries built")
-    target_link_libraries(VulkanPBRT vsg::vsg vsgXchange::vsgXchange vsgImGui::vsgImGui)
-else()
-    message("VSG libraries not yet build. Run build, rerun cmake and run build again")
-endif()
+target_link_libraries(VulkanPBRT vsg vsgXchange vsgImGui)
 
 ## compilation of shader files
 function(add_shader TARGET SHADER)

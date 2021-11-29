@@ -3,7 +3,11 @@
 set(EXTRA_DEFINES)
 set(EXTRA_INCLUDES)
 
-SET(HEADER_PATH ${CMAKE_SOURCE_DIR}/include/vsgXchange)
+if(SLAVE_PROJECTS)
+    SET(HEADER_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../include/vsgXchange)
+else()
+    SET(HEADER_PATH ${CMAKE_SOURCE_DIR}/include/vsgXchange)
+endif()
 
 set(HEADERS
     ${VSGXCHANGE_VERSION_HEADER}
@@ -49,7 +53,11 @@ include(openexr/build_vars.cmake)
 
 # create the version header
 set(VSGXCHANGE_VERSION_HEADER "${PROJECT_BINARY_DIR}/include/vsgXchange/Version.h")
-configure_file("${CMAKE_SOURCE_DIR}/src/all/Version.h.in" "${VSGXCHANGE_VERSION_HEADER}")
+if(SLAVE_PROJECTS)
+    configure_file("${CMAKE_CURRENT_SOURCE_DIR}/all/Version.h.in" "${VSGXCHANGE_VERSION_HEADER}")
+else()
+    configure_file("${CMAKE_SOURCE_DIR}/src/all/Version.h.in" "${VSGXCHANGE_VERSION_HEADER}")
+endif()
 
 
 # create the vsgXchange library

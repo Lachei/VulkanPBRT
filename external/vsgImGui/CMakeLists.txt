@@ -16,12 +16,19 @@ if (VULKAN_SDK)
     set(ENV{VULKAN_SDK} ${VULKAN_SDK})
 endif()
 
-find_package(vsg 0.1.6 REQUIRED)
-
-# find the optional vsgXchange that can be used for reading and range of image and 3d model formats and shader compilation
-find_package(vsgXchange QUIET)
+if(NOT SLAVE_PROJECTS)
+    find_package(vsg 0.1.6 REQUIRED)
+    # find the optional vsgXchange that can be used for reading and range of image and 3d model formats and shader compilation
+    find_package(vsgXchange QUIET)
+else()
+    #setup variables correctly for vsgImGui to find all needed things
+    set(CMAKE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+endif()
 
 if (NOT EXISTS ${CMAKE_SOURCE_DIR}/src/imgui/imgui.h)
+    if(SLAVE_PROJECTS)
+        message(FATAL_ERROR "imgui source is missing!!!")
+    endif()
     find_package(Git QUIET)
 
     execute_process(COMMAND ${GIT_EXECUTABLE} submodule update --init --recursive
@@ -63,17 +70,19 @@ vsg_add_target_clang_format(
         include/vsgImGui/*.h
         src/vsgImGui/*.cpp
 )
-vsg_add_target_clobber()
 vsg_add_target_cppcheck(
     FILES
-        include/vsgImGui/*.h
-        src/vsgImGui/*.cpp
+    include/vsgImGui/*.h
+    src/vsgImGui/*.cpp
 )
-vsg_add_target_docs(
-    FILES
-        include
-)
-vsg_add_target_uninstall()
+if(NOT SLAVE_PROJECTS)
+    vsg_add_target_clobber()
+    vsg_add_target_docs(
+        FILES
+            include
+    )
+    vsg_add_target_uninstall()
+endif()
 
 vsg_add_option_maintainer(
     PREFIX vsgImGui

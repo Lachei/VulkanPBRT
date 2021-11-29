@@ -17,7 +17,11 @@ if (VULKAN_SDK)
     set(ENV{VULKAN_SDK} ${VULKAN_SDK})
 endif()
 
-find_package(vsg 0.1.14 REQUIRED)
+if(NOT SLAVE_PROJECTS)
+    find_package(vsg 0.1.14 REQUIRED)
+else()
+    set(CMAKE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+endif()
 
 vsg_setup_build_vars()
 vsg_setup_dir_vars()
@@ -33,12 +37,14 @@ vsg_add_target_clang_format(
         ${CMAKE_SOURCE_DIR}/src/stbi/stb_image.h
         ${CMAKE_SOURCE_DIR}/src/dds/tinyddsloader.h
 )
-vsg_add_target_clobber()
-vsg_add_target_docs(
-    FILES
-        ${CMAKE_SOURCE_DIR}/include
-)
-vsg_add_target_uninstall()
+if(NOT SLAVE_PROJECTS)
+    vsg_add_target_clobber()
+    vsg_add_target_docs(
+        FILES
+            ${CMAKE_SOURCE_DIR}/include
+    )
+    vsg_add_target_uninstall()
+endif()
 
 vsg_add_option_maintainer(
     PREFIX ${PROJECT_NAME}

@@ -3,7 +3,11 @@
 set(EXTRA_DEFINES)
 set(EXTRA_INCLUDES)
 
-SET(HEADER_PATH ${CMAKE_SOURCE_DIR}/include/vsgImGui)
+if(SLAVE_PROJECTS)
+    SET(HEADER_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../include/vsgImGui)
+else()
+    SET(HEADER_PATH ${CMAKE_SOURCE_DIR}/include/vsgImGui)
+endif()
 
 set(HEADERS
     ${HEADER_PATH}/imgui.h
