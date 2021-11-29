@@ -27,6 +27,7 @@ void vsg::RayTracingShaderBindingTable::compile(Context& context){
     bindingTableOffsets[2] = bindingTableOffsets[1] + bindingTableEntries.raymissGroups.size() * handleSizeAligned;
     bindingTableOffsets[3] = bindingTableOffsets[2] + bindingTableEntries.hitGroups.size() * handleSizeAligned;
     bindingTable.resize(4);
+    for(auto& p: bindingTable) p = BufferInfo::create();
     bindingTable[0]->buffer = bindingTableBuffer;
     bindingTable[0]->offset = bindingTableOffsets[0];
     bindingTable[0]->range = bindingTableOffsets[1] - bindingTableOffsets[0];
