@@ -220,6 +220,12 @@ const vsg::PushConstantRanges& ShaderStage::getPushConstantRanges()
 
 void ShaderStage::_createReflectData()
 {
+    bool requiresShaderCompiler = module && module->code.empty() && !module->source.empty();
+    if(requiresShaderCompiler){
+        auto shaderCompiler = ShaderCompiler::create();
+        if(shaderCompiler) shaderCompiler->compile(ref_ptr<ShaderStage>(this));
+    }
+
     // Create the reflect shader module.
     SpvReflectShaderModule spvModule;
     SpvReflectResult result = spvReflectCreateShaderModule(module->code.size() * sizeof(module->code[0]), module->code.data(), &spvModule);
