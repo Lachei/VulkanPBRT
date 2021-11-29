@@ -1,3 +1,6 @@
+if(SLAVE_PROJECTS)
+    set(CMAKE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../..)
+endif()
 # collect all the headers in the source directory
 file(GLOB HEADERS ${CMAKE_SOURCE_DIR}/include/vsg/*.h ${CMAKE_SOURCE_DIR}/include/vsg/*/*.h ${CMAKE_SOURCE_DIR}/include/SPIRV-Reflect/*.h)
 

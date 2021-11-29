@@ -5,6 +5,7 @@ set(EXTRA_INCLUDES)
 
 if(SLAVE_PROJECTS)
     SET(HEADER_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../include/vsgXchange)
+    SET(CMAKE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/..)
 else()
     SET(HEADER_PATH ${CMAKE_SOURCE_DIR}/include/vsgXchange)
 endif()
@@ -52,10 +53,11 @@ include(curl/build_vars.cmake)
 include(openexr/build_vars.cmake)
 
 # create the version header
-set(VSGXCHANGE_VERSION_HEADER "${PROJECT_BINARY_DIR}/include/vsgXchange/Version.h")
 if(SLAVE_PROJECTS)
+    set(VSGXCHANGE_VERSION_HEADER "${HEADER_PATH}/Version.h")
     configure_file("${CMAKE_CURRENT_SOURCE_DIR}/all/Version.h.in" "${VSGXCHANGE_VERSION_HEADER}")
 else()
+    set(VSGXCHANGE_VERSION_HEADER "${PROJECT_BINARY_DIR}/include/vsgXchange/Version.h")
     configure_file("${CMAKE_SOURCE_DIR}/src/all/Version.h.in" "${VSGXCHANGE_VERSION_HEADER}")
 endif()
 
@@ -81,12 +83,21 @@ target_include_directories(vsgXchange
         ${EXTRA_INCLUDES}
 )
 
-target_link_libraries(vsgXchange
+if(SLAVE_PROJECTS)
+    target_link_libraries(vsgXchange
     PUBLIC
-        vsg::vsg
+        vsg
     PRIVATE
         ${EXTRA_LIBRARIES}
-)
+    )
+else()
+    target_link_libraries(vsgXchange
+        PUBLIC
+            vsg::vsg
+        PRIVATE
+            ${EXTRA_LIBRARIES}
+    )
+endif()
 
 install(TARGETS vsgXchange ${INSTALL_TARGETS_DEFAULT_FLAGS})
 

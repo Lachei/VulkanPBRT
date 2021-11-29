@@ -11,7 +11,11 @@ set(Vulkan_MIN_VERSION 1.2.162)
 
 # create the version header
 set(VSG_MAX_DEVICES 1 CACHE STRING "Set maximum number of vk/vsg::Device that are supported.")
-set(VSG_VERSION_HEADER "${PROJECT_BINARY_DIR}/include/vsg/core/Version.h")
+if(SLAVE_PROJECTS)
+    set(VSG_VERSION_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/include/vsg/core/Version.h")
+else()
+    set(VSG_VERSION_HEADER "${PROJECT_BINARY_DIR}/include/vsg/core/Version.h")
+endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 include(vsgMacros)
@@ -36,6 +40,9 @@ find_package(Vulkan ${Vulkan_MIN_VERSION} REQUIRED)
 
 find_package(Threads REQUIRED)
 
+if(SLAVE_PROJECTS)
+    set(CMAKE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+endif()
 if (NOT DEFINED glslang_FOUND)
     find_package(vsg_glslang CONFIG PATHS ${CMAKE_SOURCE_DIR}/src/vsg)
 endif()

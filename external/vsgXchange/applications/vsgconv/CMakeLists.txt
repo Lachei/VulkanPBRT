@@ -18,10 +18,17 @@ target_include_directories(vsgconv PRIVATE
 
 set_target_properties(vsgconv PROPERTIES OUTPUT_NAME vsgconv DEBUG_POSTFIX "d")
 
-target_link_libraries(vsgconv
-    vsgXchange
-    vsg::vsg
-)
+if(SLAVE_PROJECTS)
+    target_link_libraries(vsgconv
+        vsgXchange
+        vsg
+    )
+else()
+    target_link_libraries(vsgconv
+        vsgXchange
+        vsg::vsg
+    )
+endif()
 
 install(TARGETS vsgconv
         RUNTIME DESTINATION bin

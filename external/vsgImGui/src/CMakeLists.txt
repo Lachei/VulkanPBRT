@@ -5,6 +5,7 @@ set(EXTRA_INCLUDES)
 
 if(SLAVE_PROJECTS)
     SET(HEADER_PATH ${CMAKE_CURRENT_SOURCE_DIR}/../include/vsgImGui)
+    SET(CMAKE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/..)
 else()
     SET(HEADER_PATH ${CMAKE_SOURCE_DIR}/include/vsgImGui)
 endif()
@@ -52,12 +53,21 @@ target_include_directories(vsgImGui PUBLIC
     ${EXTRA_INCLUDES}
 )
 
-target_link_libraries(vsgImGui
-    PUBLIC
-        vsg::vsg
-    PRIVATE
-        ${EXTRA_LIBRARIES}
-)
+if(SLAVE_PROJECTS)
+    target_link_libraries(vsgImGui
+        PUBLIC
+            vsg
+        PRIVATE
+            ${EXTRA_LIBRARIES}
+    )
+else()
+    target_link_libraries(vsgImGui
+        PUBLIC
+            vsg::vsg
+        PRIVATE
+            ${EXTRA_LIBRARIES}
+    )
+endif()
 
 install(TARGETS vsgImGui ${INSTALL_TARGETS_DEFAULT_FLAGS})
 
