@@ -162,12 +162,9 @@ vsg::ref_ptr<vsg::ShaderStage> PBRTPipeline::setupRaygenShader(std::string rayge
     }
     else
     {
-        if (illuminationBuffer.cast<IlluminationBufferFinal>())
+        if (illuminationBuffer.cast<IlluminatonBufferFinalFloat>())
         {
             defines.push_back("FINAL_IMAGE");
-        }
-        else if (illuminationBuffer.cast<IlluminatonBufferFinalFloat>()){
-            defines.push_back("FINAL_IMAGE_HQ");
         }
         else if (illuminationBuffer.cast<IlluminationBufferFinalDirIndir>())
         {

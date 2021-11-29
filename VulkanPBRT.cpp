@@ -120,8 +120,6 @@ int main(int argc, char** argv){
         }
         bool useTaa = arguments.read("--taa");
         bool useFlyNavigation = arguments.read("--fly");
-        bool highQualityIllumiation = arguments.read({"--highqual" ,"-hq"}) || exportIllumination;  //exporting illumination automatically requires hq illumination buffer
-
 #ifdef _DEBUG
         // overwriting command line options for debug
         windowTraits->debugLayer = true;
@@ -303,9 +301,6 @@ int main(int argc, char** argv){
         else
         {
             writeGBuffer = false;
-            illuminationBuffer = IlluminationBufferFinal::create(windowTraits->width, windowTraits->height);
-        }
-        if (highQualityIllumiation){
             illuminationBuffer = IlluminatonBufferFinalFloat::create(windowTraits->width, windowTraits->height);
         }
         if (exportIllumination && !gBuffer){
