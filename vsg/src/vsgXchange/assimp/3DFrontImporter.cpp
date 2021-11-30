@@ -45,11 +45,6 @@ static void DeepCopyAiMesh(aiMesh* source, aiMesh*& target)
             {
                 target->mTextureCoords[i] = new aiVector3D[source->mNumVertices];
                 std::memcpy(target->mTextureCoords[i], source->mTextureCoords[i], target->mNumVertices * sizeof(aiVector3D));
-                for (int tex_coord_index = 0; tex_coord_index < source->mNumVertices; tex_coord_index++)
-                {
-                    // flip tex coord v
-                    target->mTextureCoords[i][tex_coord_index].y = 1 - target->mTextureCoords[i][tex_coord_index].y;
-                }
             }
         }
     }
@@ -101,6 +96,7 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
 
     // load materials
     std::unordered_map<std::string, uint32_t> material_id_to_index_map;
+    std::vector<float> material_uv_rotations;
     const auto& materials = scene_json["material"];
     pScene->mNumMaterials = materials.size();
     if (pScene->mNumMaterials > 0)
@@ -127,12 +123,11 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
                 aiColor4D color(static_cast<float>(raw_color[0]) / 255.f, static_cast<float>(raw_color[1]) / 255.f,
                                 static_cast<float>(raw_color[2]) / 255.f,
                                 static_cast<float>(raw_color[3]) / 255.f);
-                // TODO: change to AI_MATKEY_COLOR_DIFFUSE
-                ai_material->AddProperty(&color, 1, AI_MATKEY_COLOR_AMBIENT);
+                ai_material->AddProperty(&color, 1, AI_MATKEY_COLOR_DIFFUSE);
             }
 
-            const auto& material_id = raw_material["jid"];
-            if (material_id != "")
+            const auto& material_id = std::string(raw_material["jid"]);
+            if (!material_id.empty())
             {
                 for (const auto& texture_directory : texture_directories)
                 {
@@ -147,12 +142,31 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
                     ai_material->AddProperty(&text_path_str, AI_MATKEY_TEXTURE_DIFFUSE(0));
                     ai_material->AddProperty(&uvwIndex, 1, AI_MATKEY_UVWSRC_DIFFUSE(0));
                     const int address_mode = aiTextureMapMode_Wrap;
-                    ai_material->AddProperty<int>(&address_mode, 1, AI_MATKEY_MAPPINGMODE_U(aiTextureType_DIFFUSE, 0));
-                    ai_material->AddProperty<int>(&address_mode, 1, AI_MATKEY_MAPPINGMODE_V(aiTextureType_DIFFUSE, 0));
+                    ai_material->AddProperty<int>(&address_mode, 1, AI_MATKEY_MAPPINGMODE_U_DIFFUSE(0));
+                    ai_material->AddProperty<int>(&address_mode, 1, AI_MATKEY_MAPPINGMODE_V_DIFFUSE(0));
                     // we have our texture and don't need to check the other directories
                     break;
                 }
             }
+            float uv_rotation = 0;
+            if (const auto& iterator = raw_material.find("UVTransform"); iterator != raw_material.end())
+            {
+                // linearized 3x3 matrix
+                const auto& raw_uv_transform = iterator.value();
+                // TODO: https://math.stackexchange.com/questions/237369/given-this-transformation-matrix-how-do-i-decompose-it-into-translation-rotati/3554913
+                aiUVTransform ai_uv_transform;
+                ai_uv_transform.mTranslation = aiVector2D(raw_uv_transform[6], raw_uv_transform[7]);
+                auto column_0 = aiVector2D(raw_uv_transform[0], raw_uv_transform[1]);
+                float column_0_length = column_0.Length();
+                ai_uv_transform.mScaling.x = aiVector2D(raw_uv_transform[0], raw_uv_transform[1]).Length();
+                ai_uv_transform.mScaling.y = aiVector2D(raw_uv_transform[3], raw_uv_transform[4]).Length();
+                ai_uv_transform.mRotation = acos(column_0.x / column_0_length);
+                // need this because rotations are not stored correctly by assimp
+                uv_rotation = ai_uv_transform.mRotation;
+                ai_material->AddProperty(&ai_uv_transform, 1, AI_MATKEY_UVTRANSFORM_DIFFUSE(0));
+            }
+            material_uv_rotations.push_back(uv_rotation);
+
             material_id_to_index_map[raw_material["uid"]] = material_index++;
         }
     }
@@ -204,22 +218,35 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
 
                     ai_mesh->mVertices[i] = aiVector3D(raw_vertices[x_index], raw_vertices[y_index], raw_vertices[z_index]);
                     ai_mesh->mNormals[i] = aiVector3D(raw_normals[x_index], raw_normals[y_index], raw_normals[z_index]);
-                    if (is_floor)
+                   // if (is_floor)
                     {
-                        //ai_mesh->mVertices[i].y += 5;
+                        ai_mesh->mVertices[i].y += 2;
                     }
 
                     ai_mesh->mTextureCoords[0][i] = aiVector3D(raw_tex_coords[u_index], raw_tex_coords[v_index], 0);
 
-                    // flip tex coord v
-                    ai_mesh->mTextureCoords[0][i].y = 1 - ai_mesh->mTextureCoords[0][i].y;
+                    // transform uv coords based on material
+                    const aiMaterial* material = pScene->mMaterials[ai_mesh->mMaterialIndex];
+                    aiUVTransform ai_uv_transform;
+                    if (material->Get(AI_MATKEY_UVTRANSFORM_DIFFUSE(0), ai_uv_transform) == AI_SUCCESS)
+                    {
+                        ai_uv_transform.mRotation = material_uv_rotations[ai_mesh->mMaterialIndex];
+
+                        auto& tex_coord = ai_mesh->mTextureCoords[0][i];
+                        tex_coord.x *= ai_uv_transform.mScaling.x;
+                        tex_coord.y *= ai_uv_transform.mScaling.y;
+                        aiMatrix3x3 rotation_matrix;
+                        aiMatrix3x3::RotationZ(ai_uv_transform.mRotation, rotation_matrix);
+                        tex_coord = rotation_matrix * tex_coord;
+                        tex_coord.x += ai_uv_transform.mTranslation.x;
+                        tex_coord.y += ai_uv_transform.mTranslation.y;
+                    } 
                 }
             }
 
             // parse indices
             const auto& raw_indices = raw_mesh["faces"];
             ai_mesh->mNumFaces = raw_indices.size() / 3;
-            assert(ai_mesh->mNumFaces * 3 == ai_mesh->mNumVertices);
             if (ai_mesh->mNumFaces > 0)
             {
                 ai_mesh->mFaces = new aiFace[ai_mesh->mNumFaces];
@@ -264,7 +291,7 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
             std::string obj_path_str = (furniture_model_path / fs::path("raw_model.obj")).string();
             const aiScene* furniture_model_scene = importer.ReadFile(
                 obj_path_str.c_str(),
-                aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_OptimizeMeshes | aiProcess_SortByPType |
+                aiProcess_Triangulate | aiProcess_OptimizeMeshes | aiProcess_SortByPType |
                 aiProcess_ImproveCacheLocality | aiProcess_GenUVCoords // same flags as in assimp.cpp
             );
             assert(furniture_model_scene->mNumTextures == 0);
