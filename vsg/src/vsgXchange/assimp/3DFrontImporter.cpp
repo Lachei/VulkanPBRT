@@ -193,9 +193,7 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
                 auto& material = pScene->mMaterials[ai_mesh->mMaterialIndex];
                 aiColor3D emissive_color(_ceiling_light_strength);
                 material->AddProperty(&emissive_color, 1, AI_MATKEY_COLOR_EMISSIVE);
-            }
-
-            bool is_floor = obj_type.find("Floor") != std::string::npos;            
+            }         
 
             // parse vertices, normals and tex coords
             const auto& raw_vertices = raw_mesh["xyz"];
@@ -218,10 +216,14 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
 
                     ai_mesh->mVertices[i] = aiVector3D(raw_vertices[x_index], raw_vertices[y_index], raw_vertices[z_index]);
                     ai_mesh->mNormals[i] = aiVector3D(raw_normals[x_index], raw_normals[y_index], raw_normals[z_index]);
-                   // if (is_floor)
+
                     {
-                        ai_mesh->mVertices[i].y += 2;
+                        // somehow this prevents the floor from disappering
+                        // the offset is negated by the child node transformation in the scene parsing part
+                        ai_mesh->mVertices[i].y += 5;
                     }
+                    // small offset to prevent z-fighting with objects on the floor
+                    ai_mesh->mVertices[i].y += 0.0001;
 
                     ai_mesh->mTextureCoords[0][i] = aiVector3D(raw_tex_coords[u_index], raw_tex_coords[v_index], 0);
 
@@ -407,6 +409,11 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
                 aiMatrix4x4 scale_matrix;
                 aiMatrix4x4::Scaling(aiVector3D(1, -1, 1), scale_matrix);
                 child_node->mTransformation = scale_matrix * child_node->mTransformation;
+            }
+            else
+            {
+                // added to prevent floors from disappering without changing their position
+                aiMatrix4x4::Translation(aiVector3D(0, 0, -5), child_node->mTransformation);
             }
             
 
