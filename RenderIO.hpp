@@ -58,6 +58,7 @@ private:
     static vsg::ref_ptr<vsg::Data> convertNormalToSpherical(vsg::ref_ptr<vsg::vec4Array2D> normals);
     static vsg::ref_ptr<vsg::Data> compressAlbedo(vsg::ref_ptr<vsg::Data> in);
     static vsg::ref_ptr<vsg::Data> sphericalToCartesian(vsg::ref_ptr<vsg::vec2Array2D> normals);
+    static vsg::ref_ptr<vsg::Data> unormToFloat(vsg::ref_ptr<vsg::ubvec4Array2D> array);
     static vsg::ref_ptr<vsg::Data> depthToPosition(vsg::ref_ptr<vsg::floatArray2D> depths, const DoubleMatrix& matrix);
 };
 

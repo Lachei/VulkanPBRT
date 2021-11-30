@@ -176,7 +176,7 @@ bool GBufferIO::exportGBufferDepth(const std::string& depthFormat, const std::st
         //normal images
         snprintf(buff, sizeof(buff), normalFormat.c_str(), f);
         filename = buff;
-        if(!vsg::write(gBuffers[f]->normal, filename, options)){
+        if(!vsg::write(sphericalToCartesian(gBuffers[f]->normal.cast<vsg::vec2Array2D>()), filename, options)){
             std::cerr << "Failed to store image: " << filename << std::endl;
             fine = false;
             return;
@@ -184,7 +184,7 @@ bool GBufferIO::exportGBufferDepth(const std::string& depthFormat, const std::st
         //material images
         snprintf(buff, sizeof(buff), materialFormat.c_str(), f);
         filename = buff;
-        if(!vsg::write(gBuffers[f]->material, filename, options)){
+        if(!vsg::write(unormToFloat(gBuffers[f]->material.cast<vsg::ubvec4Array2D>()), filename, options)){
             std::cerr << "Failed to store image: " << filename << std::endl;
             fine = false;
             return;
@@ -192,7 +192,7 @@ bool GBufferIO::exportGBufferDepth(const std::string& depthFormat, const std::st
         //albedo images
         snprintf(buff, sizeof(buff), albedoFormat.c_str(), f);
         filename = buff;
-        if(!vsg::write(gBuffers[f]->albedo, filename, options)){
+        if(!vsg::write(unormToFloat(gBuffers[f]->albedo.cast<vsg::ubvec4Array2D>()), filename, options)){
             std::cerr << "Failed to store image: " << filename << std::endl;
             fine = false;
             return;
@@ -232,7 +232,7 @@ bool GBufferIO::exportGBufferPosition(const std::string& positionFormat, const s
         //normal images
         snprintf(buff, sizeof(buff), normalFormat.c_str(), f);
         filename = buff;
-        if(!vsg::write(gBuffers[f]->normal, filename, options)){
+        if(!vsg::write(sphericalToCartesian(gBuffers[f]->normal.cast<vsg::vec2Array2D>()), filename, options)){
             std::cerr << "Failed to store image: " << filename << std::endl;
             fine = false;
             return;
@@ -240,7 +240,7 @@ bool GBufferIO::exportGBufferPosition(const std::string& positionFormat, const s
         //material images
         snprintf(buff, sizeof(buff), materialFormat.c_str(), f);
         filename = buff;
-        if(!vsg::write(gBuffers[f]->material, filename, options)){
+        if(!vsg::write(unormToFloat(gBuffers[f]->material.cast<vsg::ubvec4Array2D>()), filename, options)){
             std::cerr << "Failed to store image: " << filename << std::endl;
             fine = false;
             return;
@@ -248,7 +248,7 @@ bool GBufferIO::exportGBufferPosition(const std::string& positionFormat, const s
         //albedo images
         snprintf(buff, sizeof(buff), albedoFormat.c_str(), f);
         filename = buff;
-        if(!vsg::write(gBuffers[f]->albedo, filename, options)){
+        if(!vsg::write(unormToFloat(gBuffers[f]->albedo.cast<vsg::ubvec4Array2D>()), filename, options)){
             std::cerr << "Failed to store image: " << filename << std::endl;
             fine = false;
             return;
@@ -277,6 +277,16 @@ vsg::ref_ptr<vsg::Data> GBufferIO::sphericalToCartesian(vsg::ref_ptr<vsg::vec2Ar
         res[i].w = 1;
     }
     return vsg::vec4Array2D::create(normals->width(), normals->height(), res, vsg::Data::Layout{VK_FORMAT_R32G32B32A32_SFLOAT});
+}
+
+vsg::ref_ptr<vsg::Data> GBufferIO::unormToFloat(vsg::ref_ptr<vsg::ubvec4Array2D> array){
+    if(!array) return {};
+    vsg::vec4* res = new vsg::vec4[array->valueCount()];
+    for(uint32_t i = 0; i < array->valueCount(); ++i){
+        vsg::ubvec4 col = array->data()[i];
+        res[i] = {static_cast<float>(col.x) / 255.f, static_cast<float>(col.y) / 255.f, static_cast<float>(col.z) / 255.f, static_cast<float>(col.w) / 255.f};
+    }
+    return vsg::vec4Array2D::create(array->width(), array->height(), res, vsg::Data::Layout{VK_FORMAT_R32G32B32A32_SFLOAT});
 }
 
 vsg::ref_ptr<vsg::Data> GBufferIO::depthToPosition(vsg::ref_ptr<vsg::floatArray2D> depths, const DoubleMatrix& matrix)
@@ -320,13 +330,32 @@ void OfflineIllumination::downloadFromIlluminationBufferCommand(vsg::ref_ptr<Ill
         setupStagingBuffer(illuBuffer->width, illuBuffer->height);
     if(illuBuffer->illuminationImages[0])
     {
+        //transfer image layout for optimal transfer and memory barrier
+        VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+        auto memBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL,
+                                                       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0, illuBuffer->illuminationImages[0]->imageInfoList.front().imageView->image,
+                                                       resourceRange);
+        auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+                                                        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+                                                        memBarrier);
+        commands->addChild(pipelineBarrier);
+        // copy image to buffer
         auto copy = vsg::CopyImageToBuffer::create();
         vsg::ImageInfo info = illuBuffer->illuminationImages[0]->imageInfoList.front();
         copy->srcImage = info.imageView->image;
-        copy->srcImageLayout = info.imageLayout;
+        copy->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
         copy->dstBuffer = noisyStaging.buffer;
-        copy->regions = {VkBufferImageCopy{0, static_cast<uint32_t>(noisyStaging.buffer->size), 1, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
+        copy->regions = {VkBufferImageCopy{noisyStaging.offset, 0, 0, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
         commands->addChild(copy);
+        // transfer image layout back
+        memBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
+                                                    VK_IMAGE_LAYOUT_GENERAL, 0, 0, illuBuffer->illuminationImages[0]->imageInfoList.front().imageView->image,
+                                                    resourceRange);
+        pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+                                                    VK_DEPENDENCY_BY_REGION_BIT,
+                                                    memBarrier);
+        commands->addChild(pipelineBarrier);
+
         illuBuffer->illuminationImages[0]->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         noisyStaging.buffer->usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     }
@@ -346,8 +375,8 @@ void OfflineIllumination::transferStagingDataTo(vsg::ref_ptr<OfflineIllumination
         return;
     }
     void* gpu_data;
-    memory->map(buffer->getMemoryOffset(deviceID) + noisyStaging.offset, buffer->size, 0, &gpu_data);
-    std::memcpy(illuBuffer->noisy->dataPointer(), gpu_data, (size_t)buffer->size);
+    memory->map(buffer->getMemoryOffset(deviceID) + noisyStaging.offset, noisyStaging.range, 0, &gpu_data);
+    std::memcpy(illuBuffer->noisy->dataPointer(), gpu_data, (size_t)noisyStaging.range);
     memory->unmap();
 }
 
@@ -406,6 +435,35 @@ std::vector<vsg::ref_ptr<OfflineIllumination>> IlluminationBufferIO::importIllum
     if(verbosity > 0)
         std::cout << "Done loading Illumination" << std::endl;
     return illuminations;
+}
+
+bool IlluminationBufferIO::exportIllumination(const std::string& illuminationFormat, int numFrames, const OfflineIlluminations& illus, int verbosity){
+    if(verbosity > 0)
+        std::cout << "Start exporting Illumination" << std::endl;
+    auto options = vsg::Options::create(vsgXchange::openexr::create());
+    bool fine = true;
+    auto execStore = [&](int f){
+        if(verbosity > 1)
+            std::cout << "IlluminationBuffer: Storing frame" << f << std::endl << std::flush;
+        char buff[200];
+        std::string filename;
+        snprintf(buff, sizeof(buff), illuminationFormat.c_str(), f);
+        filename = buff;
+        if(!vsg::write(illus[f]->noisy, filename, options)){
+            std::cout << "Faled to store image: " << filename << std::endl;
+            fine = false;
+            return;
+        }
+        if(verbosity > 1)
+            std::cout << "IlluminationBuffer: Stored frame" << f << std::endl << std::flush;
+    };
+    {   //automatic join at the end of threads scope
+        std::vector<std::future<void>> threads(numFrames);
+        for (int f = 0; f < numFrames; ++f) threads[f] = std::async(std::launch::async, execStore, f); 
+    }
+    if(verbosity > 0)
+        std::cout << "Done exporting Illumination" << std::endl;
+    return fine;
 }
 
 DoubleMatrices MatrixIO::importMatrices(const std::string &matrixPath)
@@ -481,46 +539,111 @@ void OfflineGBuffer::downloadFromGBufferCommand(vsg::ref_ptr<GBuffer>& gBuffer, 
         setupStagingBuffer(gBuffer->width, gBuffer->height);
     if(gBuffer->depth)
     {
+        //transfer image layout for optimal transfer and memory barrier
+        VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+        auto memBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL,
+                                                       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0, gBuffer->depth->imageInfoList.front().imageView->image,
+                                                       resourceRange);
+        auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+                                                        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+                                                        memBarrier);
+        commands->addChild(pipelineBarrier);
         auto copy = vsg::CopyImageToBuffer::create();
         vsg::ImageInfo info = gBuffer->depth->imageInfoList.front();
         copy->srcImage = info.imageView->image;
-        copy->srcImageLayout = info.imageLayout;
+        copy->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
         copy->dstBuffer = depthStaging.buffer;
-        copy->regions = {VkBufferImageCopy{0, static_cast<uint32_t>(depthStaging.buffer->size), 1, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
+        copy->regions = {VkBufferImageCopy{depthStaging.offset,0, 0, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
         commands->addChild(copy);
+        // transfer image layout back
+        memBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
+                                                    VK_IMAGE_LAYOUT_GENERAL, 0, 0, gBuffer->depth->imageInfoList.front().imageView->image,
+                                                    resourceRange);
+        pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+                                                    VK_DEPENDENCY_BY_REGION_BIT,
+                                                    memBarrier);
+        commands->addChild(pipelineBarrier);
         gBuffer->depth->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     }
     if(gBuffer->normal)
     {
+        VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+        auto memBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL,
+                                                       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0, gBuffer->normal->imageInfoList.front().imageView->image,
+                                                       resourceRange);
+        auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+                                                        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+                                                        memBarrier);
+        commands->addChild(pipelineBarrier);
         auto copy = vsg::CopyImageToBuffer::create();
         vsg::ImageInfo info = gBuffer->normal->imageInfoList.front();
         copy->srcImage = info.imageView->image;
-        copy->srcImageLayout = info.imageLayout;
+        copy->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
         copy->dstBuffer = normalStaging.buffer;
-        copy->regions = {VkBufferImageCopy{0, static_cast<uint32_t>(normalStaging.buffer->size), 1, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
+        copy->regions = {VkBufferImageCopy{normalStaging.offset, 0, 0, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
         commands->addChild(copy);
+        // transfer image layout back
+        memBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
+                                                    VK_IMAGE_LAYOUT_GENERAL, 0, 0, gBuffer->normal->imageInfoList.front().imageView->image,
+                                                    resourceRange);
+        pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+                                                    VK_DEPENDENCY_BY_REGION_BIT,
+                                                    memBarrier);
+        commands->addChild(pipelineBarrier);
         gBuffer->normal->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     }
     if(gBuffer->albedo)
     {
+        VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+        auto memBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL,
+                                                       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0, gBuffer->albedo->imageInfoList.front().imageView->image,
+                                                       resourceRange);
+        auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+                                                        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+                                                        memBarrier);
+        commands->addChild(pipelineBarrier);
         auto copy = vsg::CopyImageToBuffer::create();
         vsg::ImageInfo info = gBuffer->albedo->imageInfoList.front();
         copy->srcImage = info.imageView->image;
-        copy->srcImageLayout = info.imageLayout;
+        copy->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
         copy->dstBuffer = albedoStaging.buffer;
-        copy->regions = {VkBufferImageCopy{0, static_cast<uint32_t>(normalStaging.buffer->size), 1, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
+        copy->regions = {VkBufferImageCopy{albedoStaging.offset, 0, 0, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
         commands->addChild(copy);
+        // transfer image layout back
+        memBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
+                                                    VK_IMAGE_LAYOUT_GENERAL, 0, 0, gBuffer->albedo->imageInfoList.front().imageView->image,
+                                                    resourceRange);
+        pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+                                                    VK_DEPENDENCY_BY_REGION_BIT,
+                                                    memBarrier);
+        commands->addChild(pipelineBarrier);
         gBuffer->albedo->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     }
     if(gBuffer->material)
     {
+        VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+        auto memBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL,
+                                                       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0, gBuffer->material->imageInfoList.front().imageView->image,
+                                                       resourceRange);
+        auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+                                                        VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
+                                                        memBarrier);
+        commands->addChild(pipelineBarrier);
         auto copy = vsg::CopyImageToBuffer::create();
         vsg::ImageInfo info = gBuffer->material->imageInfoList.front();
         copy->srcImage = info.imageView->image;
-        copy->srcImageLayout = info.imageLayout;
+        copy->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
         copy->dstBuffer = materialStaging.buffer;
-        copy->regions = {VkBufferImageCopy{0, static_cast<uint32_t>(normalStaging.buffer->size), 1, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
+        copy->regions = {VkBufferImageCopy{materialStaging.offset, 0, 0, VkImageSubresourceLayers{VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1}, VkOffset3D{0,0,0}, info.imageView->image->extent}};
         commands->addChild(copy);
+        // transfer image layout back
+        memBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
+                                                    VK_IMAGE_LAYOUT_GENERAL, 0, 0, gBuffer->material->imageInfoList.front().imageView->image,
+                                                    resourceRange);
+        pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+                                                    VK_DEPENDENCY_BY_REGION_BIT,
+                                                    memBarrier);
+        commands->addChild(pipelineBarrier);
         gBuffer->material->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     }
 }
@@ -539,8 +662,8 @@ void OfflineGBuffer::transferStagingDataTo(vsg::ref_ptr<OfflineGBuffer> other)
         return;
     }
     void* gpu_data;
-    memory->map(buffer->getMemoryOffset(deviceID) + depthStaging.offset, buffer->size, 0, &gpu_data);
-    std::memcpy(other->depth->dataPointer(), gpu_data, (size_t)buffer->size);
+    memory->map(buffer->getMemoryOffset(deviceID) + depthStaging.offset, depthStaging.range, 0, &gpu_data);
+    std::memcpy(other->depth->dataPointer(), gpu_data, (size_t)depthStaging.range);
     memory->unmap();
 
     buffer = vsg::ref_ptr<vsg::Buffer>(normalStaging.buffer);
@@ -549,8 +672,8 @@ void OfflineGBuffer::transferStagingDataTo(vsg::ref_ptr<OfflineGBuffer> other)
         std::cout << "Error while transferring normal staging memory data to offline gBuffer." << std::endl;
         return;
     }
-    memory->map(buffer->getMemoryOffset(deviceID) + normalStaging.offset, buffer->size, 0, &gpu_data);
-    std::memcpy(other->normal->dataPointer(), gpu_data, (size_t)buffer->size);
+    memory->map(buffer->getMemoryOffset(deviceID) + normalStaging.offset, normalStaging.range, 0, &gpu_data);
+    std::memcpy(other->normal->dataPointer(), gpu_data, (size_t)normalStaging.range);
     memory->unmap();
 
     buffer = vsg::ref_ptr<vsg::Buffer>(albedoStaging.buffer);
@@ -559,8 +682,8 @@ void OfflineGBuffer::transferStagingDataTo(vsg::ref_ptr<OfflineGBuffer> other)
         std::cout << "Error while transferring albedo staging memory data to offline gBuffer." << std::endl;
         return;
     }
-    memory->map(buffer->getMemoryOffset(deviceID) + albedoStaging.offset, buffer->size, 0, &gpu_data);
-    std::memcpy(other->albedo->dataPointer(), gpu_data, (size_t)buffer->size);
+    memory->map(buffer->getMemoryOffset(deviceID) + albedoStaging.offset, albedoStaging.range, 0, &gpu_data);
+    std::memcpy(other->albedo->dataPointer(), gpu_data, (size_t)albedoStaging.range);
     memory->unmap();
 
     buffer = vsg::ref_ptr<vsg::Buffer>(materialStaging.buffer);
@@ -569,8 +692,8 @@ void OfflineGBuffer::transferStagingDataTo(vsg::ref_ptr<OfflineGBuffer> other)
         std::cout << "Error while transferring material staging memory data to offline gBuffer." << std::endl;
         return;
     }
-    memory->map(buffer->getMemoryOffset(deviceID) + materialStaging.offset, buffer->size, 0, &gpu_data);
-    std::memcpy(other->material->dataPointer(), gpu_data, (size_t)buffer->size);
+    memory->map(buffer->getMemoryOffset(deviceID) + materialStaging.offset, materialStaging.range, 0, &gpu_data);
+    std::memcpy(other->material->dataPointer(), gpu_data, (size_t)materialStaging.range);
     memory->unmap();
 }
 

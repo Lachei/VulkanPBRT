@@ -541,7 +541,7 @@ bool openexr::getFeatures(Features& features) const
 {
     for (auto& ext : _supportedExtensions)
     {
-        features.extensionFeatureMap[ext] = static_cast<vsg::ReaderWriter::FeatureMask>(vsg::ReaderWriter::READ_FILENAME | vsg::ReaderWriter::READ_ISTREAM | vsg::ReaderWriter::READ_MEMORY);
+        features.extensionFeatureMap[ext] = static_cast<vsg::ReaderWriter::FeatureMask>(vsg::ReaderWriter::READ_FILENAME | vsg::ReaderWriter::READ_ISTREAM | vsg::ReaderWriter::READ_MEMORY | vsg::ReaderWriter::WRITE_FILENAME | vsg::ReaderWriter::WRITE_OSTREAM);
     }
     return true;
 }
