@@ -22,4 +22,5 @@ private:
         std::vector<std::filesystem::path>& furniture_directories);
 
     float _ceiling_light_strength = 0.8f;
+    float _lamp_light_strength = 7.0f;
 };
