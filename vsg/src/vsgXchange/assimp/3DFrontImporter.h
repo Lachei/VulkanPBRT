@@ -21,6 +21,6 @@ private:
     void FindDataDirectories(const std::string& file_path, std::vector<std::filesystem::path>& texture_directories,
         std::vector<std::filesystem::path>& furniture_directories);
 
-    float _ceiling_light_strength = 0.8f;
+    float _ceiling_light_strength = 0.0f;
     float _lamp_light_strength = 7.0f;
 };

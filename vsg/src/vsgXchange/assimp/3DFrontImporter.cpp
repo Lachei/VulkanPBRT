@@ -192,7 +192,7 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
             {
                 auto& material = pScene->mMaterials[ai_mesh->mMaterialIndex];
                 aiColor3D emissive_color(_ceiling_light_strength);
-                //material->AddProperty(&emissive_color, 1, AI_MATKEY_COLOR_EMISSIVE);
+                material->AddProperty(&emissive_color, 1, AI_MATKEY_COLOR_EMISSIVE);
             }         
 
             // parse vertices, normals and tex coords
@@ -299,7 +299,7 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
             assert(furniture_model_scene->mNumTextures == 0);
 
             // copy materials
-            bool set_emissive = false;
+           
             std::unordered_map<uint32_t, uint32_t> original_to_new_material_index_map;
             for (int i = 0; i < furniture_model_scene->mNumMaterials; i++)
             {
@@ -333,16 +333,23 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
                 const std::string& obj_title = piece_of_furniture["title"];
                 if (obj_title.find("lamp") != std::string::npos)
                 {
-                    aiColor3D emissive_color(_lamp_light_strength);
-                    material_copy->AddProperty(&emissive_color, 1, AI_MATKEY_COLOR_EMISSIVE);
-                    set_emissive = true;
+                    aiString material_name;
+                    if (material_copy->Get(AI_MATKEY_NAME, material_name) == AI_SUCCESS)
+                    {
+                        // apparently all subobjects of lamps use the same material
+                        // so there is no way to make just the light bulb emissive
+                        //if (std::string{ material_name.C_Str() }.find("glass") == std::string::npos)
+                        {
+                            aiColor3D emissive_color(_lamp_light_strength);
+                            material_copy->AddProperty(&emissive_color, 1, AI_MATKEY_COLOR_EMISSIVE);
+                        }
+                    }
                 }
 
 
                 furniture_materials.push_back(material_copy);
                 original_to_new_material_index_map[i] = total_material_count++;
             }
-
             // copy meshes
             for (int i = 0; i < furniture_model_scene->mNumMeshes; i++)
             {
