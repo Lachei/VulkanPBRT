@@ -7,6 +7,8 @@
 #include <unordered_map>
 #include <filesystem>
 
+#define AI_MATKEY_CATEGORY_ID "$mat.categoryid",0,0
+
 /*
  * Importer for scenes from the 3D-FRONT data set.
  * https://tianchi.aliyun.com/specials/promotion/alibaba-3d-scene-dataset
@@ -17,6 +19,8 @@
 class AI3DFrontImporter : public Assimp::BaseImporter
 {
 public:
+    static std::unordered_map<std::string, uint32_t> category_to_id_map;
+
     bool CanRead(const std::string& pFile, Assimp::IOSystem* pIOHandler, bool checkSig) const override;
     const aiImporterDesc* GetInfo() const override;
 protected:

@@ -59,6 +59,8 @@ static void DeepCopyAiMesh(aiMesh* source, aiMesh*& target)
     // TODO: copy remaining data
 }
 
+std::unordered_map<std::string, uint32_t> AI3DFrontImporter::category_to_id_map;
+
 static const aiImporterDesc desc = {
     "3D-FRONT scene importer",
     "",
@@ -113,6 +115,9 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
     for (const auto& piece_of_furniture : furniture)
     {
         const auto& model_id = piece_of_furniture["jid"];
+        std::string model_category_name = jid_to_category_map[model_id];
+        std::transform(model_category_name.begin(), model_category_name.end(), model_category_name.begin(),
+            [](unsigned char c) { return std::tolower(c); });
         for (const auto& furniture_directory : furniture_directories)
         {
             fs::path furniture_model_path = furniture_directory / fs::path(std::string(model_id));
@@ -157,10 +162,8 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
                         property->mData[3] = 0;
                     }
                 }
-
-                // add emission property if is lamp
-                const std::string& obj_title = piece_of_furniture["title"];
-                if (obj_title.find("lamp") != std::string::npos)
+                // add emission property if it is a lamp
+                if (model_category_name.find("lamp") != std::string::npos)
                 {
                     aiString material_name;
                     if (material_copy->Get(AI_MATKEY_NAME, material_name) == AI_SUCCESS)
@@ -174,7 +177,13 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
                         }
                     }
                 }
-
+                uint32_t category_id = 0;
+                if (const auto& iterator = category_to_id_map.find(model_category_name); iterator != category_to_id_map.end())
+                {
+                    category_id = iterator->second;
+                }
+                material_copy->AddProperty(&category_id, 1, AI_MATKEY_CATEGORY_ID);
+                
 
                 furniture_materials.push_back(material_copy);
                 original_to_new_material_index_map[i] = total_material_count++;
@@ -408,13 +417,30 @@ void AI3DFrontImporter::LoadMeshes(const nlohmann::json& scene_json,
             auto material_index_iterator = material_id_to_index_map.find(std::string(raw_mesh["material"]));
             assert(material_index_iterator != material_id_to_index_map.end());
             ai_mesh->mMaterialIndex = material_index_iterator->second;
-            const auto& obj_type = std::string(raw_mesh["type"]);
-            if (obj_type.find("Ceiling") != std::string::npos)
+
+            aiMaterial* material = pScene->mMaterials[ai_mesh->mMaterialIndex];
+            aiUVTransform ai_uv_transform;
+            if (material->Get(AI_MATKEY_UVTRANSFORM_DIFFUSE(0), ai_uv_transform) == AI_SUCCESS)
             {
-                auto& material = pScene->mMaterials[ai_mesh->mMaterialIndex];
-                aiColor3D emissive_color(_ceiling_light_strength);
-                material->AddProperty(&emissive_color, 1, AI_MATKEY_COLOR_EMISSIVE);
+                ai_uv_transform.mRotation = material_uv_rotations[ai_mesh->mMaterialIndex];
             }
+            auto obj_type = std::string(raw_mesh["type"]);
+            std::transform(obj_type.begin(), obj_type.end(), obj_type.begin(),
+                           [](unsigned char c) { return std::tolower(c); });
+            if (obj_type.find("ceiling") != std::string::npos)
+            {
+                // add ceiling lighting
+                aiColor4D color;
+                material->Get(AI_MATKEY_COLOR_DIFFUSE, color);
+                color *= _ceiling_light_strength;
+                material->AddProperty(&color, 1, AI_MATKEY_COLOR_EMISSIVE);
+            }
+            uint32_t category_id = 0;
+            if (const auto& iterator = category_to_id_map.find(obj_type); iterator != category_to_id_map.end())
+            {
+                category_id = iterator->second;
+            }          
+            material->AddProperty(&category_id, 1, AI_MATKEY_CATEGORY_ID);
 
             // parse vertices, normals and tex coords
             const auto& raw_vertices = raw_mesh["xyz"];
@@ -436,25 +462,18 @@ void AI3DFrontImporter::LoadMeshes(const nlohmann::json& scene_json,
                     int v_index = u_index + 1;
 
                     ai_mesh->mVertices[i] = aiVector3D(raw_vertices[x_index], raw_vertices[y_index], raw_vertices[z_index]);
-                    ai_mesh->mNormals[i] = aiVector3D(raw_normals[x_index], raw_normals[y_index], raw_normals[z_index]);
-
-                    {
-                        // somehow this prevents the floor from disappering
-                        // the offset is negated by the child node transformation in the scene parsing part
-                        ai_mesh->mVertices[i].y += 5;
-                    }
+                    // somehow this prevents the floor from disappering
+                    // the offset is negated by the child node transformation in the scene parsing part
+                    ai_mesh->mVertices[i].y += 5;
                     // small offset to prevent z-fighting with objects on the floor
                     ai_mesh->mVertices[i].y += 0.0001;
 
+                    ai_mesh->mNormals[i] = aiVector3D(raw_normals[x_index], raw_normals[y_index], raw_normals[z_index]);
                     ai_mesh->mTextureCoords[0][i] = aiVector3D(raw_tex_coords[u_index], raw_tex_coords[v_index], 0);
 
                     // transform uv coords based on material
-                    const aiMaterial* material = pScene->mMaterials[ai_mesh->mMaterialIndex];
-                    aiUVTransform ai_uv_transform;
                     if (material->Get(AI_MATKEY_UVTRANSFORM_DIFFUSE(0), ai_uv_transform) == AI_SUCCESS)
                     {
-                        ai_uv_transform.mRotation = material_uv_rotations[ai_mesh->mMaterialIndex];
-
                         auto& tex_coord = ai_mesh->mTextureCoords[0][i];
                         tex_coord.x *= ai_uv_transform.mScaling.x;
                         tex_coord.y *= ai_uv_transform.mScaling.y;
