@@ -55,6 +55,7 @@ namespace
         float shininess{0.0f};
         float alphaMask{1.0};
         float alphaMaskCutoff{0.5};
+        uint32_t category_id{0};
 
         vsg::ref_ptr<vsg::Data> toData()
         {
@@ -75,6 +76,7 @@ namespace
         float alphaMask{1.0f};
         float alphaMaskCutoff{0.5f};
         float indexOfRefraction{1.0f};
+        uint32_t category_id{0};
 
         vsg::ref_ptr<vsg::Data> toData()
         {
@@ -652,6 +654,7 @@ assimp::Implementation::BindState assimp::Implementation::processMaterials(const
             material->Get(AI_MATKEY_COLOR_EMISSIVE, pbr.emissiveFactor);
             material->Get(AI_MATKEY_GLTF_ALPHACUTOFF, pbr.alphaMaskCutoff);
             material->Get(AI_MATKEY_REFRACTI, pbr.indexOfRefraction);
+            material->Get(AI_MATKEY_CATEGORY_ID, pbr.category_id);
 
             if (material->Get(AI_MATKEY_TWOSIDED, isTwoSided); isTwoSided)
                 defines.push_back("VSG_TWOSIDED");
@@ -727,6 +730,7 @@ assimp::Implementation::BindState assimp::Implementation::processMaterials(const
             const auto diffuseResult = material->Get(AI_MATKEY_COLOR_DIFFUSE, mat.diffuse);
             const auto emissiveResult = material->Get(AI_MATKEY_COLOR_EMISSIVE, mat.emissive);
             const auto specularResult = material->Get(AI_MATKEY_COLOR_SPECULAR, mat.specular);
+            material->Get(AI_MATKEY_CATEGORY_ID, mat.category_id);
 
             aiShadingMode shadingModel = aiShadingMode_Phong;
             material->Get(AI_MATKEY_SHADING_MODEL, shadingModel);
