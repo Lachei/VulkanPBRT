@@ -1,6 +1,10 @@
 #pragma once
 #include <assimp/BaseImporter.h>
 
+#include <nlohmann/json.hpp>
+
+#include <string>
+#include <unordered_map>
 #include <filesystem>
 
 /*
@@ -19,8 +23,14 @@ protected:
     void InternReadFile(const std::string& pFile, aiScene* pScene, Assimp::IOSystem* pIOHandler) override;
 private:
     void FindDataDirectories(const std::string& file_path, std::vector<std::filesystem::path>& texture_directories,
-        std::vector<std::filesystem::path>& furniture_directories);
+                             std::vector<std::filesystem::path>& furniture_directories);
+    std::unordered_map<std::string, std::string> LoadJidToCategoryMap(const std::vector<std::filesystem::path>& furniture_directories);
+    void LoadMaterials(const std::vector<std::filesystem::path>& texture_directories, const nlohmann::json& scene_json, aiScene* pScene,
+                       std::unordered_map<std::string, uint32_t>& material_id_to_index_map, std::vector<float>& material_uv_rotations);
+    void LoadMeshes(const nlohmann::json& scene_json, const std::unordered_map<std::string, uint32_t>& material_id_to_index_map,
+                    const std::vector<float>& material_uv_rotations, aiScene* pScene,
+                    std::unordered_map<std::string, std::vector<uint32_t>>& model_uid_to_mesh_indices_map);
 
-    float _ceiling_light_strength = 0.0f;
+    float _ceiling_light_strength = 0.8f;
     float _lamp_light_strength = 7.0f;
 };

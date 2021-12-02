@@ -94,202 +94,14 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
     std::vector<fs::path> texture_directories;
     FindDataDirectories(pFile, texture_directories, furniture_directories);
 
-    // load categories
-    std::unordered_map<std::string, std::string> jid_to_category_map;
-    for (const auto& furniture_directory : furniture_directories)
-    {
-        fs::path model_info_path = furniture_directory / fs::path("model_info.json");
-        std::ifstream model_info_file(model_info_path.string());
-        if (!model_info_file)
-        {
-            throw DeadlyImportError("Failed to open file " + model_info_path.string() + ".");
-        }
-        nlohmann::json model_info_json;
-        model_info_file >> model_info_json;
+    std::unordered_map<std::string, std::string> jid_to_category_map = LoadJidToCategoryMap(furniture_directories);
 
-        for (const auto& mapping : model_info_json)
-        {
-            jid_to_category_map[mapping["model_id"]] = mapping["category"];
-        }
-    }
-
-    // load materials
     std::unordered_map<std::string, uint32_t> material_id_to_index_map;
     std::vector<float> material_uv_rotations;
-    const auto& materials = scene_json["material"];
-    pScene->mNumMaterials = materials.size();
-    if (pScene->mNumMaterials > 0)
-    {
-        pScene->mMaterials = new aiMaterial*[pScene->mNumMaterials];
-        uint32_t material_index = 0;
-        for (const auto& raw_material : materials)
-        {
-            pScene->mMaterials[material_index] = new aiMaterial;
-            auto& ai_material = pScene->mMaterials[material_index];
+    LoadMaterials(texture_directories, scene_json, pScene, material_id_to_index_map, material_uv_rotations);
 
-            bool use_color;
-            if (const auto& iterator = raw_material.find("use_color"); iterator != raw_material.end())
-            {
-                use_color = iterator.value();
-            }
-            else
-            {
-                use_color = std::string(raw_material["texture"]).empty();
-            }
-            //if (use_color)
-            {
-                const auto& raw_color = raw_material["color"];
-                aiColor4D color(static_cast<float>(raw_color[0]) / 255.f, static_cast<float>(raw_color[1]) / 255.f,
-                                static_cast<float>(raw_color[2]) / 255.f,
-                                static_cast<float>(raw_color[3]) / 255.f);
-                ai_material->AddProperty(&color, 1, AI_MATKEY_COLOR_DIFFUSE);
-            }
-
-            const auto& material_id = std::string(raw_material["jid"]);
-            if (!material_id.empty())
-            {
-                for (const auto& texture_directory : texture_directories)
-                {
-                    fs::path texture_path = texture_directory / fs::path(std::string(material_id));
-                    if (!fs::exists(texture_path))
-                    {
-                        continue;
-                    }
-                    // add texture
-                    aiString text_path_str((texture_path / fs::path("texture.png")).string());
-                    const int uvwIndex = 0;
-                    ai_material->AddProperty(&text_path_str, AI_MATKEY_TEXTURE_DIFFUSE(0));
-                    ai_material->AddProperty(&uvwIndex, 1, AI_MATKEY_UVWSRC_DIFFUSE(0));
-                    const int address_mode = aiTextureMapMode_Wrap;
-                    ai_material->AddProperty<int>(&address_mode, 1, AI_MATKEY_MAPPINGMODE_U_DIFFUSE(0));
-                    ai_material->AddProperty<int>(&address_mode, 1, AI_MATKEY_MAPPINGMODE_V_DIFFUSE(0));
-                    // we have our texture and don't need to check the other directories
-                    break;
-                }
-            }
-            float uv_rotation = 0;
-            if (const auto& iterator = raw_material.find("UVTransform"); iterator != raw_material.end())
-            {
-                // linearized 3x3 matrix
-                const auto& raw_uv_transform = iterator.value();
-                aiUVTransform ai_uv_transform;
-                ai_uv_transform.mTranslation = aiVector2D(raw_uv_transform[6], raw_uv_transform[7]);
-                auto column_0 = aiVector2D(raw_uv_transform[0], raw_uv_transform[1]);
-                float column_0_length = column_0.Length();
-                ai_uv_transform.mScaling.x = aiVector2D(raw_uv_transform[0], raw_uv_transform[1]).Length();
-                ai_uv_transform.mScaling.y = aiVector2D(raw_uv_transform[3], raw_uv_transform[4]).Length();
-                ai_uv_transform.mRotation = acos(column_0.x / column_0_length);
-                // need this because rotations are not stored correctly by assimp
-                uv_rotation = ai_uv_transform.mRotation;
-                ai_material->AddProperty(&ai_uv_transform, 1, AI_MATKEY_UVTRANSFORM_DIFFUSE(0));
-            }
-            material_uv_rotations.push_back(uv_rotation);
-
-            material_id_to_index_map[raw_material["uid"]] = material_index++;
-        }
-    }
-
-    // load base meshes
     std::unordered_map<std::string, std::vector<uint32_t>> model_uid_to_mesh_indices_map;
-    const auto& room_meshes = scene_json["mesh"];
-    pScene->mNumMeshes = room_meshes.size();
-    if (pScene->mNumMeshes > 0)
-    {
-        pScene->mMeshes = new aiMesh*[pScene->mNumMeshes];
-        uint32_t mesh_index = 0;
-        for (const auto& raw_mesh : room_meshes)
-        {
-            pScene->mMeshes[mesh_index] = new aiMesh;
-            auto& ai_mesh = pScene->mMeshes[mesh_index];
-            ai_mesh->mPrimitiveTypes = aiPrimitiveType_TRIANGLE;
-            ai_mesh->mNumUVComponents[0] = 2;
-
-            ai_mesh->mMaterialIndex = material_id_to_index_map[raw_mesh["material"]];
-            const auto& obj_type = std::string(raw_mesh["type"]);
-            if (obj_type.find("Ceiling") != std::string::npos)
-            {
-                auto& material = pScene->mMaterials[ai_mesh->mMaterialIndex];
-                aiColor3D emissive_color(_ceiling_light_strength);
-                material->AddProperty(&emissive_color, 1, AI_MATKEY_COLOR_EMISSIVE);
-            }         
-
-            // parse vertices, normals and tex coords
-            const auto& raw_vertices = raw_mesh["xyz"];
-            ai_mesh->mNumVertices = raw_vertices.size() / 3;
-            if (ai_mesh->mNumVertices > 0)
-            {
-                const auto& raw_normals = raw_mesh["normal"];
-                const auto& raw_tex_coords = raw_mesh["uv"];
-
-                ai_mesh->mVertices = new aiVector3D[ai_mesh->mNumVertices];
-                ai_mesh->mNormals = new aiVector3D[ai_mesh->mNumVertices];
-                ai_mesh->mTextureCoords[0] = new aiVector3D[ai_mesh->mNumVertices];
-                for (int i = 0; i < ai_mesh->mNumVertices; i++)
-                {
-                    int x_index = i * 3;
-                    int y_index = x_index + 1;
-                    int z_index = x_index + 2;
-                    int u_index = i * 2;
-                    int v_index = u_index + 1;
-
-                    ai_mesh->mVertices[i] = aiVector3D(raw_vertices[x_index], raw_vertices[y_index], raw_vertices[z_index]);
-                    ai_mesh->mNormals[i] = aiVector3D(raw_normals[x_index], raw_normals[y_index], raw_normals[z_index]);
-
-                    {
-                        // somehow this prevents the floor from disappering
-                        // the offset is negated by the child node transformation in the scene parsing part
-                        ai_mesh->mVertices[i].y += 5;
-                    }
-                    // small offset to prevent z-fighting with objects on the floor
-                    ai_mesh->mVertices[i].y += 0.0001;
-
-                    ai_mesh->mTextureCoords[0][i] = aiVector3D(raw_tex_coords[u_index], raw_tex_coords[v_index], 0);
-
-                    // transform uv coords based on material
-                    const aiMaterial* material = pScene->mMaterials[ai_mesh->mMaterialIndex];
-                    aiUVTransform ai_uv_transform;
-                    if (material->Get(AI_MATKEY_UVTRANSFORM_DIFFUSE(0), ai_uv_transform) == AI_SUCCESS)
-                    {
-                        ai_uv_transform.mRotation = material_uv_rotations[ai_mesh->mMaterialIndex];
-
-                        auto& tex_coord = ai_mesh->mTextureCoords[0][i];
-                        tex_coord.x *= ai_uv_transform.mScaling.x;
-                        tex_coord.y *= ai_uv_transform.mScaling.y;
-                        aiMatrix3x3 rotation_matrix;
-                        aiMatrix3x3::RotationZ(ai_uv_transform.mRotation, rotation_matrix);
-                        tex_coord = rotation_matrix * tex_coord;
-                        tex_coord.x += ai_uv_transform.mTranslation.x;
-                        tex_coord.y += ai_uv_transform.mTranslation.y;
-                    } 
-                }
-            }
-
-            // parse indices
-            const auto& raw_indices = raw_mesh["faces"];
-            ai_mesh->mNumFaces = raw_indices.size() / 3;
-            if (ai_mesh->mNumFaces > 0)
-            {
-                ai_mesh->mFaces = new aiFace[ai_mesh->mNumFaces];
-                for (int i = 0; i < ai_mesh->mNumFaces; i++)
-                {
-                    int index_0 = i * 3;
-                    int index_1 = index_0 + 1;
-                    int index_2 = index_0 + 2;
-
-                    ai_mesh->mFaces[i] = aiFace();
-                    auto& face = ai_mesh->mFaces[i];
-                    face.mNumIndices = 3;
-                    face.mIndices = new unsigned int[3];
-                    face.mIndices[0] = raw_indices[index_2];
-                    face.mIndices[1] = raw_indices[index_1];
-                    face.mIndices[2] = raw_indices[index_0];
-                }
-            }
-
-            model_uid_to_mesh_indices_map[raw_mesh["uid"]].push_back(mesh_index++);
-        }
-    }
-
+    LoadMeshes(scene_json, material_id_to_index_map, material_uv_rotations, pScene, model_uid_to_mesh_indices_map);
 
     // load furniture
     Assimp::Importer importer;
@@ -317,7 +129,6 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
             assert(furniture_model_scene->mNumTextures == 0);
 
             // copy materials
-           
             std::unordered_map<uint32_t, uint32_t> original_to_new_material_index_map;
             for (int i = 0; i < furniture_model_scene->mNumMaterials; i++)
             {
@@ -450,7 +261,7 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
                 // added to prevent floors from disappering without changing their position
                 aiMatrix4x4::Translation(aiVector3D(0, 0, -5), child_node->mTransformation);
             }
-            
+
 
             child_node->mParent = room_node;
 
@@ -480,6 +291,203 @@ void AI3DFrontImporter::FindDataDirectories(const std::string& file_path,
         else if (directory_name.find("3D-FRONT-texture") != std::string::npos)
         {
             texture_directories.push_back(directory_path);
+        }
+    }
+}
+std::unordered_map<std::string, std::string> AI3DFrontImporter::LoadJidToCategoryMap(
+    const std::vector<std::filesystem::path>& furniture_directories)
+{
+    std::unordered_map<std::string, std::string> jid_to_category_map;
+    for (const auto& furniture_directory : furniture_directories)
+    {
+        fs::path model_info_path = furniture_directory / fs::path("model_info.json");
+        std::ifstream model_info_file(model_info_path.string());
+        if (!model_info_file)
+        {
+            throw DeadlyImportError("Failed to open file " + model_info_path.string() + ".");
+        }
+        nlohmann::json model_info_json;
+        model_info_file >> model_info_json;
+
+        for (const auto& mapping : model_info_json)
+        {
+            auto category = mapping["category"];
+            std::string category_str;
+            if (category != nullptr)
+            {
+                category_str = category;
+            }
+            jid_to_category_map[mapping["model_id"]] = category_str;
+        }
+    }
+    return jid_to_category_map;
+}
+void AI3DFrontImporter::LoadMaterials(const std::vector<std::filesystem::path>& texture_directories, const nlohmann::json& scene_json,
+                                      aiScene* pScene, std::unordered_map<std::string, uint32_t>& material_id_to_index_map,
+                                      std::vector<float>& material_uv_rotations)
+{
+    const auto& materials = scene_json["material"];
+    pScene->mNumMaterials = materials.size();
+    if (pScene->mNumMaterials > 0)
+    {
+        pScene->mMaterials = new aiMaterial*[pScene->mNumMaterials];
+        uint32_t material_index = 0;
+        for (const auto& raw_material : materials)
+        {
+            pScene->mMaterials[material_index] = new aiMaterial;
+            auto& ai_material = pScene->mMaterials[material_index];
+
+            const auto& raw_color = raw_material["color"];
+            aiColor4D color(static_cast<float>(raw_color[0]) / 255.f, static_cast<float>(raw_color[1]) / 255.f,
+                            static_cast<float>(raw_color[2]) / 255.f,
+                            static_cast<float>(raw_color[3]) / 255.f);
+            ai_material->AddProperty(&color, 1, AI_MATKEY_COLOR_DIFFUSE);
+
+            const auto& material_id = std::string(raw_material["jid"]);
+            if (!material_id.empty())
+            {
+                for (const auto& texture_directory : texture_directories)
+                {
+                    fs::path texture_path = texture_directory / fs::path(std::string(material_id));
+                    if (!fs::exists(texture_path))
+                    {
+                        continue;
+                    }
+                    // add texture
+                    aiString text_path_str((texture_path / fs::path("texture.png")).string());
+                    const int uvwIndex = 0;
+                    ai_material->AddProperty(&text_path_str, AI_MATKEY_TEXTURE_DIFFUSE(0));
+                    ai_material->AddProperty(&uvwIndex, 1, AI_MATKEY_UVWSRC_DIFFUSE(0));
+                    const int address_mode = aiTextureMapMode_Wrap;
+                    ai_material->AddProperty<int>(&address_mode, 1, AI_MATKEY_MAPPINGMODE_U_DIFFUSE(0));
+                    ai_material->AddProperty<int>(&address_mode, 1, AI_MATKEY_MAPPINGMODE_V_DIFFUSE(0));
+                    // we have our texture and don't need to check the other directories
+                    break;
+                }
+            }
+            float uv_rotation = 0;
+            if (const auto& iterator = raw_material.find("UVTransform"); iterator != raw_material.end())
+            {
+                // linearized 3x3 matrix
+                const auto& raw_uv_transform = iterator.value();
+                aiUVTransform ai_uv_transform;
+                ai_uv_transform.mTranslation = aiVector2D(raw_uv_transform[6], raw_uv_transform[7]);
+                auto column_0 = aiVector2D(raw_uv_transform[0], raw_uv_transform[1]);
+                float column_0_length = column_0.Length();
+                ai_uv_transform.mScaling.x = aiVector2D(raw_uv_transform[0], raw_uv_transform[1]).Length();
+                ai_uv_transform.mScaling.y = aiVector2D(raw_uv_transform[3], raw_uv_transform[4]).Length();
+                ai_uv_transform.mRotation = acos(column_0.x / column_0_length);
+                // need this because rotations are not stored correctly by assimp
+                uv_rotation = ai_uv_transform.mRotation;
+                ai_material->AddProperty(&ai_uv_transform, 1, AI_MATKEY_UVTRANSFORM_DIFFUSE(0));
+            }
+            material_uv_rotations.push_back(uv_rotation);
+
+            material_id_to_index_map[raw_material["uid"]] = material_index++;
+        }
+    }
+}
+void AI3DFrontImporter::LoadMeshes(const nlohmann::json& scene_json,
+                                   const std::unordered_map<std::string, uint32_t>& material_id_to_index_map,
+                                   const std::vector<float>& material_uv_rotations, aiScene* pScene,
+                                   std::unordered_map<std::string, std::vector<uint32_t>>& model_uid_to_mesh_indices_map)
+{
+    const auto& room_meshes = scene_json["mesh"];
+    pScene->mNumMeshes = room_meshes.size();
+    if (pScene->mNumMeshes > 0)
+    {
+        pScene->mMeshes = new aiMesh*[pScene->mNumMeshes];
+        uint32_t mesh_index = 0;
+        for (const auto& raw_mesh : room_meshes)
+        {
+            pScene->mMeshes[mesh_index] = new aiMesh;
+            auto& ai_mesh = pScene->mMeshes[mesh_index];
+            ai_mesh->mPrimitiveTypes = aiPrimitiveType_TRIANGLE;
+            ai_mesh->mNumUVComponents[0] = 2;
+
+            auto material_index_iterator = material_id_to_index_map.find(std::string(raw_mesh["material"]));
+            assert(material_index_iterator != material_id_to_index_map.end());
+            ai_mesh->mMaterialIndex = material_index_iterator->second;
+            const auto& obj_type = std::string(raw_mesh["type"]);
+            if (obj_type.find("Ceiling") != std::string::npos)
+            {
+                auto& material = pScene->mMaterials[ai_mesh->mMaterialIndex];
+                aiColor3D emissive_color(_ceiling_light_strength);
+                material->AddProperty(&emissive_color, 1, AI_MATKEY_COLOR_EMISSIVE);
+            }
+
+            // parse vertices, normals and tex coords
+            const auto& raw_vertices = raw_mesh["xyz"];
+            ai_mesh->mNumVertices = raw_vertices.size() / 3;
+            if (ai_mesh->mNumVertices > 0)
+            {
+                const auto& raw_normals = raw_mesh["normal"];
+                const auto& raw_tex_coords = raw_mesh["uv"];
+
+                ai_mesh->mVertices = new aiVector3D[ai_mesh->mNumVertices];
+                ai_mesh->mNormals = new aiVector3D[ai_mesh->mNumVertices];
+                ai_mesh->mTextureCoords[0] = new aiVector3D[ai_mesh->mNumVertices];
+                for (int i = 0; i < ai_mesh->mNumVertices; i++)
+                {
+                    int x_index = i * 3;
+                    int y_index = x_index + 1;
+                    int z_index = x_index + 2;
+                    int u_index = i * 2;
+                    int v_index = u_index + 1;
+
+                    ai_mesh->mVertices[i] = aiVector3D(raw_vertices[x_index], raw_vertices[y_index], raw_vertices[z_index]);
+                    ai_mesh->mNormals[i] = aiVector3D(raw_normals[x_index], raw_normals[y_index], raw_normals[z_index]);
+
+                    {
+                        // somehow this prevents the floor from disappering
+                        // the offset is negated by the child node transformation in the scene parsing part
+                        ai_mesh->mVertices[i].y += 5;
+                    }
+                    // small offset to prevent z-fighting with objects on the floor
+                    ai_mesh->mVertices[i].y += 0.0001;
+
+                    ai_mesh->mTextureCoords[0][i] = aiVector3D(raw_tex_coords[u_index], raw_tex_coords[v_index], 0);
+
+                    // transform uv coords based on material
+                    const aiMaterial* material = pScene->mMaterials[ai_mesh->mMaterialIndex];
+                    aiUVTransform ai_uv_transform;
+                    if (material->Get(AI_MATKEY_UVTRANSFORM_DIFFUSE(0), ai_uv_transform) == AI_SUCCESS)
+                    {
+                        ai_uv_transform.mRotation = material_uv_rotations[ai_mesh->mMaterialIndex];
+
+                        auto& tex_coord = ai_mesh->mTextureCoords[0][i];
+                        tex_coord.x *= ai_uv_transform.mScaling.x;
+                        tex_coord.y *= ai_uv_transform.mScaling.y;
+                        aiMatrix3x3 rotation_matrix;
+                        aiMatrix3x3::RotationZ(ai_uv_transform.mRotation, rotation_matrix);
+                        tex_coord = rotation_matrix * tex_coord;
+                        tex_coord.x += ai_uv_transform.mTranslation.x;
+                        tex_coord.y += ai_uv_transform.mTranslation.y;
+                    }
+                }
+            }
+            // parse indices
+            const auto& raw_indices = raw_mesh["faces"];
+            ai_mesh->mNumFaces = raw_indices.size() / 3;
+            if (ai_mesh->mNumFaces > 0)
+            {
+                ai_mesh->mFaces = new aiFace[ai_mesh->mNumFaces];
+                for (int i = 0; i < ai_mesh->mNumFaces; i++)
+                {
+                    int index_0 = i * 3;
+                    int index_1 = index_0 + 1;
+                    int index_2 = index_0 + 2;
+
+                    ai_mesh->mFaces[i] = aiFace();
+                    auto& face = ai_mesh->mFaces[i];
+                    face.mNumIndices = 3;
+                    face.mIndices = new unsigned int[3];
+                    face.mIndices[0] = raw_indices[index_2];
+                    face.mIndices[1] = raw_indices[index_1];
+                    face.mIndices[2] = raw_indices[index_0];
+                }
+            }
+            model_uid_to_mesh_indices_map[raw_mesh["uid"]].push_back(mesh_index++);
         }
     }
 }
