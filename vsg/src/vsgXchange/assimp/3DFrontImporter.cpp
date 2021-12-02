@@ -94,6 +94,25 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
     std::vector<fs::path> texture_directories;
     FindDataDirectories(pFile, texture_directories, furniture_directories);
 
+    // load categories
+    std::unordered_map<std::string, std::string> jid_to_category_map;
+    for (const auto& furniture_directory : furniture_directories)
+    {
+        fs::path model_info_path = furniture_directory / fs::path("model_info.json");
+        std::ifstream model_info_file(model_info_path.string());
+        if (!model_info_file)
+        {
+            throw DeadlyImportError("Failed to open file " + model_info_path.string() + ".");
+        }
+        nlohmann::json model_info_json;
+        model_info_file >> model_info_json;
+
+        for (const auto& mapping : model_info_json)
+        {
+            jid_to_category_map[mapping["model_id"]] = mapping["category"];
+        }
+    }
+
     // load materials
     std::unordered_map<std::string, uint32_t> material_id_to_index_map;
     std::vector<float> material_uv_rotations;
@@ -153,7 +172,6 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
             {
                 // linearized 3x3 matrix
                 const auto& raw_uv_transform = iterator.value();
-                // TODO: https://math.stackexchange.com/questions/237369/given-this-transformation-matrix-how-do-i-decompose-it-into-translation-rotati/3554913
                 aiUVTransform ai_uv_transform;
                 ai_uv_transform.mTranslation = aiVector2D(raw_uv_transform[6], raw_uv_transform[7]);
                 auto column_0 = aiVector2D(raw_uv_transform[0], raw_uv_transform[1]);
