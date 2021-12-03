@@ -102,7 +102,8 @@ int main(int argc, char** argv){
         auto sceneFilename = arguments.value(std::string(), "-i");
         bool externalRenderings = normalPath.size();
         bool exportIllumination = exportIlluminationPath.size();
-        bool exportGBuffer = exportNormalPath.size();
+        bool exportGBuffer = exportNormalPath.size() || exportDepthPath.size() || exportPositionPath.size() || exportAlbedoPath.size() || exportMaterialPath.size();
+        bool storeMatrices = exportGBuffer || exportMatricesPath.size();
         if (sceneFilename.empty() && !externalRenderings)
         {
             std::cout << "Missing input parameter \"-i <path_to_model>\"." << std::endl;
@@ -206,6 +207,13 @@ int main(int argc, char** argv){
                     i->albedo = vsg::ubvec4Array2D::create(windowTraits->width, windowTraits->height);
                     i->material = vsg::ubvec4Array2D::create(windowTraits->width, windowTraits->height);
                 }
+            }
+        }
+        if(storeMatrices){
+            cameraMatrices.resize(numFrames);
+            for(auto& matrix: cameraMatrices){
+                matrix.proj = vsg::mat4();
+                matrix.invProj = vsg::mat4();
             }
         }
 
@@ -602,20 +610,23 @@ int main(int argc, char** argv){
                 int frame = offlineIlluminations.size() - 1 - numFrames;
                 offlineGBufferStager->transferStagingDataTo(offlineGBuffers[frame]);
             }
+            if(storeMatrices){
+                int frame = offlineIlluminations.size() - 1 - numFrames;
+                lookAt->get(cameraMatrices[frame].view);
+                lookAt->get_inverse(cameraMatrices[frame].invView);
+                perspective->get(cameraMatrices[frame].proj.value());
+                perspective->get_inverse(cameraMatrices[frame].invProj.value());
+            }
         }
         numFrames = numFramesC;
 
         // exporting all images
-        if(exportGBuffer){
-            if(exportDepthPath.size())
-                GBufferIO::exportGBufferDepth(exportDepthPath, exportNormalPath, exportMaterialPath, exportAlbedoPath, numFrames, offlineGBuffers);
-            if(exportPositionPath.size()){
-                GBufferIO::exportGBufferPosition(exportPositionPath, exportNormalPath, exportMaterialPath, exportAlbedoPath, numFrames, offlineGBuffers, cameraMatrices);
-            }
-        }
-        if(exportIllumination){
+        if(exportGBuffer)
+            GBufferIO::exportGBuffer(exportPositionPath, exportDepthPath, exportNormalPath, exportMaterialPath, exportAlbedoPath, numFrames, offlineGBuffers, cameraMatrices);
+        if(exportIllumination)
             IlluminationBufferIO::exportIllumination(exportIlluminationPath, numFrames, offlineIlluminations);
-        }
+        if(exportMatricesPath.size())
+            MatrixIO::exportMatrices(exportMatricesPath, cameraMatrices);
     }
     catch (const vsg::Exception& e){
         std::cout << e.message << " VkResult = " << e.result << std::endl;

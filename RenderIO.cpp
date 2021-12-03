@@ -154,7 +154,7 @@ vsg::ref_ptr<vsg::Data> GBufferIO::compressAlbedo(vsg::ref_ptr<vsg::Data> in){
     return vsg::ubvec4Array2D::create(in->width(), in->height(), albedo, vsg::Data::Layout{VK_FORMAT_R8G8B8A8_UNORM});
 }
 
-bool GBufferIO::exportGBufferDepth(const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers, int verbosity) 
+bool GBufferIO::exportGBuffer(const std::string& positionFormat, const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers, const DoubleMatrices& matrices, int verbosity) 
 {
     if(verbosity > 0)
         std::cout << "Start exporting GBuffer" << std::endl;
@@ -166,92 +166,56 @@ bool GBufferIO::exportGBufferDepth(const std::string& depthFormat, const std::st
         char buff[200];
         std::string filename;
         // depth images
-        snprintf(buff, sizeof(buff), depthFormat.c_str(), f);
-        filename = buff;
-        if(!vsg::write(gBuffers[f]->depth, filename, options)){
-            std::cerr << "Failed to store image: " << filename << std::endl;
-            fine = false;
-            return;
+        if(depthFormat.size()){
+            snprintf(buff, sizeof(buff), depthFormat.c_str(), f);
+            filename = buff;
+            if(!vsg::write(gBuffers[f]->depth, filename, options)){
+                std::cerr << "Failed to store image: " << filename << std::endl;
+                fine = false;
+                return;
+            }
         }
-        //normal images
-        snprintf(buff, sizeof(buff), normalFormat.c_str(), f);
-        filename = buff;
-        if(!vsg::write(sphericalToCartesian(gBuffers[f]->normal.cast<vsg::vec2Array2D>()), filename, options)){
-            std::cerr << "Failed to store image: " << filename << std::endl;
-            fine = false;
-            return;
-        }
-        //material images
-        snprintf(buff, sizeof(buff), materialFormat.c_str(), f);
-        filename = buff;
-        if(!vsg::write(unormToFloat(gBuffers[f]->material.cast<vsg::ubvec4Array2D>()), filename, options)){
-            std::cerr << "Failed to store image: " << filename << std::endl;
-            fine = false;
-            return;
-        }
-        //albedo images
-        snprintf(buff, sizeof(buff), albedoFormat.c_str(), f);
-        filename = buff;
-        if(!vsg::write(unormToFloat(gBuffers[f]->albedo.cast<vsg::ubvec4Array2D>()), filename, options)){
-            std::cerr << "Failed to store image: " << filename << std::endl;
-            fine = false;
-            return;
-        }
-        if(verbosity > 1)
-            std::cout << "GBuffer: Stored frame " << f << std::endl << std::flush;
-    };
-    {   //automatic join at the end of threads scope
-        std::vector<std::future<void>> threads(numFrames);
-        for (int f = 0; f < numFrames; ++f) threads[f] = std::async(std::launch::async, execStore, f); 
-    }
-    if(verbosity > 0)
-        std::cout << "Done exporting GBuffer" << std::endl;
-    return fine;
-}
-
-bool GBufferIO::exportGBufferPosition(const std::string& positionFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers, const DoubleMatrices& matrices, int verbosity) 
-{
-    if(verbosity > 0)
-        std::cout << "Start exporting GBuffer" << std::endl;
-    auto options = vsg::Options::create(vsgXchange::openexr::create());
-    bool fine = true;
-    auto execStore = [&](int f){
-        if(verbosity > 1)
-            std::cout << "GBuffer: Storing frame " << f << std::endl << std::flush;
-        char buff[200];
-        std::string filename;
         // position images
-        snprintf(buff, sizeof(buff), positionFormat.c_str(), f);
-        vsg::ref_ptr<vsg::Data> position = depthToPosition(gBuffers[f]->depth.cast<vsg::floatArray2D>(), matrices[f]);
-        filename = buff;
-        if(!vsg::write(position, filename, options)){
-            std::cerr << "Failed to store image: " << filename << std::endl;
-            fine = false;
-            return;
+        if(positionFormat.size()){
+            snprintf(buff, sizeof(buff), positionFormat.c_str(), f);
+            vsg::ref_ptr<vsg::Data> position = depthToPosition(gBuffers[f]->depth.cast<vsg::floatArray2D>(), matrices[f]);
+            filename = buff;
+            if(!vsg::write(position, filename, options)){
+                std::cerr << "Failed to store image: " << filename << std::endl;
+                fine = false;
+                return;
+            }
         }
         //normal images
-        snprintf(buff, sizeof(buff), normalFormat.c_str(), f);
-        filename = buff;
-        if(!vsg::write(sphericalToCartesian(gBuffers[f]->normal.cast<vsg::vec2Array2D>()), filename, options)){
-            std::cerr << "Failed to store image: " << filename << std::endl;
-            fine = false;
-            return;
+        if(normalFormat.size()){
+            snprintf(buff, sizeof(buff), normalFormat.c_str(), f);
+            filename = buff;
+            if(!vsg::write(sphericalToCartesian(gBuffers[f]->normal.cast<vsg::vec2Array2D>()), filename, options)){
+                std::cerr << "Failed to store image: " << filename << std::endl;
+                fine = false;
+                return;
+            }
         }
         //material images
-        snprintf(buff, sizeof(buff), materialFormat.c_str(), f);
-        filename = buff;
-        if(!vsg::write(unormToFloat(gBuffers[f]->material.cast<vsg::ubvec4Array2D>()), filename, options)){
-            std::cerr << "Failed to store image: " << filename << std::endl;
-            fine = false;
-            return;
+        if(materialFormat.size()){
+            snprintf(buff, sizeof(buff), materialFormat.c_str(), f);
+            filename = buff;
+            if(!vsg::write(unormToFloat(gBuffers[f]->material.cast<vsg::ubvec4Array2D>()), filename, options)){
+                std::cerr << "Failed to store image: " << filename << std::endl;
+                fine = false;
+                return;
+            }
         }
         //albedo images
-        snprintf(buff, sizeof(buff), albedoFormat.c_str(), f);
-        filename = buff;
-        if(!vsg::write(unormToFloat(gBuffers[f]->albedo.cast<vsg::ubvec4Array2D>()), filename, options)){
-            std::cerr << "Failed to store image: " << filename << std::endl;
-            fine = false;
-            return;
+        if(albedoFormat.size())
+        {
+            snprintf(buff, sizeof(buff), albedoFormat.c_str(), f);
+            filename = buff;
+            if(!vsg::write(unormToFloat(gBuffers[f]->albedo.cast<vsg::ubvec4Array2D>()), filename, options)){
+                std::cerr << "Failed to store image: " << filename << std::endl;
+                fine = false;
+                return;
+            }
         }
         if(verbosity > 1)
             std::cout << "GBuffer: Stored frame " << f << std::endl << std::flush;
@@ -292,19 +256,22 @@ vsg::ref_ptr<vsg::Data> GBufferIO::unormToFloat(vsg::ref_ptr<vsg::ubvec4Array2D>
 vsg::ref_ptr<vsg::Data> GBufferIO::depthToPosition(vsg::ref_ptr<vsg::floatArray2D> depths, const DoubleMatrix& matrix)
 {
     if(!depths) return {};
+    if(!matrix.proj){
+        std::cout << "GBufferIO::depthToPosition: Camera matrix in wrong layout. Expected camera matrix with separate projection matrix" << std::endl;
+        return {};
+    }
     vsg::vec4* res = new vsg::vec4[depths->valueCount()];
     auto toVec3 = [&](vsg::vec4 v){return vsg::vec3(v.x, v.y, v.z);};
-    vsg::vec4 cameraPos = matrix.invView[2];
-    cameraPos /= cameraPos.w;
+    vsg::vec4 cameraPos = matrix.invView[3];
     for(uint32_t i = 0; i < depths->valueCount(); ++i){
         uint32_t x = i % depths->width();
         uint32_t y = i / depths->width();
         vsg::vec2 p{(x + .5f) / depths->width() * 2 - 1, (y + .5f) / depths->height() * 2 - 1};
-        vsg::vec4 dir = matrix.invView * vsg::vec4{p.x, p.y, 1, 1};
-        dir /= dir.w + 1e-9;
-        vsg::vec3 direction = vsg::normalize(vsg::vec3{dir.x, dir.y, dir.z});
+        vsg::vec4 dir = matrix.invProj.value() * vsg::vec4{p.x, p.y, 1, 1};
+        dir.w = 0;
+        vsg::vec3 direction = toVec3(matrix.invView * vsg::normalize(dir));
         direction *= depths->data()[i];
-        vsg::vec3 pos = toVec3(cameraPos) - direction;
+        vsg::vec3 pos = toVec3(cameraPos) + direction;
         res[i].x = pos.x;
         res[i].y = pos.y;
         res[i].z = pos.z;
