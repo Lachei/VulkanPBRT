@@ -435,7 +435,7 @@ void AI3DFrontImporter::LoadMeshes(const nlohmann::json& scene_json,
                 color *= _ceiling_light_strength;
                 material->AddProperty(&color, 1, AI_MATKEY_COLOR_EMISSIVE);
             }
-            uint32_t category_id = 0;
+            uint32_t category_id = 255;
             if (const auto& iterator = category_to_id_map.find(obj_type); iterator != category_to_id_map.end())
             {
                 category_id = iterator->second;
