@@ -91,6 +91,7 @@ struct PBRInfo
 struct RayPayload {
 	vec3 position;
     SurfaceInfo si;
+    uint category_id;
 };
 
 #endif //PTSTRUCTURES_H

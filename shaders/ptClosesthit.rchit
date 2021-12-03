@@ -85,4 +85,6 @@ void main()
     rayPayload.si = SurfaceInfo(perceptualRoughness, metallic, alphaRoughness, specularEnvironmentR0, specularEnvironmentR90, diffuseColor, specularColor, emissiveColor, normal, TBN);
 
     rayPayload.position = position;
+	
+	rayPayload.category_id = mat.category_id;
 }
