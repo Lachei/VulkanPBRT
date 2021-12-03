@@ -59,6 +59,8 @@ static void DeepCopyAiMesh(aiMesh* source, aiMesh*& target)
     // TODO: copy remaining data
 }
 
+float AI3DFrontImporter::ceiling_light_strength = 0.8f;
+float AI3DFrontImporter::lamp_light_strength = 7.0f;
 std::unordered_map<std::string, uint32_t> AI3DFrontImporter::category_to_id_map;
 
 static const aiImporterDesc desc = {
@@ -74,6 +76,40 @@ static const aiImporterDesc desc = {
     "json"
 };
 
+void AI3DFrontImporter::ReadConfig(const nlohmann::json config_json)
+{
+    const auto& config_3d_front = config_json["3d_front"];
+    if (config_3d_front == nullptr)
+    {
+        return;
+    }
+    const auto& category_id_map_json = config_3d_front["category_ids"];
+    if (category_id_map_json != nullptr)
+    {
+        for (const auto& category_mapping : category_id_map_json.items())
+        {
+            auto name = category_mapping.key();
+            // make category names case insensitive
+            std::transform(name.begin(), name.end(), name.begin(),
+                [](unsigned char c) { return std::tolower(c); });
+            const auto& id = category_mapping.value();
+            if (id.is_number_unsigned())
+            {
+                category_to_id_map[name] = uint32_t(id);
+            }
+        }
+    }
+    const auto& ceiling_light_strength_param = config_3d_front["ceiling_light_strength"];
+    if (ceiling_light_strength_param.is_number_float() || ceiling_light_strength_param.is_number_unsigned())
+    {
+        ceiling_light_strength = ceiling_light_strength_param;
+    }
+    const auto& lamp_light_strength_param = config_3d_front["lamp_light_strength"];
+    if (lamp_light_strength_param.is_number_float() || lamp_light_strength_param.is_number_unsigned())
+    {
+        lamp_light_strength = lamp_light_strength_param;
+    }
+}
 bool AI3DFrontImporter::CanRead(const std::string& pFile, Assimp::IOSystem* pIOHandler, bool checkSig) const
 {
     return SimpleExtensionCheck(pFile, "json");
@@ -172,7 +208,7 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
                         // so there is no way to make just the light bulb emissive
                         //if (std::string{ material_name.C_Str() }.find("glass") == std::string::npos)
                         {
-                            aiColor3D emissive_color(_lamp_light_strength);
+                            aiColor3D emissive_color(lamp_light_strength);
                             material_copy->AddProperty(&emissive_color, 1, AI_MATKEY_COLOR_EMISSIVE);
                         }
                     }
@@ -432,10 +468,10 @@ void AI3DFrontImporter::LoadMeshes(const nlohmann::json& scene_json,
                 // add ceiling lighting
                 aiColor4D color;
                 material->Get(AI_MATKEY_COLOR_DIFFUSE, color);
-                color *= _ceiling_light_strength;
+                color *= ceiling_light_strength;
                 material->AddProperty(&color, 1, AI_MATKEY_COLOR_EMISSIVE);
             }
-            uint32_t category_id = 255;
+            uint32_t category_id = 0;
             if (const auto& iterator = category_to_id_map.find(obj_type); iterator != category_to_id_map.end())
             {
                 category_id = iterator->second;

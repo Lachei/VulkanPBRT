@@ -19,8 +19,8 @@
 class AI3DFrontImporter : public Assimp::BaseImporter
 {
 public:
-    static std::unordered_map<std::string, uint32_t> category_to_id_map;
-
+    static void ReadConfig(const nlohmann::json config_json);
+    
     bool CanRead(const std::string& pFile, Assimp::IOSystem* pIOHandler, bool checkSig) const override;
     const aiImporterDesc* GetInfo() const override;
 protected:
@@ -35,6 +35,7 @@ private:
                     const std::vector<float>& material_uv_rotations, aiScene* pScene,
                     std::unordered_map<std::string, std::vector<uint32_t>>& model_uid_to_mesh_indices_map);
 
-    float _ceiling_light_strength = 0.8f;
-    float _lamp_light_strength = 7.0f;
+    static float ceiling_light_strength;
+    static float lamp_light_strength;
+    static std::unordered_map<std::string, uint32_t> category_to_id_map;
 };

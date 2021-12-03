@@ -15,8 +15,12 @@
 #include <vsgXchange/images.h>
 #include <vsg/all.h>
 
+#include <nlohmann/json.hpp>
+
 #include <set>
 #include <iostream>
+
+#include "vsg/src/vsgXchange/assimp/3DFrontImporter.h"
 
 #define _DEBUG
 
@@ -61,8 +65,23 @@ private:
 
 int main(int argc, char** argv){
     try{
-        // command line parsing
         vsg::CommandLine arguments(&argc, argv);
+
+        // load config
+        nlohmann::json config_json;
+        {
+            auto config_path = arguments.value(std::string(), "--config");
+            if (!config_path.empty())
+            {
+                std::ifstream scene_file(config_path);
+                if (!scene_file)
+                {
+                    std::cout << "Failed to load config file " << config_path << "." << std::endl;
+                    return 1;
+                }
+                scene_file >> config_json;
+            }
+        }
 
         // ensure that cout and cerr are reset to their standard output when main() is exited
         LoggingRedirectSentry coutSentry(&std::cout, std::cout.rdbuf());
@@ -148,6 +167,7 @@ int main(int argc, char** argv){
         std::vector<vsg::ref_ptr<OfflineIllumination>> offlineIlluminations;
         std::vector<DoubleMatrix> cameraMatrices;
         if(!externalRenderings){
+            AI3DFrontImporter::ReadConfig(config_json);
             auto options = vsg::Options::create(vsgXchange::assimp::create(), vsgXchange::dds::create(), vsgXchange::stbi::create()); //using the assimp loader
             loaded_scene = vsg::read_cast<vsg::Node>(sceneFilename, options);
             if(!loaded_scene){
