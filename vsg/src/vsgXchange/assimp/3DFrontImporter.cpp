@@ -78,6 +78,7 @@ static const aiImporterDesc desc = {
 
 void AI3DFrontImporter::ReadConfig(const nlohmann::json config_json)
 {
+    if(config_json.empty()) return;
     const auto& config_3d_front = config_json["3d_front"];
     if (config_3d_front == nullptr)
     {
