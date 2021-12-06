@@ -44,3 +44,4 @@ cmake-build-*/
 # visual studio files
 .vs/
 CMakeSettings.json
+config.json
