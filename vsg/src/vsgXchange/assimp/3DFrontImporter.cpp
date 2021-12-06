@@ -186,7 +186,7 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
                         std::string full_path = (furniture_model_path / fs::path(&property->mData[6])).string();
                         property->mDataLength = full_path.length() + 1;
                         char* new_data = new char[property->mDataLength + 4];
-                        strcpy_s(&new_data[4], property->mDataLength, full_path.c_str());
+                        strncpy(&new_data[4], full_path.c_str(), property->mDataLength);
                         delete property->mData;
                         property->mData = new_data;
                         property->mDataLength += 4;
