@@ -32,7 +32,8 @@ void main(){
     #ifdef FINAL_IMAGE
     #ifndef DEMOD_ILLUMINATION
     #ifndef DEMOD_ILLUMINATION_SQUARED
-    	antiAlias = true;	//can not be done when reprojecting
+	if(camParams.sampleNumber > 0)
+    	antiAlias = true;	//can not be done when reprojecting, never is done for first sample
     #endif
     #endif
     #endif
