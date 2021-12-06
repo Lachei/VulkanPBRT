@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <vsg/all.h>
 #include <vsgXchange/images.h>
 #include <vector>
