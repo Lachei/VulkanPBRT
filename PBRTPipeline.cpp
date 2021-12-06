@@ -126,11 +126,13 @@ void PBRTPipeline::setupPipeline(vsg::Node *scene, bool useExternalGbuffer)
     shaderBindingTable->bindingTableEntries.hitGroups = {closesthitShaderGroup, transparenthitShaderGroup};
     auto pipeline = vsg::RayTracingPipeline::create(rayTracingPipelineLayout, shaderStage, shaderGroups, shaderBindingTable);
     bindRayTracingPipeline = vsg::BindRayTracingPipeline::create(pipeline);
+    auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{});
+    bindRayTracingDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rayTracingPipelineLayout, descriptorSet);
 
     // parsing data from scene
     RayTracingSceneDescriptorCreationVisitor buildDescriptorBinding;
     scene->accept(buildDescriptorBinding);
-    bindRayTracingDescriptorSet = buildDescriptorBinding.getBindDescriptorSet(rayTracingPipelineLayout, bindingMap);
+    buildDescriptorBinding.updateDescriptor(bindRayTracingDescriptorSet, bindingMap);
     opaqueGeometries = buildDescriptorBinding.isOpaque;
 
     // creating the constant infos uniform buffer object
@@ -160,7 +162,7 @@ vsg::ref_ptr<vsg::ShaderStage> PBRTPipeline::setupRaygenShader(std::string rayge
     }
     else
     {
-        if (illuminationBuffer.cast<IlluminationBufferFinal>())
+        if (illuminationBuffer.cast<IlluminatonBufferFinalFloat>())
         {
             defines.push_back("FINAL_IMAGE");
         }
@@ -173,25 +175,21 @@ vsg::ref_ptr<vsg::ShaderStage> PBRTPipeline::setupRaygenShader(std::string rayge
             defines.push_back("FINAL_IMAGE");
             defines.push_back("DEMOD_ILLUMINATION");
             defines.push_back("DEMOD_ILLUMINATION_SQUARED");
-            if (gBuffer)
-                defines.push_back("GBUFFER");
-            if (accumulationBuffer)
-                defines.push_back("PREV_GBUFFER");
         }
         else if (illuminationBuffer.cast<IlluminationBufferDemodulated>())
         {
             defines.push_back("DEMOD_ILLUMINATION");
             defines.push_back("DEMOD_ILLUMINATION_SQUARED");
-            if (gBuffer)
-                defines.push_back("GBUFFER");
-            if (accumulationBuffer)
-                defines.push_back("PREV_GBUFFER");
         }
         else
         {
             throw vsg::Exception{"Error: PBRTPipeline::setupRaygenShader(...) Illumination buffer not supported."};
         }
     }
+    if (gBuffer)
+        defines.push_back("GBUFFER");
+    if (accumulationBuffer)
+        defines.push_back("PREV_GBUFFER");
 
     auto options = vsg::Options::create(vsgXchange::glsl::create());
     auto raygenShader = vsg::ShaderStage::read(VK_SHADER_STAGE_RAYGEN_BIT_KHR, "main", raygenPath, options);

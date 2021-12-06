@@ -10,4 +10,6 @@ void main()
     rayPayload.position = vec3(1.0e10);
     rayPayload.si.normal = vec3(1);
     rayPayload.si.emissiveColor = vec3(0);
+    rayPayload.si.diffuseColor = vec3(0);
+    rayPayload.si.specularColor = vec3(0);
 }
