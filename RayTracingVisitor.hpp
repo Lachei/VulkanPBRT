@@ -49,6 +49,7 @@ protected:
         float shininess{0.0f};
         float alphaMask{1.0};
         float alphaMaskCutoff{0.5};
+        uint32_t category_id{0};
     };
     struct VsgPbrMaterial
     {
@@ -61,6 +62,7 @@ protected:
         float alphaMask{1.0f};
         float alphaMaskCutoff{0.5f};
         float indexOfRefraction{1.0f};
+        uint32_t category_id{0};
     };
     struct WaveFrontMaterialPacked
     {
@@ -69,6 +71,8 @@ protected:
         vsg::vec4  specularDissolve;
         vsg::vec4  transmittanceIllum;
         vsg::vec4  emissionTextureId;
+        uint32_t category_id{0};
+        float pad[3];
     };
     vsg::ref_ptr<vsg::DescriptorBuffer> _instances;
     std::vector<ObjectInstance> _instancesArray;

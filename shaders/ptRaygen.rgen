@@ -54,7 +54,8 @@ void main(){
 	compressedNormal.x = acos(rayPayload.si.normal.z);
 	compressedNormal.y = atan(rayPayload.si.normal.y, rayPayload.si.normal.x);
 	imageStore(normalImage, ivec2(gl_LaunchIDEXT.xy), vec4(compressedNormal, 1, 1));
-	imageStore(materialImage, ivec2(gl_LaunchIDEXT.xy), vec4(1));
+	float category_id = float(rayPayload.category_id) / 255.0;
+	imageStore(materialImage, ivec2(gl_LaunchIDEXT.xy), vec4(category_id, 0, 0, 0));
 	imageStore(albedoImage, ivec2(gl_LaunchIDEXT.xy), vec4(curAlbedo, 1));
 #endif
 

@@ -64,8 +64,8 @@ vec3 sampleLight(vec3 pos, vec3 n, inout RandomEngine re, out vec3 l, out float 
         d = length(lightDir);
         lightDir /= d;
         attenuation = 1.0f / (lights.l[i].strengths.x + lights.l[i].strengths.y * d + lights.l[i].strengths.z * d * d);
-        strength = max(dot(n, lightDir), 0) * max(dot(-lightDir, lightNormal), 0) * lightPower * attenuation * triangleArea;
-        lightStrength *= max(dot(n, lightDir), 0) * max(dot(-lightDir, lightNormal), 0) * attenuation * triangleArea;
+        strength = max(dot(n, lightDir), 0) * max(dot(-lightDir, lightNormal), 0) * lightPower * attenuation;
+        lightStrength *= max(dot(n, lightDir), 0) * max(dot(-lightDir, lightNormal), 0) * attenuation;
         curL = lightDir;
         curTmax = d - tmin;
         break;
