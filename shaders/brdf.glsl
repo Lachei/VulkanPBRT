@@ -54,16 +54,17 @@ vec3 BRDF_Diffuse_Burley(PBRInfo pbrInputs)
     float lightScatter = f0 + (fd90 - f0) * pow(1.0 - pbrInputs.NdotL, 5.0);
     float viewScatter = f0 + (fd90 - f0) * pow(1.0 - pbrInputs.NdotV, 5.0);
 
-    return pbrInputs.s.diffuseColor * lightScatter * viewScatter * energyFactor;
+    return pbrInputs.s.diffuseColor * lightScatter * viewScatter * energyFactor * RECIPROCAL_PI;
 }
 
+// [https://blog.selfshadow.com/publications/s2012-shading-course/burley/s2012_pbs_disney_brdf_notes_v3.pdf]
 vec3 BRDF_Diffuse_Disney(PBRInfo pbrInputs)
 {
 	float Fd90 = 0.5 + 2.0 * pbrInputs.s.perceptualRoughness * pbrInputs.VdotH * pbrInputs.VdotH;
     vec3 f0 = vec3(0.1);
 	vec3 invF0 = vec3(1.0, 1.0, 1.0) - f0;
 	float dim = min(invF0.r, min(invF0.g, invF0.b));
-	float result = ((1.0 + (Fd90 - 1.0) * pow(1.0 - pbrInputs.NdotL, 5.0 )) * (1.0 + (Fd90 - 1.0) * pow(1.0 - pbrInputs.NdotV, 5.0 ))) * dim;
+	float result = ((1.0 + (Fd90 - 1.0) * pow(1.0 - pbrInputs.NdotL, 5.0 )) * (1.0 + (Fd90 - 1.0) * pow(1.0 - pbrInputs.NdotV, 5.0 ))) * RECIPROCAL_PI * dim;
 	return pbrInputs.s.diffuseColor * result;
 }
 

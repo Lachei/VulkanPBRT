@@ -2,8 +2,8 @@
 
 RayTracingSceneDescriptorCreationVisitor::RayTracingSceneDescriptorCreationVisitor()
 {
-    vsg::ubvec4 w{ 255, 255, 255, 255 };
-    auto white = vsg::ubvec4Array2D::create(1, 1, vsg::Data::Layout{ VK_FORMAT_R8G8B8A8_UNORM });
+    vsg::ubvec4 w{255, 255, 255, 255};
+    auto white = vsg::ubvec4Array2D::create(1, 1, vsg::Data::Layout{VK_FORMAT_R8G8B8A8_UNORM});
     std::copy(&w, &w + 1, white->data());
 
     vsg::SamplerImage image;
@@ -110,7 +110,6 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::VertexIndexDraw& vid)
         _normals.push_back(normals);
         // auto fill up tex coords if not provided
         vsg::ref_ptr<vsg::DescriptorBuffer> texCoords;
-        int v = vid.arrays[2]->valueCount();
         if (vid.arrays[2]->valueCount() == 0)
         {
             auto data = vsg::vec2Array::create(vid.arrays[0]->valueCount());
@@ -129,7 +128,7 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::VertexIndexDraw& vid)
             }
             vid.arrays[2] = data;
         }
-        else texCoords = vsg::DescriptorBuffer::create(vid.arrays[2], 4, _texCoords.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+        texCoords = vsg::DescriptorBuffer::create(vid.arrays[2], 4, _texCoords.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
         _texCoords.push_back(texCoords);
         auto indices = vsg::DescriptorBuffer::create(vid.indices, 5, _indices.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
         _indices.push_back(indices);
@@ -138,39 +137,48 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::VertexIndexDraw& vid)
     _instancesArray.push_back(instance);
 
     //if emissive mesh create a mesh light for each triangle
+    const int max_lights = 1000;
     if (meshEmissive)
     {
-        for (int i = 0; i < vid.indices->valueCount() / 3; ++i)
+        if (packedLights.size() < max_lights)
         {
-            vsg::Light l{};
-            l.radius = 0;
-            l.type = vsg::LightSourceType::Area;
-            l.colorAmbient = {
-                _materialArray.back().emissionTextureId.r, _materialArray.back().emissionTextureId.g,
-                _materialArray.back().emissionTextureId.b
-            };
-            l.colorDiffuse = l.colorAmbient;
-            l.colorSpecular = l.colorAmbient;
-            l.strengths = vsg::vec3(0, 0, 1);
+            for (int i = 0; i < vid.indices->valueCount() / 3; ++i)
+            {
+                vsg::Light l{};
+                l.radius = 0;
+                l.type = vsg::LightSourceType::Area;
+                l.colorAmbient = {
+                    _materialArray.back().emissionTextureId.r, _materialArray.back().emissionTextureId.g,
+                    _materialArray.back().emissionTextureId.b
+                };
+                l.colorDiffuse = l.colorAmbient;
+                l.colorSpecular = l.colorAmbient;
+                l.strengths = vsg::vec3(0, 0, 1);
 
-            uint32_t index = 0;
-            if (vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3];
-            else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3];
-            l.v0 = ((vsg::vec3*)vid.arrays[0]->dataPointer())[index];
-            if (vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3 + 1];
-            else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3 + 1];
-            l.v1 = ((vsg::vec3*)vid.arrays[0]->dataPointer())[index];
-            if (vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3 + 2];
-            else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3 + 2];
-            l.v2 = ((vsg::vec3*)vid.arrays[0]->dataPointer())[index];
-            //transforming the light position
-            auto t = _transformStack.top() * vsg::dvec4{l.v0.x, l.v0.y, l.v0.z, 1};
-            l.v0 = {static_cast<float>(t.x), static_cast<float>(t.y), static_cast<float>(t.z)};
-            t = _transformStack.top() * vsg::dvec4{l.v1.x, l.v1.y, l.v1.z, 1};
-            l.v1 = {static_cast<float>(t.x), static_cast<float>(t.y), static_cast<float>(t.z)};
-            t = _transformStack.top() * vsg::dvec4{l.v2.x, l.v2.y, l.v2.z, 1};
-            l.v2 = {static_cast<float>(t.x), static_cast<float>(t.y), static_cast<float>(t.z)};
-            packedLights.push_back(l.getPacked());
+                uint32_t index = 0;
+                if (vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3];
+                else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3];
+                l.v0 = ((vsg::vec3*)vid.arrays[0]->dataPointer())[index];
+                if (vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3 + 1];
+                else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3 + 1];
+                l.v1 = ((vsg::vec3*)vid.arrays[0]->dataPointer())[index];
+                if (vid.indices->stride() == 2) index = ((uint16_t*)(vid.indices->dataPointer()))[i * 3 + 2];
+                else index = ((uint32_t*)(vid.indices->dataPointer()))[i * 3 + 2];
+                l.v2 = ((vsg::vec3*)vid.arrays[0]->dataPointer())[index];
+                //transforming the light position
+                auto t = _transformStack.top() * vsg::dvec4{l.v0.x, l.v0.y, l.v0.z, 1};
+                l.v0 = {static_cast<float>(t.x), static_cast<float>(t.y), static_cast<float>(t.z)};
+                t = _transformStack.top() * vsg::dvec4{l.v1.x, l.v1.y, l.v1.z, 1};
+                l.v1 = {static_cast<float>(t.x), static_cast<float>(t.y), static_cast<float>(t.z)};
+                t = _transformStack.top() * vsg::dvec4{l.v2.x, l.v2.y, l.v2.z, 1};
+                l.v2 = {static_cast<float>(t.x), static_cast<float>(t.y), static_cast<float>(t.z)};
+                packedLights.push_back(l.getPacked());
+
+                if (packedLights.size() > max_lights)
+                {
+                    break;
+                }
+            }
         }
     }
 }
@@ -219,6 +227,7 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::BindDescriptorSet& bds
                 mat.diffuseIor.w = vsgMat.indexOfRefraction;
                 mat.specularDissolve.w = vsgMat.alphaMask;
                 mat.emissionTextureId.w = vsgMat.alphaMaskCutoff;
+                mat.category_id = vsgMat.category_id;
                 _materialArray.push_back(mat);
             }
             else
@@ -237,6 +246,7 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::BindDescriptorSet& bds
                 mat.diffuseIor.w = 1;
                 mat.specularDissolve.w = vsgMat.alphaMask;
                 mat.emissionTextureId.w = vsgMat.alphaMaskCutoff;
+                mat.category_id = vsgMat.category_id;
                 _materialArray.push_back(mat);
             }
             continue;
@@ -336,7 +346,7 @@ void RayTracingSceneDescriptorCreationVisitor::apply(const vsg::Light& l)
 {
     packedLights.push_back(l.getPacked());
 }
-void RayTracingSceneDescriptorCreationVisitor::updateDescriptor(vsg::BindDescriptorSet* descSet, const vsg::BindingMap& bindingMap)    
+void RayTracingSceneDescriptorCreationVisitor::updateDescriptor(vsg::BindDescriptorSet* descSet, const vsg::BindingMap& bindingMap)
 {
     if (packedLights.empty())
     {

@@ -51,6 +51,7 @@ WaveFrontMaterial unpackMaterial(WaveFrontMaterialPacked p){
     m.dissolve = p.specularDissolve.w;
     m.illum = int(p.transmittanceIllum.w);
     m.alphaCutoff = p.emissionTextureId.w;
+    m.category_id = p.category_id;
     return m;
 };
 
