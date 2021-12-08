@@ -40,3 +40,10 @@ build/
 # CLion
 .idea/*
 cmake-build-*/
+
+# visual studio files
+.vs/
+CMakeSettings.json
+
+# configs
+config.json

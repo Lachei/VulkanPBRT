@@ -3,7 +3,6 @@
 #include <vsgImGui/RenderImGui.h>
 #include <vsgImGui/SendEventsToImGui.h>
 #include <imgui.h>
-#include "Defines.hpp"
 #include <vsg/all.h>
 
 class Gui{
@@ -19,7 +18,7 @@ public:
         int raysPerPixel;
         int width;
         int height;
-        uint sampleNumber;
+        uint32_t sampleNumber;
     };
     Gui(vsg::ref_ptr<Values> values): _values(values), _state({true}){}
 

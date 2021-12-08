@@ -1,4 +1,4 @@
- cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.7)
  
 project(VulkanPBRT
     VERSION 1.0.0
@@ -9,6 +9,8 @@ project(VulkanPBRT
 find_package(Vulkan REQUIRED)
 find_package(Threads REQUIRED)
 find_package(assimp CONFIG REQUIRED)
+find_package(OpenEXR REQUIRED)
+find_package(nlohmann_json REQUIRED)
 include(CMakeFindDependencyMacro)
 set(vsg_glslang_DIR ${CMAKE_SOURCE_DIR}/vsg)
 find_dependency(vsg_glslang)
@@ -18,23 +20,21 @@ add_subdirectory(Denoiser)
 add_subdirectory(TAA)
 set(IMGUI_HEADER
     vsg/src/imgui/)
-include_directories(vsg/include ${glslang_INCLUDE_DIRS} ${IMGUI_HEADER})
+include_directories(vsg/include ${glslang_INCLUDE_DIRS} ${IMGUI_HEADER} ${OpenEXR_INCLUDE_DIRS})
 set(CMAKE_CXX_STANDARD 17)
-file(GLOB SOURCES
-    "*.h"
-    "*.hpp"
-    "*.cpp"
-)
-list(FILTER GLOB EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/vsg/.*" )
+
+file(GLOB SRC_TOP
+       ${PROJECT_SOURCE_DIR}/*.cpp)
+file(GLOB_RECURSE SRC_NESTED
+       ${PROJECT_SOURCE_DIR}/TAA/*.cpp
+	   ${PROJECT_SOURCE_DIR}/Denoiser/*.cpp
+       ${PROJECT_SOURCE_DIR}/UtilityPipelines/*.cpp)
+set(SRC ${SRC_TOP} ${SRC_NESTED})
+list(FILTER SRC EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/vsg/.*" )
+
 set(SHADERS
-    pbr_closesthit.rchit
-    miss.rmiss
     shadow.rmiss
-    raygen.rgen
-    alpha_hit.rahit
-    simple_closesthit.rchit
-    simple_miss.rmiss
-    simple_raygen.rgen
+    ptAlphaHit.rahit
     bfr.comp
     taa.comp
     bfrBlender.comp
@@ -42,24 +42,46 @@ set(SHADERS
     bmfrFit.comp
     bmfrFitLegacy.comp
     bmfrPost.comp
+    ptRaygen.rgen
+    ptClosesthit.rchit
+    ptMiss.rmiss
 )
 
 set(UNCOMPILED_SHADERS
-    raygen.rgen
-    general.glsl
+    brdf.glsl
+    geometry.glsl
+    layoutPTAccel.glsl
+    layoutPTGeometry.glsl
+    layoutPTGeometryImages.glsl
+    layoutPTImages.glsl
+    layoutPTLights.glsl
+    layoutPTPushConstants.glsl
+    layoutPTUniform.glsl
+    lighting.glsl
+    math.glsl
+    ptConstants.glsl
+    ptStructures.glsl
+    random.glsl
+    sampling.glsl
+    camera.glsl
+    color.glsl
+    ptRaygen.rgen
+    accumulator.comp
+    formatConverter.comp
 )
 
-add_executable(VulkanPBRT ${SOURCES} ${VSG_ALL} ${BFR_SRC} ${TAA_SRC})
+add_executable(VulkanPBRT ${SRC} ${VSG_ALL})
 
 target_compile_definitions(VulkanPBRT PRIVATE ${EXTRA_DEFINES})
 target_link_libraries(VulkanPBRT Vulkan::Vulkan 
     glslang::glslang glslang::MachineIndependent glslang::OSDependent glslang::OGLCompiler glslang::SPIRV glslang::GenericCodeGen glslang::SPIRV-Tools-opt glslang::SPIRV-Tools
-     Threads::Threads)
+     Threads::Threads OpenEXR::IlmImf)
 if(UNIX)
     target_link_libraries(VulkanPBRT xcb ${ASSIMP_LIBRARIES})
 elseif(WIN32)
     target_link_libraries(VulkanPBRT assimp::assimp)
 endif()
+target_link_libraries(VulkanPBRT nlohmann_json nlohmann_json::nlohmann_json)
 
 ## compilation of shader files
 function(add_shader TARGET SHADER)

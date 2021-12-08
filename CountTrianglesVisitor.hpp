@@ -1,6 +1,5 @@
 #pragma once
 
-#include "Defines.hpp"
 #include <vsg/all.h>
 
 class CountTrianglesVisitor : public vsg::Visitor
