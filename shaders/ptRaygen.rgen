@@ -2,7 +2,7 @@
 #extension GL_EXT_ray_tracing : enable
 #extension GL_GOOGLE_include_directive : enable
 
-#pragma import_defines (FINAL_IMAGE, FINAL_IMAGE_HQ, GBUFFER, PREV_GBUFFER, DEMOD_ILLUMINATION, DEMOD_ILLUMINATION_SQUARED)
+#pragma import_defines (FINAL_IMAGE, FINAL_IMAGE_HQ, GBUFFER, PREV_GBUFFER, DEMOD_ILLUMINATION, DEMOD_ILLUMINATION_SQUARED, LIGHT_SAMPLE_SURFACE_STRENGTH, LIGHT_SAMPLE_LIGHT_STRENGTH)
 
 #include "ptStructures.glsl"
 #include "layoutPTAccel.glsl"
