@@ -58,7 +58,7 @@ struct Light{
     vec4 colAmbient;
     vec4 colDiffuse;
     vec4 colSpecular;
-    vec4 strengths;
+    vec4 strengths; //contains in w the inclusive strength of all lights
 };
 
 // Encapsulate the various inputs used by the various functions in the shading equation

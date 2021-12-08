@@ -27,6 +27,11 @@ public:
     void updateImageLayouts(vsg::Context& context);
     void addTraceRaysToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants);
     vsg::ref_ptr<IlluminationBuffer> getIlluminationBuffer() const;
+    enum class LightSamplingMethod{
+        SampleSurfaceStrength,
+        SampleLightStrength,
+        SampleUniform
+    }lightSamplingMethod = LightSamplingMethod::SampleSurfaceStrength;
 private:
     void setupPipeline(vsg::Node* scene, bool useExternalGBuffer);
     vsg::ref_ptr<vsg::ShaderStage> setupRaygenShader(std::string raygenPath, bool useExternalGBuffer);
