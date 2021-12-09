@@ -625,7 +625,12 @@ assimp::Implementation::BindState assimp::Implementation::processMaterials(const
         const auto material = scene->mMaterials[i];
 
         bool hasPbrSpecularGlossiness{false};
+#ifdef AI_MATKEY_GLTF_PBRSPECULARGLOSSINESS
         material->Get(AI_MATKEY_GLTF_PBRSPECULARGLOSSINESS, hasPbrSpecularGlossiness);
+#else
+        material->Get(AI_MATKEY_GLTF_PBRSPECULARGLOSSINESS_GLOSSINESS_FACTOR, hasPbrSpecularGlossiness);
+#endif
+
 
         if (PbrMaterial pbr; material->Get(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_BASE_COLOR_FACTOR, pbr.baseColorFactor) == AI_SUCCESS || hasPbrSpecularGlossiness)
         {
