@@ -109,10 +109,11 @@ vec3 nextEventEsitmation(vec3 pos, vec3 o, SurfaceInfo s, vec3 throughput, inout
   return min(throughput * light, vec3(c_MaxRadiance));
 }
 
-vec3 indirectLighting(vec3 pos, vec3 v, SurfaceInfo s, int recDepth, inout vec3 throughput, inout RandomEngine re){
+vec3 indirectLighting(vec3 pos, vec3 v, SurfaceInfo s, int recDepth, inout vec3 throughput, inout RandomEngine re, out vec3 sampled_direction){
   vec3 l;
   float pdf;
   vec3 brdf = sampleBRDF(s, re, v, l, pdf);
+  sampled_direction = l;
   if(brdf == vec3(0) || pdf < EPSILON){
     return vec3(0);
   }

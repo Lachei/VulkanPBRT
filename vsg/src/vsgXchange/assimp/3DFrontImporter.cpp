@@ -78,7 +78,7 @@ static const aiImporterDesc desc = {
 
 void AI3DFrontImporter::ReadConfig(const nlohmann::json config_json)
 {
-    if(config_json.empty()) return;
+    if (config_json.empty()) return;
     const auto& config_3d_front = config_json["3d_front"];
     if (config_3d_front == nullptr)
     {
@@ -92,7 +92,7 @@ void AI3DFrontImporter::ReadConfig(const nlohmann::json config_json)
             auto name = category_mapping.key();
             // make category names case insensitive
             std::transform(name.begin(), name.end(), name.begin(),
-                [](unsigned char c) { return std::tolower(c); });
+                           [](unsigned char c) { return std::tolower(c); });
             const auto& id = category_mapping.value();
             if (id.is_number_unsigned())
             {
@@ -154,7 +154,7 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
         const auto& model_id = piece_of_furniture["jid"];
         std::string model_category_name = jid_to_category_map[model_id];
         std::transform(model_category_name.begin(), model_category_name.end(), model_category_name.begin(),
-            [](unsigned char c) { return std::tolower(c); });
+                       [](unsigned char c) { return std::tolower(c); });
         for (const auto& furniture_directory : furniture_directories)
         {
             fs::path furniture_model_path = furniture_directory / fs::path(std::string(model_id));
@@ -220,7 +220,7 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
                     category_id = iterator->second;
                 }
                 material_copy->AddProperty(&category_id, 1, AI_MATKEY_CATEGORY_ID);
-                
+
 
                 furniture_materials.push_back(material_copy);
                 original_to_new_material_index_map[i] = total_material_count++;
@@ -476,7 +476,7 @@ void AI3DFrontImporter::LoadMeshes(const nlohmann::json& scene_json,
             if (const auto& iterator = category_to_id_map.find(obj_type); iterator != category_to_id_map.end())
             {
                 category_id = iterator->second;
-            }          
+            }
             material->AddProperty(&category_id, 1, AI_MATKEY_CATEGORY_ID);
 
             // parse vertices, normals and tex coords
@@ -498,15 +498,49 @@ void AI3DFrontImporter::LoadMeshes(const nlohmann::json& scene_json,
                     int u_index = i * 2;
                     int v_index = u_index + 1;
 
-                    ai_mesh->mVertices[i] = aiVector3D(raw_vertices[x_index], raw_vertices[y_index], raw_vertices[z_index]);
+                    // sometimes vertex data is stored as string instead of floats in the json
+                    if (raw_vertices[x_index].is_string())
+                    {
+                        ai_mesh->mVertices[i] = aiVector3D(
+                            std::stof(std::string(raw_vertices[x_index])),
+                            std::stof(std::string(raw_vertices[y_index])),
+                            std::stof(std::string(raw_vertices[z_index]))
+                        );
+                    }
+                    else
+                    {
+                        ai_mesh->mVertices[i] = aiVector3D(raw_vertices[x_index], raw_vertices[y_index], raw_vertices[z_index]);
+                    }
+                    if (raw_normals[x_index].is_string())
+                    {
+                        ai_mesh->mNormals[i] = aiVector3D(
+                            std::stof(std::string(raw_normals[x_index])),
+                            std::stof(std::string(raw_normals[y_index])),
+                            std::stof(std::string(raw_normals[z_index]))
+                        );
+                    }
+                    else
+                    {
+                        ai_mesh->mNormals[i] = aiVector3D(raw_normals[x_index], raw_normals[y_index], raw_normals[z_index]);
+                    }
+                    if (raw_tex_coords[u_index].is_string())
+                    {
+                        ai_mesh->mTextureCoords[0][i] = aiVector3D(
+                            std::stof(std::string(raw_normals[u_index])),
+                            std::stof(std::string(raw_tex_coords[v_index])),
+                            0
+                        );
+                    }
+                    else
+                    {
+                        ai_mesh->mTextureCoords[0][i] = aiVector3D(raw_tex_coords[u_index], raw_tex_coords[v_index], 0);
+                    }
+
                     // somehow this prevents the floor from disappering
                     // the offset is negated by the child node transformation in the scene parsing part
                     ai_mesh->mVertices[i].y += 5;
                     // small offset to prevent z-fighting with objects on the floor
                     ai_mesh->mVertices[i].y += 0.0001;
-
-                    ai_mesh->mNormals[i] = aiVector3D(raw_normals[x_index], raw_normals[y_index], raw_normals[z_index]);
-                    ai_mesh->mTextureCoords[0][i] = aiVector3D(raw_tex_coords[u_index], raw_tex_coords[v_index], 0);
 
                     // transform uv coords based on material
                     if (material->Get(AI_MATKEY_UVTRANSFORM_DIFFUSE(0), ai_uv_transform) == AI_SUCCESS)
