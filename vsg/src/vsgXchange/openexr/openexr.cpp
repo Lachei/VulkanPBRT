@@ -11,7 +11,12 @@
 #include <OpenEXR/ImfChannelList.h>
 #include <OpenEXR/ImfFrameBuffer.h>
 #include <OpenEXR/ImfRgbaFile.h>
-#include <OpenEXR/half.h>
+#ifdef EXRVERSION3
+    #include <Imath/half.h>
+    #include <ImfInt64.h>
+#else
+    #include <OpenEXR/half.h>
+#endif
 
 using namespace vsgXchange;
 

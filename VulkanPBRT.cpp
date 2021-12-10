@@ -144,6 +144,7 @@ int main(int argc, char** argv){
         // overwriting command line options for debug
         windowTraits->debugLayer = true;
         windowTraits->width = 1800;
+        windowTraits->height = 990;
 #endif
         windowTraits->queueFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
         windowTraits->imageAvailableSemaphoreWaitFlag = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;

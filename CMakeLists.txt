@@ -30,7 +30,11 @@ file(GLOB_RECURSE SRC_NESTED
 	   ${PROJECT_SOURCE_DIR}/Denoiser/*.cpp
        ${PROJECT_SOURCE_DIR}/UtilityPipelines/*.cpp)
 set(SRC ${SRC_TOP} ${SRC_NESTED})
-list(FILTER SRC EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/vsg/.*" )
+#list(FILTER SRC EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/vsg/.*" )
+file(GLOB_RECURSE VSG_SRC vsg/*)
+foreach(source ${VSG_SRC})
+    list(REMOVE_ITEM SRC ${source})
+endforeach()
 
 set(SHADERS
     shadow.rmiss
@@ -75,7 +79,14 @@ add_executable(VulkanPBRT ${SRC} ${VSG_ALL})
 target_compile_definitions(VulkanPBRT PRIVATE ${EXTRA_DEFINES})
 target_link_libraries(VulkanPBRT Vulkan::Vulkan 
     glslang::glslang glslang::MachineIndependent glslang::OSDependent glslang::OGLCompiler glslang::SPIRV glslang::GenericCodeGen glslang::SPIRV-Tools-opt glslang::SPIRV-Tools
-     Threads::Threads OpenEXR::IlmImf)
+    Threads::Threads)
+message(STATUS "OpenEXR_VERSION: " ${OpenEXR_VERSION})
+if(OpenEXR_VERSION VERSION_LESS "3.0")
+    target_link_libraries(VulkanPBRT OpenEXR::IlmImf)
+    else()
+    add_compile_definitions(EXRVERSION3)
+    target_link_libraries(VulkanPBRT OpenEXR::OpenEXR)
+endif()
 if(UNIX)
     target_link_libraries(VulkanPBRT xcb ${ASSIMP_LIBRARIES})
 elseif(WIN32)

@@ -273,7 +273,7 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
 
         pScene->mRootNode->mChildren[room_index] = new aiNode;
         auto& room_node = pScene->mRootNode->mChildren[room_index];
-        room_node->mName = raw_room["instanceid"];
+        room_node->mName = static_cast<aiString>(raw_room["instanceid"]);
         room_node->mParent = pScene->mRootNode;
         room_node->mNumChildren = raw_children.size();
         room_node->mChildren = new aiNode*[raw_children.size()];
