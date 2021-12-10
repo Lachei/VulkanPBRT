@@ -2,8 +2,8 @@
 
 RayTracingSceneDescriptorCreationVisitor::RayTracingSceneDescriptorCreationVisitor()
 {
-    vsg::ubvec4 w{ 255, 255, 255, 255 };
-    auto white = vsg::ubvec4Array2D::create(1, 1, vsg::Data::Layout{ VK_FORMAT_R8G8B8A8_UNORM });
+    vsg::ubvec4 w{255, 255, 255, 255};
+    auto white = vsg::ubvec4Array2D::create(1, 1, vsg::Data::Layout{VK_FORMAT_R8G8B8A8_UNORM});
     std::copy(&w, &w + 1, white->data());
 
     auto sampler = vsg::Sampler::create();
@@ -108,8 +108,7 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::VertexIndexDraw& vid)
         _normals.push_back(normals);
         // auto fill up tex coords if not provided
         vsg::ref_ptr<vsg::DescriptorBuffer> texCoords;
-        int v = vid.arrays[2]->data->valueCount();
-        if (vid.arrays[2]->data->valueCount() == 0)
+        if (vid.arrays[2]->valueCount() == 0)
         {
             auto data = vsg::vec2Array::create(vid.arrays[0]->data->valueCount());
             for (int i = 0; i < vid.indices->data->valueCount() / 3; ++i)
@@ -127,7 +126,7 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::VertexIndexDraw& vid)
             }
             vid.arrays[2]->data = data;
         }
-        else texCoords = vsg::DescriptorBuffer::create(vid.arrays[2]->data, 4, _texCoords.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+        texCoords = vsg::DescriptorBuffer::create(vid.arrays[2], 4, _texCoords.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
         _texCoords.push_back(texCoords);
         auto indices = vsg::DescriptorBuffer::create(vid.indices->data, 5, _indices.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
         _indices.push_back(indices);
@@ -217,6 +216,7 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::BindDescriptorSet& bds
                 mat.diffuseIor.w = vsgMat.indexOfRefraction;
                 mat.specularDissolve.w = vsgMat.alphaMask;
                 mat.emissionTextureId.w = vsgMat.alphaMaskCutoff;
+                mat.category_id = vsgMat.category_id;
                 _materialArray.push_back(mat);
             }
             else
@@ -235,6 +235,7 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::BindDescriptorSet& bds
                 mat.diffuseIor.w = 1;
                 mat.specularDissolve.w = vsgMat.alphaMask;
                 mat.emissionTextureId.w = vsgMat.alphaMaskCutoff;
+                mat.category_id = vsgMat.category_id;
                 _materialArray.push_back(mat);
             }
             continue;
@@ -334,132 +335,131 @@ void RayTracingSceneDescriptorCreationVisitor::apply(const vsg::Light& l)
 {
     packedLights.push_back(l.getPacked());
 }
-vsg::ref_ptr<vsg::BindDescriptorSet> RayTracingSceneDescriptorCreationVisitor::getBindDescriptorSet(
-    vsg::ref_ptr<vsg::PipelineLayout> pipelineLayout, const vsg::BindingMap& bindingMap)
+void RayTracingSceneDescriptorCreationVisitor::updateDescriptor(vsg::BindDescriptorSet* descSet, const vsg::BindingMap& bindingMap)
 {
-    if (!_bindDescriptor)
+    if (packedLights.empty())
     {
-        if (packedLights.empty())
-        {
-            std::cout << "Adding default directional light for raytracing" << std::endl;
-            vsg::Light l;
-            l.radius = 0;
-            l.type = vsg::LightSourceType::Directional;
-            vsg::vec3 col{2.f, 2.f, 2.f};
-            l.colorAmbient = col;
-            l.colorDiffuse = col;
-            l.colorSpecular = {0, 0, 0};
-            l.strengths = vsg::vec3(.5f, .0f, .0f);
-            l.dir = vsg::normalize(vsg::vec3(0.1f, 1, -5.1f));
-            packedLights.push_back(l.getPacked());
-        }
-        if (!_lights)
-        {
-            auto lights = vsg::Array<vsg::Light::PackedLight>::create(packedLights.size());
-            std::copy(packedLights.begin(), packedLights.end(), lights->data());
-            _lights = vsg::DescriptorBuffer::create(lights, 12, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-        }
-        if (!_materials)
-        {
-            auto materials = vsg::Array<WaveFrontMaterialPacked>::create(_materialArray.size());
-            std::copy(_materialArray.begin(), _materialArray.end(), materials->data());
-            _materials = vsg::DescriptorBuffer::create(materials, 13, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-        }
-        if (!_instances)
-        {
-            auto instances = vsg::Array<ObjectInstance>::create(_instancesArray.size());
-            std::copy(_instancesArray.begin(), _instancesArray.end(), instances->data());
-            _instances = vsg::DescriptorBuffer::create(instances, 14, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-        }
-
-        // setting the descriptor amount for the object arrays
-        vsg::DescriptorSetLayoutBindings& bindings = pipelineLayout->setLayouts[0]->bindings;
-        int posInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Pos").second;
-        std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b) { return b.binding == posInd; })->
-            descriptorCount = static_cast<uint32_t>(_positions.size());
-        int norInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Nor").second;
-        std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b) { return b.binding == norInd; })->
-            descriptorCount = static_cast<uint32_t>(_normals.size());
-        int texInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Tex").second;
-        std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b) { return b.binding == texInd; })->
-            descriptorCount = static_cast<uint32_t>(_texCoords.size());
-        int indInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Ind").second;
-        std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b) { return b.binding == indInd; })->
-            descriptorCount = static_cast<uint32_t>(_indices.size());
-        int diffuseInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "diffuseMap").second;
-        std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b) { return b.binding == diffuseInd; })->
-            descriptorCount = static_cast<uint32_t>(_diffuse.size());
-        int mrInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "mrMap").second;
-        std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b) { return b.binding == mrInd; })->descriptorCount
-            = static_cast<uint32_t>(_mr.size());
-        int normalInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "normalMap").second;
-        std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b) { return b.binding == normalInd; })->
-            descriptorCount = static_cast<uint32_t>(_normal.size());
-        int emissiveInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "emissiveMap").second;
-        std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b) { return b.binding == emissiveInd; })->
-            descriptorCount = static_cast<uint32_t>(_emissive.size());
-        int specularInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "specularMap").second;
-        std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b) { return b.binding == specularInd; })->
-            descriptorCount = static_cast<uint32_t>(_specular.size());
-        int lightInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Lights").second;
-        int matInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Materials").second;
-        int instancesInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Instances").second;
-
-        //adding all descriptors and updating their binding
-        vsg::Descriptors descList;
-        for (auto& d : _diffuse)
-        {
-            d->dstBinding = diffuseInd;
-            descList.push_back(d);
-        }
-        for (auto& d : _mr)
-        {
-            d->dstBinding = mrInd;
-            descList.push_back(d);
-        }
-        for (auto& d : _normal)
-        {
-            d->dstBinding = normalInd;
-            descList.push_back(d);
-        }
-        for (auto& d : _emissive)
-        {
-            d->dstBinding = emissiveInd;
-            descList.push_back(d);
-        }
-        for (auto& d : _specular)
-        {
-            d->dstBinding = specularInd;
-            descList.push_back(d);
-        }
-        _lights->dstBinding = lightInd;
-        _materials->dstBinding = matInd;
-        _instances->dstBinding = instancesInd;
-        descList.push_back(_lights);
-        descList.push_back(_materials);
-        descList.push_back(_instances);
-        for (auto& d : _positions)
-        {
-            d->dstBinding = posInd;
-            descList.push_back(d);
-        }
-        for (auto& d : _normals)
-        {
-            d->dstBinding = norInd;
-            descList.push_back(d);
-        }
-        for (auto& d : _texCoords)
-        {
-            d->dstBinding = texInd;
-            descList.push_back(d);
-        }
-        for (auto& d : _indices)
-        {
-            d->dstBinding = indInd;
-            descList.push_back(d);
-        }
-        _descriptorSet = vsg::DescriptorSet::create(pipelineLayout->setLayouts[0], descList);
-        _bindDescriptor = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, pipelineLayout, 0, _descriptorSet);
+        std::cout << "Adding default directional light for raytracing" << std::endl;
+        vsg::Light l;
+        l.radius = 0;
+        l.type = vsg::LightSourceType::Directional;
+        vsg::vec3 col{2.f, 2.f, 2.f};
+        l.colorAmbient = col;
+        l.colorDiffuse = col;
+        l.colorSpecular = {0, 0, 0};
+        l.strengths = vsg::vec3(.5f, .0f, .0f);
+        l.dir = vsg::normalize(vsg::vec3(0.1f, 1, -5.1f));
+        packedLights.push_back(l.getPacked());
     }
-    return _bindDescriptor;
+    if (!_lights)
+    {
+        float strengthSum = 0;
+        for(auto& light: packedLights) {
+            strengthSum += light.colorAmbient.x + light.colorAmbient.y + light.colorAmbient.z + light.colorDiffuse.x + light.colorDiffuse.y + light.colorDiffuse.z + light.colorSpecular.x + light.colorSpecular.y + light.colorSpecular.z;
+            light.inclusiveStrength = strengthSum;
+        }
+        auto lights = vsg::Array<vsg::Light::PackedLight>::create(packedLights.size());
+        std::copy(packedLights.begin(), packedLights.end(), lights->data());
+        _lights = vsg::DescriptorBuffer::create(lights, 12, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+    }
+    if (!_materials)
+    {
+        auto materials = vsg::Array<WaveFrontMaterialPacked>::create(_materialArray.size());
+        std::copy(_materialArray.begin(), _materialArray.end(), materials->data());
+        _materials = vsg::DescriptorBuffer::create(materials, 13, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+    }
+    if (!_instances)
+    {
+        auto instances = vsg::Array<ObjectInstance>::create(_instancesArray.size());
+        std::copy(_instancesArray.begin(), _instancesArray.end(), instances->data());
+        _instances = vsg::DescriptorBuffer::create(instances, 14, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+    }
+
+    // setting the descriptor amount for the object arrays
+    vsg::DescriptorSetLayoutBindings& bindings = descSet->descriptorSet->setLayout->bindings;
+    int posInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Pos").second;
+    std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b) { return b.binding == posInd; })->
+        descriptorCount = static_cast<uint32_t>(_positions.size());
+    int norInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Nor").second;
+    std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b) { return b.binding == norInd; })->
+        descriptorCount = static_cast<uint32_t>(_normals.size());
+    int texInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Tex").second;
+    std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b) { return b.binding == texInd; })->
+        descriptorCount = static_cast<uint32_t>(_texCoords.size());
+    int indInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Ind").second;
+    std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b) { return b.binding == indInd; })->
+        descriptorCount = static_cast<uint32_t>(_indices.size());
+    int diffuseInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "diffuseMap").second;
+    std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b) { return b.binding == diffuseInd; })->
+        descriptorCount = static_cast<uint32_t>(_diffuse.size());
+    int mrInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "mrMap").second;
+    std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b) { return b.binding == mrInd; })->descriptorCount
+        = static_cast<uint32_t>(_mr.size());
+    int normalInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "normalMap").second;
+    std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b) { return b.binding == normalInd; })->
+        descriptorCount = static_cast<uint32_t>(_normal.size());
+    int emissiveInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "emissiveMap").second;
+    std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b) { return b.binding == emissiveInd; })->
+        descriptorCount = static_cast<uint32_t>(_emissive.size());
+    int specularInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "specularMap").second;
+    std::find_if(bindings.begin(), bindings.end(), [&](VkDescriptorSetLayoutBinding& b) { return b.binding == specularInd; })->
+        descriptorCount = static_cast<uint32_t>(_specular.size());
+    int lightInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Lights").second;
+    int matInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Materials").second;
+    int instancesInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Instances").second;
+
+    //adding all descriptors and updating their binding
+    vsg::Descriptors descList;
+    for (auto& d : _diffuse)
+    {
+        d->dstBinding = diffuseInd;
+        descList.push_back(d);
+    }
+    for (auto& d : _mr)
+    {
+        d->dstBinding = mrInd;
+        descList.push_back(d);
+    }
+    for (auto& d : _normal)
+    {
+        d->dstBinding = normalInd;
+        descList.push_back(d);
+    }
+    for (auto& d : _emissive)
+    {
+        d->dstBinding = emissiveInd;
+        descList.push_back(d);
+    }
+    for (auto& d : _specular)
+    {
+        d->dstBinding = specularInd;
+        descList.push_back(d);
+    }
+    _lights->dstBinding = lightInd;
+    _materials->dstBinding = matInd;
+    _instances->dstBinding = instancesInd;
+    descList.push_back(_lights);
+    descList.push_back(_materials);
+    descList.push_back(_instances);
+    for (auto& d : _positions)
+    {
+        d->dstBinding = posInd;
+        descList.push_back(d);
+    }
+    for (auto& d : _normals)
+    {
+        d->dstBinding = norInd;
+        descList.push_back(d);
+    }
+    for (auto& d : _texCoords)
+    {
+        d->dstBinding = texInd;
+        descList.push_back(d);
+    }
+    for (auto& d : _indices)
+    {
+        d->dstBinding = indInd;
+        descList.push_back(d);
+    }
+    descSet->descriptorSet->descriptors = descList;
 }

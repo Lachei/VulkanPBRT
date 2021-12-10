@@ -3,6 +3,7 @@
 
 layout(binding = 26) uniform Infos{
   uint lightCount;
+  float lightStrengthSum;
   uint minRecursionDepth;
   uint maxRecursionDepth;
 }infos;

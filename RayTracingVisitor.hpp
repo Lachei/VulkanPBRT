@@ -26,8 +26,7 @@ public:
     //getting the lights in the scene
     void apply(const vsg::Light& l);
 
-    vsg::ref_ptr<vsg::BindDescriptorSet> getBindDescriptorSet(vsg::ref_ptr<vsg::PipelineLayout> pipelineLayout,
-                                                              const vsg::BindingMap& bindingMap);;
+    void updateDescriptor(vsg::BindDescriptorSet* descSet, const vsg::BindingMap& bindingMap);
 
     //holds the binding command for the raytracing decriptor
     std::vector<vsg::Light::PackedLight> packedLights;
@@ -50,6 +49,7 @@ protected:
         float shininess{0.0f};
         float alphaMask{1.0};
         float alphaMaskCutoff{0.5};
+        uint32_t category_id{0};
     };
     struct VsgPbrMaterial
     {
@@ -62,6 +62,7 @@ protected:
         float alphaMask{1.0f};
         float alphaMaskCutoff{0.5f};
         float indexOfRefraction{1.0f};
+        uint32_t category_id{0};
     };
     struct WaveFrontMaterialPacked
     {
@@ -70,12 +71,11 @@ protected:
         vsg::vec4  specularDissolve;
         vsg::vec4  transmittanceIllum;
         vsg::vec4  emissionTextureId;
+        uint32_t category_id{0};
+        float pad[3];
     };
     vsg::ref_ptr<vsg::DescriptorBuffer> _instances;
     std::vector<ObjectInstance> _instancesArray;
-    vsg::ref_ptr<vsg::DescriptorSetLayout> _descriptorSetLayout;
-    vsg::ref_ptr<vsg::BindDescriptorSet> _bindDescriptor;
-    vsg::ref_ptr<vsg::DescriptorSet> _descriptorSet;
     //images are available correctly for every instance
     std::vector<vsg::ref_ptr<vsg::DescriptorImage>> _diffuse;
     std::vector<vsg::ref_ptr<vsg::DescriptorImage>> _mr;

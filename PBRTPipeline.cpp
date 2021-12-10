@@ -7,6 +7,7 @@ namespace
     struct ConstantInfos
     {
         uint32_t lightCount;
+        float lightStrengthSum;
         uint32_t minRecursionDepth;
         uint32_t maxRecursionDepth;
     };
@@ -74,6 +75,14 @@ vsg::ref_ptr<IlluminationBuffer> PBRTPipeline::getIlluminationBuffer() const
 }
 void PBRTPipeline::setupPipeline(vsg::Node *scene, bool useExternalGbuffer)
 {
+    // parsing data from scene
+    RayTracingSceneDescriptorCreationVisitor buildDescriptorBinding;
+    scene->accept(buildDescriptorBinding);
+    opaqueGeometries = buildDescriptorBinding.isOpaque;
+
+    const int maxLights = 800;
+    if(buildDescriptorBinding.packedLights.size() > maxLights) lightSamplingMethod = LightSamplingMethod::SampleUniform;
+
     //creating the shader stages and shader binding table
     std::string raygenPath = "shaders/ptRaygen.rgen"; //raygen shader not yet precompiled
     std::string raymissPath = "shaders/ptMiss.rmiss.spv";
@@ -126,16 +135,14 @@ void PBRTPipeline::setupPipeline(vsg::Node *scene, bool useExternalGbuffer)
     shaderBindingTable->bindingTableEntries.hitGroups = {closesthitShaderGroup, transparenthitShaderGroup};
     auto pipeline = vsg::RayTracingPipeline::create(rayTracingPipelineLayout, shaderStage, shaderGroups, shaderBindingTable, 1);
     bindRayTracingPipeline = vsg::BindRayTracingPipeline::create(pipeline);
+    auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{});
+    bindRayTracingDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rayTracingPipelineLayout, descriptorSet);
 
-    // parsing data from scene
-    RayTracingSceneDescriptorCreationVisitor buildDescriptorBinding;
-    scene->accept(buildDescriptorBinding);
-    bindRayTracingDescriptorSet = buildDescriptorBinding.getBindDescriptorSet(rayTracingPipelineLayout, bindingMap);
-    opaqueGeometries = buildDescriptorBinding.isOpaque;
-
+    buildDescriptorBinding.updateDescriptor(bindRayTracingDescriptorSet, bindingMap);
     // creating the constant infos uniform buffer object
     auto constantInfos = ConstantInfosValue::create();
     constantInfos->value().lightCount = buildDescriptorBinding.packedLights.size();
+    constantInfos->value().lightStrengthSum = buildDescriptorBinding.packedLights.back().inclusiveStrength;
     constantInfos->value().maxRecursionDepth = maxRecursionDepth;
     uint32_t uniformBufferBinding = vsg::ShaderStage::getSetBindingIndex(bindingMap, "Infos").second;
     auto constantInfosDescriptor = vsg::DescriptorBuffer::create(constantInfos, uniformBufferBinding, 0);
@@ -160,7 +167,7 @@ vsg::ref_ptr<vsg::ShaderStage> PBRTPipeline::setupRaygenShader(std::string rayge
     }
     else
     {
-        if (illuminationBuffer.cast<IlluminationBufferFinal>())
+        if (illuminationBuffer.cast<IlluminatonBufferFinalFloat>())
         {
             defines.push_back("FINAL_IMAGE");
         }
@@ -173,24 +180,31 @@ vsg::ref_ptr<vsg::ShaderStage> PBRTPipeline::setupRaygenShader(std::string rayge
             defines.push_back("FINAL_IMAGE");
             defines.push_back("DEMOD_ILLUMINATION");
             defines.push_back("DEMOD_ILLUMINATION_SQUARED");
-            if (gBuffer)
-                defines.push_back("GBUFFER");
-            if (accumulationBuffer)
-                defines.push_back("PREV_GBUFFER");
         }
         else if (illuminationBuffer.cast<IlluminationBufferDemodulated>())
         {
             defines.push_back("DEMOD_ILLUMINATION");
             defines.push_back("DEMOD_ILLUMINATION_SQUARED");
-            if (gBuffer)
-                defines.push_back("GBUFFER");
-            if (accumulationBuffer)
-                defines.push_back("PREV_GBUFFER");
         }
         else
         {
             throw vsg::Exception{"Error: PBRTPipeline::setupRaygenShader(...) Illumination buffer not supported."};
         }
+    }
+    if (gBuffer)
+        defines.push_back("GBUFFER");
+    if (accumulationBuffer)
+        defines.push_back("PREV_GBUFFER");
+
+    switch(lightSamplingMethod){
+        case LightSamplingMethod::SampleSurfaceStrength:
+            defines.push_back("LIGHT_SAMPLE_SURFACE_STRENGTH");
+            break;
+        case LightSamplingMethod::SampleLightStrength:
+            defines.push_back("LIGHT_SAMPLE_LIGHT_STRENGTH");
+            break;
+        default:
+            break;
     }
 
     auto options = vsg::Options::create(vsgXchange::glsl::create());

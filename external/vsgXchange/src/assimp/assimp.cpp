@@ -10,6 +10,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
+#include "3DFrontImporter.h"
+
 #include <vsgXchange/models.h>
 
 #include "assimp_pbr.h"
@@ -48,6 +50,46 @@ namespace
     const std::string kLightmapMapKey("VSG_LIGHTMAP_MAP");
     const std::string kReflectionMapKey("VSG_REFLECTION_MAP");
     const std::string kMetallRoughnessMapKey("VSG_METALLROUGHNESS_MAP");
+
+    struct Material
+    {
+        aiColor4D ambient{0.0f, 0.0f, 0.0f, 1.0f};
+        aiColor4D diffuse{1.0f, 1.0f, 1.0f, 1.0f};
+        aiColor4D specular{0.0f, 0.0f, 0.0f, 1.0f};
+        aiColor4D emissive{0.0f, 0.0f, 0.0f, 1.0f};
+        float shininess{0.0f};
+        float alphaMask{1.0};
+        float alphaMaskCutoff{0.5};
+        uint32_t category_id{0};
+
+        vsg::ref_ptr<vsg::Data> toData()
+        {
+            auto buffer = vsg::ubyteArray::create(sizeof(Material));
+            std::memcpy(buffer->data(), &ambient.r, sizeof(Material));
+            return buffer;
+        }
+    };
+
+    struct PbrMaterial
+    {
+        aiColor4D baseColorFactor{1.0, 1.0, 1.0, 1.0};
+        aiColor4D emissiveFactor{0.0, 0.0, 0.0, 1.0};
+        aiColor4D diffuseFactor{1.0, 1.0, 1.0, 1.0};
+        aiColor4D specularFactor{0.0, 0.0, 0.0, 1.0};
+        float metallicFactor{1.0f};
+        float roughnessFactor{1.0f};
+        float alphaMask{1.0f};
+        float alphaMaskCutoff{0.5f};
+        float indexOfRefraction{1.0f};
+        uint32_t category_id{0};
+
+        vsg::ref_ptr<vsg::Data> toData()
+        {
+            auto buffer = vsg::ubyteArray::create(sizeof(PbrMaterial));
+            std::memcpy(buffer->data(), &baseColorFactor.r, sizeof(PbrMaterial));
+            return buffer;
+        }
+    };
 
     static vsg::vec4 kBlackColor{0.0, 0.0, 0.0, 0.0};
     static vsg::vec4 kWhiteColor{1.0, 1.0, 1.0, 1.0};
@@ -122,6 +164,7 @@ bool assimp::getFeatures(Features& features) const
 {
     std::string suported_extensions;
     Assimp::Importer importer;
+    importer.RegisterLoader(new AI3DFrontImporter);
     importer.GetExtensionList(suported_extensions);
 
     vsg::ReaderWriter::FeatureMask supported_features = static_cast<vsg::ReaderWriter::FeatureMask>(vsg::ReaderWriter::READ_FILENAME | vsg::ReaderWriter::READ_ISTREAM | vsg::ReaderWriter::READ_MEMORY);
@@ -461,7 +504,12 @@ assimp::Implementation::BindState assimp::Implementation::processMaterials(const
         const auto material = scene->mMaterials[i];
 
         bool hasPbrSpecularGlossiness{false};
+#ifdef AI_MATKEY_GLTF_PBRSPECULARGLOSSINESS
         material->Get(AI_MATKEY_GLTF_PBRSPECULARGLOSSINESS, hasPbrSpecularGlossiness);
+#else
+        material->Get(AI_MATKEY_GLTF_PBRSPECULARGLOSSINESS_GLOSSINESS_FACTOR, hasPbrSpecularGlossiness);
+#endif
+
 
         auto shaderHints = vsg::ShaderCompileSettings::create();
         std::vector<std::string>& defines = shaderHints->defines;
@@ -491,6 +539,8 @@ assimp::Implementation::BindState assimp::Implementation::processMaterials(const
 
             material->Get(AI_MATKEY_COLOR_EMISSIVE, pbr.emissiveFactor);
             material->Get(AI_MATKEY_GLTF_ALPHACUTOFF, pbr.alphaMaskCutoff);
+            material->Get(AI_MATKEY_REFRACTI, pbr.indexOfRefraction);
+            material->Get(AI_MATKEY_CATEGORY_ID, pbr.category_id);
 
             if (material->Get(AI_MATKEY_TWOSIDED, isTwoSided); isTwoSided)
                 defines.push_back("VSG_TWOSIDED");
@@ -566,6 +616,7 @@ assimp::Implementation::BindState assimp::Implementation::processMaterials(const
             const auto diffuseResult = material->Get(AI_MATKEY_COLOR_DIFFUSE, mat.diffuse);
             const auto emissiveResult = material->Get(AI_MATKEY_COLOR_EMISSIVE, mat.emissive);
             const auto specularResult = material->Get(AI_MATKEY_COLOR_SPECULAR, mat.specular);
+            material->Get(AI_MATKEY_CATEGORY_ID, mat.category_id);
 
             aiShadingMode shadingModel = aiShadingMode_Phong;
             material->Get(AI_MATKEY_SHADING_MODEL, shadingModel);
@@ -672,6 +723,7 @@ assimp::Implementation::BindState assimp::Implementation::processMaterials(const
 vsg::ref_ptr<vsg::Object> assimp::Implementation::read(const vsg::Path& filename, vsg::ref_ptr<const vsg::Options> options) const
 {
     Assimp::Importer importer;
+    importer.RegisterLoader(new AI3DFrontImporter);
 
     if (const auto ext = vsg::lowerCaseFileExtension(filename); importer.IsExtensionSupported(ext))
     {
@@ -724,6 +776,7 @@ vsg::ref_ptr<vsg::Object> assimp::Implementation::read(std::istream& fin, vsg::r
     if (!options) return {};
 
     Assimp::Importer importer;
+    importer.RegisterLoader(new AI3DFrontImporter);
     if (importer.IsExtensionSupported(options->extensionHint))
     {
         std::string buffer(1 << 16, 0); // 64kB
@@ -754,6 +807,7 @@ vsg::ref_ptr<vsg::Object> assimp::Implementation::read(const uint8_t* ptr, size_
     if (!options) return {};
 
     Assimp::Importer importer;
+    importer.RegisterLoader(new AI3DFrontImporter);
     if (importer.IsExtensionSupported(options->extensionHint))
     {
         if (auto scene = importer.ReadFileFromMemory(ptr, size, _importFlags); scene)

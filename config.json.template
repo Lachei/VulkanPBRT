@@ -1,0 +1,11 @@
+{
+  "3d_front": {
+    "category_ids": {
+      "WallInner": 255,
+      "Floor": 100,
+      "Nightstand": 3
+    },
+    "ceiling_light_strength": 0.8,
+    "lamp_light_strength": 7.0
+  }
+}

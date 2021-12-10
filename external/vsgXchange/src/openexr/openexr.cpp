@@ -11,7 +11,12 @@
 #include <OpenEXR/ImfChannelList.h>
 #include <OpenEXR/ImfFrameBuffer.h>
 #include <OpenEXR/ImfRgbaFile.h>
-#include <OpenEXR/half.h>
+#ifdef EXRVERSION3
+    #include <Imath/half.h>
+    #include <ImfInt64.h>
+#else
+    #include <OpenEXR/half.h>
+#endif
 
 using namespace vsgXchange;
 
@@ -541,7 +546,7 @@ bool openexr::getFeatures(Features& features) const
 {
     for (auto& ext : _supportedExtensions)
     {
-        features.extensionFeatureMap[ext] = static_cast<vsg::ReaderWriter::FeatureMask>(vsg::ReaderWriter::READ_FILENAME | vsg::ReaderWriter::READ_ISTREAM | vsg::ReaderWriter::READ_MEMORY);
+        features.extensionFeatureMap[ext] = static_cast<vsg::ReaderWriter::FeatureMask>(vsg::ReaderWriter::READ_FILENAME | vsg::ReaderWriter::READ_ISTREAM | vsg::ReaderWriter::READ_MEMORY | vsg::ReaderWriter::WRITE_FILENAME | vsg::ReaderWriter::WRITE_OSTREAM);
     }
     return true;
 }

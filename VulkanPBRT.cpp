@@ -15,8 +15,12 @@
 #include <vsgXchange/images.h>
 #include <vsg/all.h>
 
+#include <nlohmann/json.hpp>
+
 #include <set>
 #include <iostream>
+
+#include "vsg/src/vsgXchange/assimp/3DFrontImporter.h"
 
 #define _DEBUG
 
@@ -61,8 +65,23 @@ private:
 
 int main(int argc, char** argv){
     try{
-        // command line parsing
         vsg::CommandLine arguments(&argc, argv);
+
+        // load config
+        nlohmann::json config_json;
+        {
+            auto config_path = arguments.value(std::string(), "--config");
+            if (!config_path.empty())
+            {
+                std::ifstream scene_file(config_path);
+                if (!scene_file)
+                {
+                    std::cout << "Failed to load config file " << config_path << "." << std::endl;
+                    return 1;
+                }
+                scene_file >> config_json;
+            }
+        }
 
         // ensure that cout and cerr are reset to their standard output when main() is exited
         LoggingRedirectSentry coutSentry(&std::cout, std::cout.rdbuf());
@@ -85,15 +104,25 @@ int main(int argc, char** argv){
         arguments.read("--screen", windowTraits->screenNum);	
 
         auto numFrames = arguments.value(-1, "-f");
-        auto depthImages = arguments.value(std::string(), "--depths");
-        auto positionImages = arguments.value(std::string(), "--positions");
-        auto normalImages = arguments.value(std::string(), "--normals");
-        auto albedoImages = arguments.value(std::string(), "--albedos");
-        auto materialImages = arguments.value(std::string(), "--materials");
-        auto illuminationImages = arguments.value(std::string(), "--illuminations");
+        auto depthPath = arguments.value(std::string(), "--depths");
+        auto exportDepthPath = arguments.value(std::string(), "--exportDepth");
+        auto positionPath = arguments.value(std::string(), "--positions");
+        auto exportPositionPath = arguments.value(std::string(), "--exportPosition");
+        auto normalPath = arguments.value(std::string(), "--normals");
+        auto exportNormalPath = arguments.value(std::string(), "--exportNormal");
+        auto albedoPath = arguments.value(std::string(), "--albedos");
+        auto exportAlbedoPath = arguments.value(std::string(), "--exportAlbedo");
+        auto materialPath = arguments.value(std::string(), "--materials");
+        auto exportMaterialPath = arguments.value(std::string(), "--exportMaterial");
+        auto illuminationPath = arguments.value(std::string(), "--illuminations");
+        auto exportIlluminationPath = arguments.value(std::string(), "--exportIllumination");
         auto matricesPath = arguments.value(std::string(), "--matrices");
+        auto exportMatricesPath = arguments.value(std::string(), "--exportMatrices");
         auto sceneFilename = arguments.value(std::string(), "-i");
-        bool externalRenderings = normalImages.size();
+        bool externalRenderings = normalPath.size();
+        bool exportIllumination = exportIlluminationPath.size();
+        bool exportGBuffer = exportNormalPath.size() || exportDepthPath.size() || exportPositionPath.size() || exportAlbedoPath.size() || exportMaterialPath.size();
+        bool storeMatrices = exportGBuffer || exportMatricesPath.size();
         if (sceneFilename.empty() && !externalRenderings)
         {
             std::cout << "Missing input parameter \"-i <path_to_model>\"." << std::endl;
@@ -111,11 +140,11 @@ int main(int argc, char** argv){
         }
         bool useTaa = arguments.read("--taa");
         bool useFlyNavigation = arguments.read("--fly");
-
 #ifdef _DEBUG
         // overwriting command line options for debug
         windowTraits->debugLayer = true;
         windowTraits->width = 1800;
+        windowTraits->height = 990;
 #endif
         windowTraits->queueFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
         windowTraits->imageAvailableSemaphoreWaitFlag = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
@@ -140,6 +169,7 @@ int main(int argc, char** argv){
         std::vector<vsg::ref_ptr<OfflineIllumination>> offlineIlluminations;
         std::vector<DoubleMatrix> cameraMatrices;
         if(!externalRenderings){
+            AI3DFrontImporter::ReadConfig(config_json);
             auto options = vsg::Options::create(vsgXchange::assimp::create(), vsgXchange::dds::create(), vsgXchange::stbi::create()); //using the assimp loader
             loaded_scene = vsg::read_cast<vsg::Node>(sceneFilename, options);
             if(!loaded_scene){
@@ -161,15 +191,51 @@ int main(int argc, char** argv){
                 std::cout << "Camera matrices could not be loaded" << std::endl;
                 return 1;
             }
-            if(positionImages.size()){
-                offlineGBuffers = GBufferIO::importGBufferPosition(positionImages, normalImages, materialImages, albedoImages, cameraMatrices, numFrames);
+            if(positionPath.size()){
+                offlineGBuffers = GBufferIO::importGBufferPosition(positionPath, normalPath, materialPath, albedoPath, cameraMatrices, numFrames);
             }
             else{
-                offlineGBuffers = GBufferIO::importGBufferDepth(depthImages, normalImages, materialImages, albedoImages, numFrames);
+                offlineGBuffers = GBufferIO::importGBufferDepth(depthPath, normalPath, materialPath, albedoPath, numFrames);
             }
-            offlineIlluminations = IlluminationBufferIO::importIllumination(illuminationImages, numFrames);
+            offlineIlluminations = IlluminationBufferIO::importIllumination(illuminationPath, numFrames);
             windowTraits->width = offlineGBuffers[0]->depth->width();
             windowTraits->height = offlineGBuffers[0]->depth->height();
+        }
+        if(exportIllumination){
+            if(numFrames <= 0){
+                std::cout << "No number of frames given. For usage of Illumination export use \"-f\" to inform about the number of frames." << std::endl;
+                return 1;
+            }
+            if(offlineIlluminations.empty()){
+                offlineIlluminations.resize(numFrames);
+                for(auto& i: offlineIlluminations){
+                    i = OfflineIllumination::create();
+                    i->noisy = vsg::vec4Array2D::create(windowTraits->width, windowTraits->height);
+                }
+            }
+        }
+        if(exportGBuffer){
+            if(numFrames <= 0){
+                std::cout << "No number of frames given. For usage of GBuffer export use \"-f\" to inform about the number of frames." << std::endl;
+                return 1;
+            }
+            if(offlineGBuffers.empty()){
+                offlineGBuffers.resize(numFrames);
+                for(auto& i: offlineGBuffers){
+                    i = OfflineGBuffer::create();
+                    i->depth = vsg::floatArray2D::create(windowTraits->width, windowTraits->height);
+                    i->normal = vsg::vec2Array2D::create(windowTraits->width, windowTraits->height);
+                    i->albedo = vsg::ubvec4Array2D::create(windowTraits->width, windowTraits->height);
+                    i->material = vsg::ubvec4Array2D::create(windowTraits->width, windowTraits->height);
+                }
+            }
+        }
+        if(storeMatrices){
+            cameraMatrices.resize(numFrames);
+            for(auto& matrix: cameraMatrices){
+                matrix.proj = vsg::mat4();
+                matrix.invProj = vsg::mat4();
+            }
         }
 
         auto window = vsg::Window::create(windowTraits);
@@ -264,7 +330,11 @@ int main(int argc, char** argv){
         else
         {
             writeGBuffer = false;
-            illuminationBuffer = IlluminationBufferFinal::create(windowTraits->width, windowTraits->height);
+            illuminationBuffer = IlluminatonBufferFinalFloat::create(windowTraits->width, windowTraits->height);
+        }
+        if (exportIllumination && !gBuffer){
+            writeGBuffer = true;
+            gBuffer = GBuffer::create(windowTraits->width, windowTraits->height);
         }
         if (useTaa && !accumulationBuffer)
         {
@@ -447,8 +517,27 @@ int main(int argc, char** argv){
             taa->addDispatchToCommandGraph(commands);
             finalDescriptorImage = taa->getFinalDescriptorImage();
         }
+<<<<<<< HEAD
         if(finalDescriptorImage->imageInfoList[0]->imageView->image->format != VK_FORMAT_B8G8R8A8_UNORM){
             auto converter = FormatConverter::create(finalDescriptorImage->imageInfoList[0]->imageView, VK_FORMAT_B8G8R8A8_UNORM);
+=======
+        if(exportGBuffer){
+            if(!gBuffer){
+                std::cout << "GBuffer information not available, export not possible" << std::endl;
+                return 1;
+            }
+            offlineGBufferStager->downloadFromGBufferCommand(gBuffer, commands, imageLayoutCompile.context);
+        }
+        if(exportIllumination){
+            if(finalDescriptorImage->imageInfoList[0].imageView->image->format != VK_FORMAT_R32G32B32A32_SFLOAT){
+                std::cout << "Final image layout is not compatible illumination buffer export" << std::endl;
+                return 1;
+            }
+            offlineIlluminationBufferStager->downloadFromIlluminationBufferCommand(illuminationBuffer, commands, imageLayoutCompile.context);
+        }
+        if(finalDescriptorImage->imageInfoList[0].imageView->image->format != VK_FORMAT_B8G8R8A8_UNORM){
+            auto converter = FormatConverter::create(finalDescriptorImage->imageInfoList[0].imageView, VK_FORMAT_B8G8R8A8_UNORM);
+>>>>>>> master
             converter->compileImages(imageLayoutCompile.context);
             converter->updateImageLayouts(imageLayoutCompile.context);
             converter->addDispatchToCommandGraph(commands);
@@ -506,9 +595,10 @@ int main(int argc, char** argv){
         viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph});
         viewer->compile();
 
-        //waiting for image layout transitions
+        // waiting for image layout transitions
         imageLayoutCompile.context.waitForCompletion();
 
+        int numFramesC = numFrames;
         while(viewer->advanceToNextFrame() && (numFrames < 0 || (numFrames--) > 0)){
             if(externalRenderings)
             {
@@ -533,8 +623,40 @@ int main(int argc, char** argv){
             viewer->recordAndSubmit();
             viewer->present();
 
+<<<<<<< HEAD
             rayTracingPushConstantsValue->value().prevView = lookAt->transform();
+=======
+            lookAt->get(rayTracingPushConstantsValue->value().prevView);
+
+            if(exportGBuffer || exportIllumination){
+                viewer->deviceWaitIdle();
+            }
+            if(exportIllumination){
+                int frame = offlineIlluminations.size() - 1 - numFrames;
+                offlineIlluminationBufferStager->transferStagingDataTo(offlineIlluminations[frame]);
+            }
+            if(exportGBuffer){
+                int frame = offlineGBuffers.size() - 1 - numFrames;
+                offlineGBufferStager->transferStagingDataTo(offlineGBuffers[frame]);
+            }
+            if(storeMatrices){
+                int frame = cameraMatrices.size() - 1 - numFrames;
+                lookAt->get(cameraMatrices[frame].view);
+                lookAt->get_inverse(cameraMatrices[frame].invView);
+                perspective->get(cameraMatrices[frame].proj.value());
+                perspective->get_inverse(cameraMatrices[frame].invProj.value());
+            }
+>>>>>>> master
         }
+        numFrames = numFramesC;
+
+        // exporting all images
+        if(exportGBuffer)
+            GBufferIO::exportGBuffer(exportPositionPath, exportDepthPath, exportNormalPath, exportMaterialPath, exportAlbedoPath, numFrames, offlineGBuffers, cameraMatrices);
+        if(exportIllumination)
+            IlluminationBufferIO::exportIllumination(exportIlluminationPath, numFrames, offlineIlluminations);
+        if(exportMatricesPath.size())
+            MatrixIO::exportMatrices(exportMatricesPath, cameraMatrices);
     }
     catch (const vsg::Exception& e){
         std::cout << e.message << " VkResult = " << e.result << std::endl;

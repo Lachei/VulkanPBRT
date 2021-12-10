@@ -6,12 +6,25 @@ project(VulkanPBRT
     LANGUAGES C CXX
 )
 
+<<<<<<< HEAD
 set(SLAVE_PROJECTS true)    #information for the subprojects to not find packes via find_package they can assume the packages exist
 add_subdirectory(external/vsg)
 add_subdirectory(external/vsgXchange)
 add_subdirectory(external/vsgImGui)
 set(SLAVE_PROJECTS false)
 
+=======
+find_package(Vulkan REQUIRED)
+find_package(Threads REQUIRED)
+find_package(assimp CONFIG REQUIRED)
+find_package(OpenEXR REQUIRED)
+find_package(nlohmann_json REQUIRED)
+include(CMakeFindDependencyMacro)
+set(vsg_glslang_DIR ${CMAKE_SOURCE_DIR}/vsg)
+find_dependency(vsg_glslang)
+
+add_subdirectory(vsg)
+>>>>>>> master
 add_subdirectory(Denoiser)
 add_subdirectory(TAA)
 
@@ -25,7 +38,11 @@ file(GLOB_RECURSE SRC_NESTED
 	   ${PROJECT_SOURCE_DIR}/Denoiser/*.cpp
        ${PROJECT_SOURCE_DIR}/UtilityPipelines/*.cpp)
 set(SRC ${SRC_TOP} ${SRC_NESTED})
-list(FILTER SRC EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/vsg/.*" )
+#list(FILTER SRC EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/vsg/.*" )
+file(GLOB_RECURSE VSG_SRC vsg/*)
+foreach(source ${VSG_SRC})
+    list(REMOVE_ITEM SRC ${source})
+endforeach()
 
 set(SHADERS
     shadow.rmiss
@@ -65,9 +82,31 @@ set(UNCOMPILED_SHADERS
     formatConverter.comp
 )
 
+<<<<<<< HEAD
 add_executable(VulkanPBRT ${SRC})
 
 target_link_libraries(VulkanPBRT vsg vsgXchange vsgImGui)
+=======
+add_executable(VulkanPBRT ${SRC} ${VSG_ALL})
+
+target_compile_definitions(VulkanPBRT PRIVATE ${EXTRA_DEFINES})
+target_link_libraries(VulkanPBRT Vulkan::Vulkan 
+    glslang::glslang glslang::MachineIndependent glslang::OSDependent glslang::OGLCompiler glslang::SPIRV glslang::GenericCodeGen glslang::SPIRV-Tools-opt glslang::SPIRV-Tools
+    Threads::Threads)
+message(STATUS "OpenEXR_VERSION: " ${OpenEXR_VERSION})
+if(OpenEXR_VERSION VERSION_LESS "3.0")
+    target_link_libraries(VulkanPBRT OpenEXR::IlmImf)
+    else()
+    add_compile_definitions(EXRVERSION3)
+    target_link_libraries(VulkanPBRT OpenEXR::OpenEXR)
+endif()
+if(UNIX)
+    target_link_libraries(VulkanPBRT xcb ${ASSIMP_LIBRARIES})
+elseif(WIN32)
+    target_link_libraries(VulkanPBRT assimp::assimp)
+endif()
+target_link_libraries(VulkanPBRT nlohmann_json nlohmann_json::nlohmann_json)
+>>>>>>> master
 
 ## compilation of shader files
 function(add_shader TARGET SHADER)

@@ -14,11 +14,8 @@ struct WaveFrontMaterialPacked
   vec4  specularDissolve;
   vec4  transmittanceIllum;
   vec4  emissionTextureId;
-  //float shininess;
-  //float ior;       // index of refraction
-  //float dissolve;  // 1 == opaque; 0 == fully transparent
-  //int   illum;     // illumination model (see http://www.fileformat.info/format/material/)
-  //int   textureId;
+  uint category_id;
+  float pad[3];
 };
 
 struct ObjectInstance{
@@ -40,6 +37,7 @@ struct WaveFrontMaterial
   float dissolve;  // 1 == opaque; 0 == fully transparent
   int   illum;     // illumination model (see http://www.fileformat.info/format/material/)
   float alphaCutoff;
+  uint category_id;
 };
 
 // Light source types(lst)
@@ -60,7 +58,7 @@ struct Light{
     vec4 colAmbient;
     vec4 colDiffuse;
     vec4 colSpecular;
-    vec4 strengths;
+    vec4 strengths; //contains in w the inclusive strength of all lights
 };
 
 // Encapsulate the various inputs used by the various functions in the shading equation
@@ -93,6 +91,7 @@ struct PBRInfo
 struct RayPayload {
 	vec3 position;
     SurfaceInfo si;
+    uint category_id;
 };
 
 #endif //PTSTRUCTURES_H
