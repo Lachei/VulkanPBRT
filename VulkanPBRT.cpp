@@ -628,11 +628,11 @@ int main(int argc, char** argv){
                 offlineIlluminationBufferStager->transferStagingDataTo(offlineIlluminations[frame]);
             }
             if(exportGBuffer){
-                int frame = offlineIlluminations.size() - 1 - numFrames;
+                int frame = offlineGBuffers.size() - 1 - numFrames;
                 offlineGBufferStager->transferStagingDataTo(offlineGBuffers[frame]);
             }
             if(storeMatrices){
-                int frame = offlineIlluminations.size() - 1 - numFrames;
+                int frame = cameraMatrices.size() - 1 - numFrames;
                 lookAt->get(cameraMatrices[frame].view);
                 lookAt->get_inverse(cameraMatrices[frame].invView);
                 perspective->get(cameraMatrices[frame].proj.value());

@@ -1,6 +1,7 @@
 #include "RenderIO.hpp"
 #include <future>
 #include <cctype>
+#include <nlohmann/json.hpp>
 
 std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::importGBufferDepth(const std::string &depthFormat, const std::string &normalFormat, const std::string &materialFormat, const std::string &albedoFormat, int numFrames, int verbosity)
 {
@@ -439,39 +440,96 @@ DoubleMatrices MatrixIO::importMatrices(const std::string &matrixPath)
     std::ifstream f(matrixPath);
     if (!f) {
         std::cout << "Matrix file " << matrixPath << " unable to open." << std::endl;
-        exit(-1);
+        return {};
     }
 
-    std::string cur;
-    uint32_t count = 0;
-    vsg::mat4 tmp;
     DoubleMatrices matrices;
-    while (!f.eof()) {
-        f >> cur;
-        if (cur.back() == ',') cur.pop_back();
-        if (cur.front() == '{') cur = cur.substr(1, cur.size() - 1);
-        if (cur.size() && (isdigit(cur[0]) || cur[0] == '-')) {
-            tmp[count / 4][count % 4] = std::stof(cur);
-            ++count;
-            if (count == 16) {
-                matrices.push_back({tmp, vsg::inverse(tmp)});
-                count = 0;
+
+    auto toMat4 = [](const nlohmann::json& json){
+        vsg::mat4 ret;
+        int c = 0;
+        for(int i = 0; i < 4; ++i){
+            for(int j = 0; j < 4; ++j){
+                ret[i][j] = json.at(c++);
+            }
+        }
+        return ret;
+    };
+    if(matrixPath.substr(matrixPath.find_last_of(".")) == ".json"){ //json parsing
+        nlohmann::json json;
+        f >> json;
+        int amtOfFrames = json["amtOfFrames"];
+        matrices.resize(amtOfFrames);
+        for(int i = 0; i < amtOfFrames; ++i){
+            auto matrix = json["matrices"][i];
+            matrices[i].view = toMat4(matrix["view"]);
+            matrices[i].invView = toMat4(matrix["invView"]);
+            if(matrix["type"] == "ModelView+Projection"){
+                matrices[i].proj = toMat4(matrix["proj"]);
+                matrices[i].invProj = toMat4(matrix["invProj"]);
             }
         }
     }
-
+    else{
+        std::string cur;
+        uint32_t count = 0;
+        vsg::mat4 tmp;
+        while (!f.eof()) {
+            f >> cur;
+            if (cur.back() == ',') cur.pop_back();
+            if (cur.front() == '{') cur = cur.substr(1, cur.size() - 1);
+            if (cur.size() && (isdigit(cur[0]) || cur[0] == '-')) {
+                tmp[count / 4][count % 4] = std::stof(cur);
+                ++count;
+                if (count == 16) {
+                    matrices.push_back({tmp, vsg::inverse(tmp)});
+                    count = 0;
+                }
+            }
+        } 
+    }
+    
     return matrices;
 }
 
 bool MatrixIO::exportMatrices(const std::string &matrixPath, const DoubleMatrices& matrices)
 {
-    std::ifstream f(matrixPath);
+    std::ofstream f(matrixPath, std::ofstream::out);
     if (!f) {
         std::cout << "Matrix file " << matrixPath << " unable to open." << std::endl;
-        exit(-1);
+        return false;
     }
 
-    //TODO: implement
+    auto toJsonArray = [](const vsg::mat4& m){
+        nlohmann::json ret;
+        for(int i = 0; i < 4; ++i){
+            for(int j = 0; j < 4; ++j){
+                ret.push_back(m[i][j]);
+            }
+        }
+        return ret;
+    };
+    nlohmann::json json;
+    nlohmann::json jsonMat = nlohmann::json::array(); //each matrix is stored as a json object
+    for(auto& m: matrices){
+        std::string type = "ModelViewProjection";
+        nlohmann::json obj;
+        if(m.proj)
+            type = "ModelView+Projection";
+        obj["type"] = type;
+        obj["storageType"] = "ColumnMajor";
+        obj["view"] = toJsonArray(m.view);
+        obj["invView"] = toJsonArray(m.invView);
+        if(m.proj){
+            obj["proj"] = toJsonArray(m.proj.value());
+            obj["invProj"] = toJsonArray(m.invProj.value());
+        }
+        jsonMat.push_back(obj);
+    }
+    json["amtOfFrames"] = matrices.size();
+    json["matrices"] = jsonMat;
+
+    f << json.dump(4);  //dump with pretty printing
 
     return true;
 }
