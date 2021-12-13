@@ -20,7 +20,7 @@
 #include <set>
 #include <iostream>
 
-#include "vsg/src/vsgXchange/assimp/3DFrontImporter.h"
+#include "external/vsgXchange/src/assimp/3DFrontImporter.h"
 
 #define _DEBUG
 
@@ -517,10 +517,6 @@ int main(int argc, char** argv){
             taa->addDispatchToCommandGraph(commands);
             finalDescriptorImage = taa->getFinalDescriptorImage();
         }
-<<<<<<< HEAD
-        if(finalDescriptorImage->imageInfoList[0]->imageView->image->format != VK_FORMAT_B8G8R8A8_UNORM){
-            auto converter = FormatConverter::create(finalDescriptorImage->imageInfoList[0]->imageView, VK_FORMAT_B8G8R8A8_UNORM);
-=======
         if(exportGBuffer){
             if(!gBuffer){
                 std::cout << "GBuffer information not available, export not possible" << std::endl;
@@ -529,15 +525,14 @@ int main(int argc, char** argv){
             offlineGBufferStager->downloadFromGBufferCommand(gBuffer, commands, imageLayoutCompile.context);
         }
         if(exportIllumination){
-            if(finalDescriptorImage->imageInfoList[0].imageView->image->format != VK_FORMAT_R32G32B32A32_SFLOAT){
+            if(finalDescriptorImage->imageInfoList[0]->imageView->image->format != VK_FORMAT_R32G32B32A32_SFLOAT){
                 std::cout << "Final image layout is not compatible illumination buffer export" << std::endl;
                 return 1;
             }
             offlineIlluminationBufferStager->downloadFromIlluminationBufferCommand(illuminationBuffer, commands, imageLayoutCompile.context);
         }
-        if(finalDescriptorImage->imageInfoList[0].imageView->image->format != VK_FORMAT_B8G8R8A8_UNORM){
-            auto converter = FormatConverter::create(finalDescriptorImage->imageInfoList[0].imageView, VK_FORMAT_B8G8R8A8_UNORM);
->>>>>>> master
+        if(finalDescriptorImage->imageInfoList[0]->imageView->image->format != VK_FORMAT_B8G8R8A8_UNORM){
+            auto converter = FormatConverter::create(finalDescriptorImage->imageInfoList[0]->imageView, VK_FORMAT_B8G8R8A8_UNORM);
             converter->compileImages(imageLayoutCompile.context);
             converter->updateImageLayouts(imageLayoutCompile.context);
             converter->addDispatchToCommandGraph(commands);
@@ -623,10 +618,7 @@ int main(int argc, char** argv){
             viewer->recordAndSubmit();
             viewer->present();
 
-<<<<<<< HEAD
             rayTracingPushConstantsValue->value().prevView = lookAt->transform();
-=======
-            lookAt->get(rayTracingPushConstantsValue->value().prevView);
 
             if(exportGBuffer || exportIllumination){
                 viewer->deviceWaitIdle();
@@ -641,12 +633,11 @@ int main(int argc, char** argv){
             }
             if(storeMatrices){
                 int frame = cameraMatrices.size() - 1 - numFrames;
-                lookAt->get(cameraMatrices[frame].view);
-                lookAt->get_inverse(cameraMatrices[frame].invView);
-                perspective->get(cameraMatrices[frame].proj.value());
-                perspective->get_inverse(cameraMatrices[frame].invProj.value());
+                cameraMatrices[frame].view = lookAt->transform();
+                cameraMatrices[frame].invView = lookAt->inverse();
+                cameraMatrices[frame].proj.value() = perspective->transform();
+                cameraMatrices[frame].invProj.value() = perspective->inverse();
             }
->>>>>>> master
         }
         numFrames = numFramesC;
 

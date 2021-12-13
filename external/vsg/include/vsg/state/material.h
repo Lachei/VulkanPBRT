@@ -57,6 +57,7 @@ namespace vsg
         float shininess{0.0f};
         float alphaMask{1.0f};
         float alphaMaskCutoff{0.5f};
+        uint32_t categoryId{0};
 
         void read(vsg::Input& input)
         {
@@ -67,6 +68,7 @@ namespace vsg
             input.read("shininess", shininess);
             input.read("alphaMask", alphaMask);
             input.read("alphaMaskCutoff", alphaMaskCutoff);
+            input.read("categoryId", categoryId);
         }
 
         void write(vsg::Output& output) const
@@ -78,6 +80,7 @@ namespace vsg
             output.write("shininess", shininess);
             output.write("alphaMask", alphaMask);
             output.write("alphaMaskCutoff", alphaMaskCutoff);
+            output.write("categoryId", categoryId);
         }
     };
 
@@ -97,6 +100,8 @@ namespace vsg
         float roughnessFactor{1.0f};
         float alphaMask{1.0f};
         float alphaMaskCutoff{0.5f};
+        float indexOfRefraction{1.0f};
+        uint32_t categoryId{0};
 
         void read(vsg::Input& input)
         {
@@ -108,6 +113,8 @@ namespace vsg
             input.read("roughnessFactor", roughnessFactor);
             input.read("alphaMask", alphaMask);
             input.read("alphaMaskCutoff", alphaMaskCutoff);
+            input.read("indexOfRefraction", indexOfRefraction);
+            input.read("categoryId", categoryId);
         }
 
         void write(vsg::Output& output) const
@@ -120,6 +127,8 @@ namespace vsg
             output.write("roughnessFactor", roughnessFactor);
             output.write("alphaMask", alphaMask);
             output.write("alphaMaskCutoff", alphaMaskCutoff);
+            output.write("indexOfRefraction", indexOfRefraction);
+            output.write("categoryId", categoryId);
         }
     };
 

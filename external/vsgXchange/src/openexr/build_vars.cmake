@@ -9,8 +9,14 @@ if (${vsgXchange_openEXR})
     set(SOURCES ${SOURCES}
         openexr/openexr.cpp
     )
+    if(OpenEXR_VERSION VERSION_LESS "3.0")
+        set(EXTRA_LIBRARIES ${EXTRA_LIBRARIES} OpenEXR::IlmImf)
+    else()
+        add_compile_definitions(EXRVERSION3)
+        set(EXTRA_LIBRARIES ${EXTRA_LIBRARIES} OpenEXR::OpenEXR)
+    endif()
     set(EXTRA_INCLUDES ${EXTRA_INCLUDES} ${OpenEXR_INCLUDE_DIRS})
-    set(EXTRA_LIBRARIES ${EXTRA_LIBRARIES} OpenEXR::IlmImf)
+    
     if(NOT BUILD_SHARED_LIBS)
         set(FIND_DEPENDENCY ${FIND_DEPENDENCY} "find_dependency(OpenEXR)")
     endif()

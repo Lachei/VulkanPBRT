@@ -26,18 +26,18 @@ endif()
 vsg_setup_build_vars()
 vsg_setup_dir_vars()
 
-vsg_add_target_clang_format(
-    FILES
-        ${CMAKE_SOURCE_DIR}/include/*/*.h
-        ${CMAKE_SOURCE_DIR}/src/*/*.h
-        ${CMAKE_SOURCE_DIR}/src/*/*.cpp
-        ${CMAKE_SOURCE_DIR}/applications/*/*.h
-        ${CMAKE_SOURCE_DIR}/applications/*/*.cpp
-    EXCLUDES
-        ${CMAKE_SOURCE_DIR}/src/stbi/stb_image.h
-        ${CMAKE_SOURCE_DIR}/src/dds/tinyddsloader.h
-)
 if(NOT SLAVE_PROJECTS)
+    vsg_add_target_clang_format(
+        FILES
+            ${CMAKE_SOURCE_DIR}/include/*/*.h
+            ${CMAKE_SOURCE_DIR}/src/*/*.h
+            ${CMAKE_SOURCE_DIR}/src/*/*.cpp
+            ${CMAKE_SOURCE_DIR}/applications/*/*.h
+            ${CMAKE_SOURCE_DIR}/applications/*/*.cpp
+        EXCLUDES
+            ${CMAKE_SOURCE_DIR}/src/stbi/stb_image.h
+            ${CMAKE_SOURCE_DIR}/src/dds/tinyddsloader.h
+    )
     vsg_add_target_clobber()
     vsg_add_target_docs(
         FILES

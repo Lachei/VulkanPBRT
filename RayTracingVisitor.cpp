@@ -108,7 +108,7 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::VertexIndexDraw& vid)
         _normals.push_back(normals);
         // auto fill up tex coords if not provided
         vsg::ref_ptr<vsg::DescriptorBuffer> texCoords;
-        if (vid.arrays[2]->valueCount() == 0)
+        if (vid.arrays[2]->data->valueCount() == 0)
         {
             auto data = vsg::vec2Array::create(vid.arrays[0]->data->valueCount());
             for (int i = 0; i < vid.indices->data->valueCount() / 3; ++i)
@@ -126,7 +126,7 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::VertexIndexDraw& vid)
             }
             vid.arrays[2]->data = data;
         }
-        texCoords = vsg::DescriptorBuffer::create(vid.arrays[2], 4, _texCoords.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+        texCoords = vsg::DescriptorBuffer::create(vid.arrays[2]->data, 4, _texCoords.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
         _texCoords.push_back(texCoords);
         auto indices = vsg::DescriptorBuffer::create(vid.indices->data, 5, _indices.size(), VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
         _indices.push_back(indices);

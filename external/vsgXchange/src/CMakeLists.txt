@@ -19,7 +19,7 @@ set(HEADERS
     ${HEADER_PATH}/glsl.h
     ${HEADER_PATH}/images.h
     ${HEADER_PATH}/models.h
- )
+)
 
 set(SOURCES
     all/Version.cpp

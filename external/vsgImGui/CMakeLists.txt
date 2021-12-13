@@ -65,17 +65,17 @@ endif()
 vsg_setup_build_vars()
 vsg_setup_dir_vars()
 
-vsg_add_target_clang_format(
-    FILES
+if(NOT SLAVE_PROJECTS)
+    vsg_add_target_clang_format(
+        FILES
+            include/vsgImGui/*.h
+            src/vsgImGui/*.cpp
+    )
+    vsg_add_target_cppcheck(
+        FILES
         include/vsgImGui/*.h
         src/vsgImGui/*.cpp
-)
-vsg_add_target_cppcheck(
-    FILES
-    include/vsgImGui/*.h
-    src/vsgImGui/*.cpp
-)
-if(NOT SLAVE_PROJECTS)
+    )
     vsg_add_target_clobber()
     vsg_add_target_docs(
         FILES
