@@ -10,6 +10,8 @@ else()
     SET(HEADER_PATH ${CMAKE_SOURCE_DIR}/include/vsgXchange)
 endif()
 
+find_package(nlohmann_json REQUIRED)
+
 set(HEADERS
     ${VSGXCHANGE_VERSION_HEADER}
     ${HEADER_PATH}/Export.h

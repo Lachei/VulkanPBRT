@@ -12,6 +12,8 @@ add_subdirectory(external/vsgXchange)
 add_subdirectory(external/vsgImGui)
 set(SLAVE_PROJECTS false)
 
+find_package(nlohmann_json REQUIRED)
+
 add_subdirectory(Denoiser)
 add_subdirectory(TAA)
 
