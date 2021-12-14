@@ -15,6 +15,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/core/Export.h>
 #include <vsg/core/type_name.h>
 #include <vsg/io/stream.h>
+#include <vsg/io/Options.h>
 
 #include <vector>
 
@@ -46,8 +47,6 @@ namespace vsg
         char** argv() { return _argv; }
 
         char* operator[](int i) { return _argv[i]; }
-
-        bool read(Options* options);
 
         template<typename T>
         bool read(int& i, T& v)
@@ -161,6 +160,31 @@ namespace vsg
             read(matches, args..., v);
             return v;
         }
+
+        template<typename T>
+        bool readAndAssign(const std::string& match, Options* options)
+        {
+            if constexpr (std::is_same_v<T, void>)
+            {
+                if (options && read(std::string("--") + match))
+                {
+                    options->setValue(match, true);
+                    return true;
+                }
+            }
+            else
+            {
+                T v;
+                if (options && read(std::string("--") + match, v))
+                {
+                    options->setValue(match, v);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        bool read(Options* options);
 
         using Messages = std::vector<std::string>;
         bool errors() const { return !_errorMessages.empty(); }

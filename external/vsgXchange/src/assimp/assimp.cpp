@@ -179,8 +179,24 @@ bool assimp::getFeatures(Features& features) const
     }
     features.extensionFeatureMap[suported_extensions.substr(start, std::string::npos)] = supported_features;
 
+    // enumerate the supported vsg::Options::setValue(str, value) options
+    features.optionNameTypeMap[assimp::generate_smooth_normals] = vsg::type_name<bool>();
+    features.optionNameTypeMap[assimp::generate_sharp_normals] = vsg::type_name<bool>();
+    features.optionNameTypeMap[assimp::crease_angle] = vsg::type_name<float>();
+    features.optionNameTypeMap[assimp::two_sided] = vsg::type_name<bool>();
+
     return true;
 }
+
+bool assimp::readOptions(vsg::Options& options, vsg::CommandLine& arguments) const
+{
+    bool result = arguments.readAndAssign<void>(assimp::generate_smooth_normals, &options);
+    result = arguments.readAndAssign<void>(assimp::generate_sharp_normals, &options) || result;
+    result = arguments.readAndAssign<float>(assimp::crease_angle, &options) || result;
+    result = arguments.readAndAssign<void>(assimp::two_sided, &options) || result;
+    return result;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -517,7 +533,6 @@ assimp::Implementation::BindState assimp::Implementation::processMaterials(const
         if (vsg::PbrMaterial pbr; material->Get(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_BASE_COLOR_FACTOR, pbr.baseColorFactor) == AI_SUCCESS || hasPbrSpecularGlossiness)
         {
             // PBR path
-            bool isTwoSided{false};
 
             if (hasPbrSpecularGlossiness)
             {
@@ -542,8 +557,9 @@ assimp::Implementation::BindState assimp::Implementation::processMaterials(const
             material->Get(AI_MATKEY_REFRACTI, pbr.indexOfRefraction);
             material->Get(AI_MATKEY_CATEGORY_ID, pbr.categoryId);
 
-            if (material->Get(AI_MATKEY_TWOSIDED, isTwoSided); isTwoSided)
-                defines.push_back("VSG_TWOSIDED");
+
+            bool isTwoSided = vsg::value<bool>(false, assimp::two_sided, options) || (material->Get(AI_MATKEY_TWOSIDED, isTwoSided) == AI_SUCCESS);
+            if (isTwoSided) defines.push_back("VSG_TWOSIDED");
 
             vsg::DescriptorSetLayoutBindings descriptorBindings{
                 {10, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}};
@@ -622,7 +638,13 @@ assimp::Implementation::BindState assimp::Implementation::processMaterials(const
             material->Get(AI_MATKEY_SHADING_MODEL, shadingModel);
 
             bool isTwoSided{false};
-            if (material->Get(AI_MATKEY_TWOSIDED, isTwoSided) == AI_SUCCESS && isTwoSided)
+            bool optionFlag{false};
+            if(options->getValue(assimp::two_sided, optionFlag) && optionFlag) 
+            {
+                isTwoSided = true;
+                defines.push_back("VSG_TWOSIDED");
+            }
+            else if (material->Get(AI_MATKEY_TWOSIDED, isTwoSided) == AI_SUCCESS && isTwoSided)
                 defines.push_back("VSG_TWOSIDED");
 
             unsigned int maxValue = 1;
@@ -731,15 +753,12 @@ vsg::ref_ptr<vsg::Object> assimp::Implementation::read(const vsg::Path& filename
         if (filenameToUse.empty()) return {};
 
         uint32_t flags = _importFlags;
-        bool optionFlag;
-        if(options->getValue("generate_smooth_normals", optionFlag) && optionFlag)
+        if (vsg::value<bool>(false, assimp::generate_smooth_normals, options))
         {
-            float angle = 80.0;
-            options->getValue("crease_angle", angle);
-            importer.SetPropertyFloat(AI_CONFIG_PP_CT_MAX_SMOOTHING_ANGLE, angle);
+            importer.SetPropertyFloat(AI_CONFIG_PP_CT_MAX_SMOOTHING_ANGLE, vsg::value<float>(80.0f, assimp::crease_angle, options));
             flags |= aiProcess_GenSmoothNormals;
         }
-        else if(options->getValue("generate_sharp_normals", optionFlag) && optionFlag)
+        else if (vsg::value<bool>(false, assimp::generate_sharp_normals, options))
         {
             flags |= aiProcess_GenNormals;
         }
