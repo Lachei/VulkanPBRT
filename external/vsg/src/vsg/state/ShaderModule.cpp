@@ -229,8 +229,8 @@ std::string vsg::insertIncludes(const std::string& source, ref_ptr<const Options
                 pos += endOfLine.size();
             }
 
-            code.insert(pos, includedSource->source);
-            pos += includedSource->source.size();
+            code.insert(pos, includedSource->source.c_str());
+            pos += strlen(includedSource->source.c_str());
 
             if (!endOfIncludeMarker.empty())
             {
