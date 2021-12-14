@@ -295,19 +295,10 @@ void AI3DFrontImporter::InternReadFile(const std::string& pFile, aiScene* pScene
                 const auto& position = raw_child["pos"];
                 child_node->mTransformation = aiMatrix4x4(
                     aiVector3D(scale[0], scale[1], scale[2]),
-                    aiQuaternion(rotation[3], rotation[0], rotation[2], rotation[1]),
-                    aiVector3D(position[0], position[2], position[1])
+                    aiQuaternion(rotation[3], rotation[0], rotation[1], rotation[2]),
+                    aiVector3D(position[0], position[1], position[2])
                 );
-                aiMatrix4x4 scale_matrix;
-                aiMatrix4x4::Scaling(aiVector3D(1, -1, 1), scale_matrix);
-                child_node->mTransformation = scale_matrix * child_node->mTransformation;
             }
-            else
-            {
-                // added to prevent floors from disappering without changing their position
-                aiMatrix4x4::Translation(aiVector3D(0, 0, -5), child_node->mTransformation);
-            }
-
 
             child_node->mParent = room_node;
 
@@ -535,10 +526,6 @@ void AI3DFrontImporter::LoadMeshes(const nlohmann::json& scene_json,
                     {
                         ai_mesh->mTextureCoords[0][i] = aiVector3D(raw_tex_coords[u_index], raw_tex_coords[v_index], 0);
                     }
-
-                    // somehow this prevents the floor from disappering
-                    // the offset is negated by the child node transformation in the scene parsing part
-                    ai_mesh->mVertices[i].y += 5;
                     // small offset to prevent z-fighting with objects on the floor
                     ai_mesh->mVertices[i].y += 0.0001;
 
