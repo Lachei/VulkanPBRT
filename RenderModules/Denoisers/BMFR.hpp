@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../TAA/taa.hpp"
-#include "../IlluminationBuffer.hpp"
+#include "taa.hpp"
+#include "IlluminationBuffer.hpp"
 
 #include <vsg/all.h>
 

@@ -1,23 +1,26 @@
 
-#include "PBRTPipeline.hpp"
-#include "Denoiser/BFR.hpp"
 
-#include "Denoiser/BFRBlender.hpp"
-#include "Denoiser/BMFR.hpp"
+#include "Scene/CountTrianglesVisitor.hpp"
+
 #include "PipelineStructs.hpp"
-#include "CountTrianglesVisitor.hpp"
-#include "gui.hpp"
-#include "RenderIO.hpp"
-#include "UtilityPipelines/FormatConverter.hpp"
-#include "UtilityPipelines/Accumulator.hpp"
 
-#include <vsgXchange/models.h>
-#include <vsgXchange/images.h>
+#include "RenderModules/PBRTPipeline.hpp"
+#include "RenderModules/Accumulator.hpp"
+#include "RenderModules/FormatConverter.hpp"
+#include "RenderModules/Denoisers/BFR.hpp"
+#include "RenderModules/Denoisers/BFRBlender.hpp"
+#include "RenderModules/Denoisers/BMFR.hpp"
+#include "RenderModules/taa.hpp"
+#include "RenderIO.hpp"
+
+#include "gui.hpp"
+
 #include <vsg/all.h>
+#include <vsgXchange/images.h>
+#include <vsgXchange/models.h>
 
 #include <nlohmann/json.hpp>
 
-#include <set>
 #include <iostream>
 
 #include "external/vsgXchange/src/assimp/3DFrontImporter.h"

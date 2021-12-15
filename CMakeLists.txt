@@ -14,8 +14,11 @@ set(SLAVE_PROJECTS false)
 
 find_package(nlohmann_json REQUIRED)
 
-add_subdirectory(Denoiser)
-add_subdirectory(TAA)
+include_directories(external/vsg/include/vsg)
+include_directories(Buffers)
+include_directories(RenderModules)
+include_directories(Scene)
+include_directories(IO)
 
 include_directories(${OpenEXR_INCLUDE_DIRS})
 set(CMAKE_CXX_STANDARD 17)
@@ -23,9 +26,10 @@ set(CMAKE_CXX_STANDARD 17)
 file(GLOB SRC_TOP
        ${PROJECT_SOURCE_DIR}/*.cpp)
 file(GLOB_RECURSE SRC_NESTED
-       ${PROJECT_SOURCE_DIR}/TAA/*.cpp
-	   ${PROJECT_SOURCE_DIR}/Denoiser/*.cpp
-       ${PROJECT_SOURCE_DIR}/UtilityPipelines/*.cpp)
+       ${PROJECT_SOURCE_DIR}/Buffers/*.cpp
+	   ${PROJECT_SOURCE_DIR}/RenderModules/*.cpp
+       ${PROJECT_SOURCE_DIR}/Scene/*.cpp
+	   ${PROJECT_SOURCE_DIR}/IO/*.cpp)
 set(SRC ${SRC_TOP} ${SRC_NESTED})
 #list(FILTER SRC EXCLUDE REGEX "${PROJECT_SOURCE_DIR}/vsg/.*" )
 file(GLOB_RECURSE VSG_SRC vsg/*)
