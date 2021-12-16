@@ -530,11 +530,12 @@ assimp::Implementation::BindState assimp::Implementation::processMaterials(const
         auto shaderHints = vsg::ShaderCompileSettings::create();
         std::vector<std::string>& defines = shaderHints->defines;
 
-        if (vsg::PbrMaterial pbr; material->Get(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_BASE_COLOR_FACTOR, pbr.baseColorFactor) == AI_SUCCESS || hasPbrSpecularGlossiness)
+        uint32_t maxAmt = 4;
+        uint32_t maxAmt3 = 3;
+        if (vsg::PbrMaterial pbr; material->Get(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_BASE_COLOR_FACTOR, &pbr.baseColorFactor.x, &maxAmt) == AI_SUCCESS || hasPbrSpecularGlossiness)
         {
             // PBR path
 
-            uint32_t maxAmt = 4;
             if (hasPbrSpecularGlossiness)
             {
                 defines.push_back("VSG_WORKFLOW_SPECGLOSS");
@@ -555,6 +556,7 @@ assimp::Implementation::BindState assimp::Implementation::processMaterials(const
 
             material->Get(AI_MATKEY_COLOR_EMISSIVE, &pbr.emissiveFactor.x, &maxAmt);
             material->Get(AI_MATKEY_GLTF_ALPHACUTOFF, pbr.alphaMaskCutoff);
+            material->Get(AI_MATKEY_COLOR_TRANSPARENT, &pbr.transmissionFactor.x, &maxAmt3);
             material->Get(AI_MATKEY_REFRACTI, pbr.indexOfRefraction);
             material->Get(AI_MATKEY_CATEGORY_ID, pbr.categoryId);
 
@@ -635,6 +637,8 @@ assimp::Implementation::BindState assimp::Implementation::processMaterials(const
             const auto emissiveResult = material->Get(AI_MATKEY_COLOR_EMISSIVE, &mat.emissive.x, &maxAmt);
             const auto specularResult = material->Get(AI_MATKEY_COLOR_SPECULAR, &mat.specular.x, &maxAmt);
             material->Get(AI_MATKEY_CATEGORY_ID, mat.categoryId);
+            material->Get(AI_MATKEY_COLOR_TRANSPARENT, &mat.transmissive.x, &maxAmt3);
+            material->Get(AI_MATKEY_REFRACTI, mat.indexOfRefraction);
 
             aiShadingMode shadingModel = aiShadingMode_Phong;
             material->Get(AI_MATKEY_SHADING_MODEL, shadingModel);
