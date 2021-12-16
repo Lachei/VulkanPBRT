@@ -57,11 +57,12 @@ foreach(SHADER IN LISTS SHADERS)
            DEPENDS ${current-shader-path}
            IMPLICIT_DEPENDS CXX ${current-shader-path}
            VERBATIM)
-
-    # Make sure our build depends on this output.
-	add_custom_target("compileShader_${SHADER}" DEPENDS ${current-output-path})
-    add_dependencies(VulkanPBRT "compileShader_${SHADER}")
+	list(APPEND SPIRV_BINARY_FILES ${current-output-path})
 endforeach()
+
+add_custom_target(CompileShaders DEPENDS ${SPIRV_BINARY_FILES})
+add_dependencies(VulkanPBRT CompileShaders)
+
 
 foreach(S IN LISTS UNCOMPILED_SHADERS)
     set(current-shader-path ${CMAKE_CURRENT_SOURCE_DIR}/Shaders/${S})
@@ -75,8 +76,8 @@ foreach(S IN LISTS UNCOMPILED_SHADERS)
            COMMAND ${CMAKE_COMMAND} -E copy ${current-shader-path} ${current-output-path}
            DEPENDS ${current-shader-path}
            VERBATIM)
-
-    # Make sure our build depends on this output.
-    add_custom_target("copyShader_${S}" DEPENDS ${current-output-path})
-    add_dependencies(VulkanPBRT "copyShader_${S}")
+	list(APPEND GLSL_SHADER_FILES ${current-output-path})
 endforeach()
+
+add_custom_target(CopyShaders DEPENDS ${GLSL_SHADER_FILES})
+add_dependencies(VulkanPBRT CopyShaders)
