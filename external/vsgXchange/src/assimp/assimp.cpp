@@ -534,11 +534,12 @@ assimp::Implementation::BindState assimp::Implementation::processMaterials(const
         {
             // PBR path
 
+            uint32_t maxAmt = 4;
             if (hasPbrSpecularGlossiness)
             {
                 defines.push_back("VSG_WORKFLOW_SPECGLOSS");
-                material->Get(AI_MATKEY_COLOR_DIFFUSE, pbr.diffuseFactor);
-                material->Get(AI_MATKEY_COLOR_SPECULAR, pbr.specularFactor);
+                material->Get(AI_MATKEY_COLOR_DIFFUSE, &pbr.diffuseFactor.x, &maxAmt);
+                material->Get(AI_MATKEY_COLOR_SPECULAR, &pbr.specularFactor.x, &maxAmt);
 
                 if (material->Get(AI_MATKEY_GLTF_PBRSPECULARGLOSSINESS_GLOSSINESS_FACTOR, pbr.specularFactor.a) != AI_SUCCESS)
                 {
@@ -552,7 +553,7 @@ assimp::Implementation::BindState assimp::Implementation::processMaterials(const
                 material->Get(AI_MATKEY_GLTF_PBRMETALLICROUGHNESS_ROUGHNESS_FACTOR, pbr.roughnessFactor);
             }
 
-            material->Get(AI_MATKEY_COLOR_EMISSIVE, pbr.emissiveFactor);
+            material->Get(AI_MATKEY_COLOR_EMISSIVE, &pbr.emissiveFactor.x, &maxAmt);
             material->Get(AI_MATKEY_GLTF_ALPHACUTOFF, pbr.alphaMaskCutoff);
             material->Get(AI_MATKEY_REFRACTI, pbr.indexOfRefraction);
             material->Get(AI_MATKEY_CATEGORY_ID, pbr.categoryId);
@@ -627,11 +628,12 @@ assimp::Implementation::BindState assimp::Implementation::processMaterials(const
             // Phong shading
             vsg::PhongMaterial mat;
 
+            uint32_t maxAmt = 4;
             material->Get(AI_MATKEY_GLTF_ALPHACUTOFF, mat.alphaMaskCutoff);
-            material->Get(AI_MATKEY_COLOR_AMBIENT, mat.ambient);
-            const auto diffuseResult = material->Get(AI_MATKEY_COLOR_DIFFUSE, mat.diffuse);
-            const auto emissiveResult = material->Get(AI_MATKEY_COLOR_EMISSIVE, mat.emissive);
-            const auto specularResult = material->Get(AI_MATKEY_COLOR_SPECULAR, mat.specular);
+            material->Get(AI_MATKEY_COLOR_AMBIENT, &mat.ambient.x, &maxAmt);
+            const auto diffuseResult = material->Get(AI_MATKEY_COLOR_DIFFUSE, &mat.diffuse.x, &maxAmt);
+            const auto emissiveResult = material->Get(AI_MATKEY_COLOR_EMISSIVE, &mat.emissive.x, &maxAmt);
+            const auto specularResult = material->Get(AI_MATKEY_COLOR_SPECULAR, &mat.specular.x, &maxAmt);
             material->Get(AI_MATKEY_CATEGORY_ID, mat.categoryId);
 
             aiShadingMode shadingModel = aiShadingMode_Phong;
