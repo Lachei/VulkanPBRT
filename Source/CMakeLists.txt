@@ -82,8 +82,8 @@ target_link_libraries(VulkanPBRT vsg vsgXchange vsgImGui)
 function(add_shader TARGET SHADER)
     find_program(GLSLC glslc)
 
-    set(current-shader-path ${CMAKE_CURRENT_SOURCE_DIR}/shaders/${SHADER})
-    set(current-output-path ${CMAKE_BINARY_DIR}/shaders/${SHADER}.spv)
+    set(current-shader-path ${CMAKE_CURRENT_SOURCE_DIR}/Shaders/${SHADER})
+    set(current-output-path ${CMAKE_BINARY_DIR}/Shaders/${SHADER}.spv)
 
     # Add a custom command to compile GLSL to SPIR-V.
     get_filename_component(current-output-dir ${current-output-path} DIRECTORY)
@@ -106,8 +106,8 @@ foreach(S IN LISTS SHADERS)
 endforeach()
 
 foreach(S IN LISTS UNCOMPILED_SHADERS)
-    set(current-shader-path ${CMAKE_CURRENT_SOURCE_DIR}/shaders/${S})
-    set(current-output-path ${CMAKE_BINARY_DIR}/shaders/${S})
+    set(current-shader-path ${CMAKE_CURRENT_SOURCE_DIR}/Shaders/${S})
+    set(current-output-path ${CMAKE_BINARY_DIR}/Shaders/${S})
 
     get_filename_component(current-output-dir ${current-output-path} DIRECTORY)
     file(MAKE_DIRECTORY ${current-output-dir})

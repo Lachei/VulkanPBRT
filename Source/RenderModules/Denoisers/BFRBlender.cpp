@@ -11,7 +11,7 @@ BFRBlender::BFRBlender(uint32_t width, uint32_t height, vsg::ref_ptr<vsg::Descri
     uint32_t filterRadius) :
     width(width), height(height), workWidth(workWidth), workHeight(workHeight), filterRadius(filterRadius)
 {
-    std::string shaderPath = "shaders/bfrBlender.comp.spv";
+    std::string shaderPath = "Shaders/bfrBlender.comp.spv";
     auto computeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", shaderPath);
     computeStage->specializationConstants = vsg::ShaderStage::SpecializationConstants{
         {0, vsg::intValue::create(width)},

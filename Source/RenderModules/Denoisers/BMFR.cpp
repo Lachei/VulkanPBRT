@@ -21,9 +21,9 @@ BMFR::BMFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHei
     auto illumination = illuBuffer;
     //adding usage bits to illumination buffer
     illumination->illuminationImages[0]->imageInfoList[0]->imageView->image->usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-    std::string preShaderPath = "shaders/bmfrPre.comp.spv";
-    std::string fitShaderPath = "shaders/bmfrFit.comp.spv";
-    std::string postShaderPath = "shaders/bmfrPost.comp.spv";
+    std::string preShaderPath = "Shaders/bmfrPre.comp.spv";
+    std::string fitShaderPath = "Shaders/bmfrFit.comp.spv";
+    std::string postShaderPath = "Shaders/bmfrPost.comp.spv";
     auto preComputeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", preShaderPath);
     auto fitComputeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", fitShaderPath);
     auto postComputeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", postShaderPath);

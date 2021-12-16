@@ -34,7 +34,7 @@ private:
     public:
         PCValue(){}
     };
-    std::string shaderPath = "shaders/accumulator.comp.spv";
+    std::string shaderPath = "Shaders/accumulator.comp.spv";
     int workWidth, workHeight;
     vsg::ref_ptr<GBuffer> gBuffer;
     vsg::ref_ptr<IlluminationBuffer> originalIllumination;
