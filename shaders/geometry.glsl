@@ -41,12 +41,12 @@ Vertex unpackVertex(uint index, uint objId){
 
 WaveFrontMaterial unpackMaterial(WaveFrontMaterialPacked p){
     WaveFrontMaterial m;
-    m.ambient = p.ambientShininess.xyz;
+    m.ambient = p.ambientRoughness.xyz;
     m.diffuse = p.diffuseIor.xyz;
     m.specular = p.specularDissolve.xyz;
     m.transmittance = p.transmittanceIllum.xyz;
     m.emission = p.emissionTextureId.xyz;
-    m.shininess = p.ambientShininess.w;
+    m.roughness = p.ambientRoughness.w;
     m.ior = p.diffuseIor.w;
     m.dissolve = p.specularDissolve.w;
     m.illum = int(p.transmittanceIllum.w);

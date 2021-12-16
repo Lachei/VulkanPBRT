@@ -140,8 +140,6 @@ vec3 BRDF(vec3 v, vec3 l, vec3 h, SurfaceInfo s)
     float G = geometricOcclusion(pbrInputs);
     float D = microfacetDistribution(pbrInputs);
 
-    const vec3 u_LightColor = vec3(1.0);
-
     // Calculation of analytical lighting contribution
     vec3 diffuseContrib = (1.0 - F) * BRDF_Diffuse_Disney(pbrInputs);
     vec3 specContrib = F * G * D / (4.0 * NdotL * NdotV);

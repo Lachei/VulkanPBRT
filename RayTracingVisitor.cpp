@@ -205,14 +205,14 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::BindDescriptorSet& bds
                 VsgPbrMaterial vsgMat;
                 std::memcpy(&vsgMat, d->bufferInfoList[0]->data->dataPointer(), sizeof(VsgPbrMaterial));
                 WaveFrontMaterialPacked mat;
-                std::memcpy(&mat.ambientShininess, &vsgMat.baseColorFactor, sizeof(vsg::vec4));
+                std::memcpy(&mat.ambientRoughness, &vsgMat.baseColorFactor, sizeof(vsg::vec4));
                 std::memcpy(&mat.specularDissolve, &vsgMat.specularFactor, sizeof(vsg::vec4));
                 //std::memcpy(&mat.diffuseIor, &vsgMat.diffuseFactor, sizeof(vsg::vec4));
                 std::memcpy(&mat.diffuseIor, &vsgMat.baseColorFactor, sizeof(vsg::vec4));
                 std::memcpy(&mat.emissionTextureId, &vsgMat.emissiveFactor, sizeof(vsg::vec4));
                 if (vsgMat.emissiveFactor.r + vsgMat.emissiveFactor.g + vsgMat.emissiveFactor.b != 0) meshEmissive = true;
                 else meshEmissive = false;
-                mat.ambientShininess.w = vsgMat.roughnessFactor;
+                mat.ambientRoughness.w = vsgMat.roughnessFactor;
                 mat.diffuseIor.w = vsgMat.indexOfRefraction;
                 mat.specularDissolve.w = vsgMat.alphaMask;
                 mat.emissionTextureId.w = vsgMat.alphaMaskCutoff;
@@ -225,14 +225,16 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::BindDescriptorSet& bds
                 VsgMaterial vsgMat;
                 std::memcpy(&vsgMat, d->bufferInfoList[0]->data->dataPointer(), sizeof(VsgMaterial));
                 WaveFrontMaterialPacked mat;
-                std::memcpy(&mat.ambientShininess, &vsgMat.ambient, sizeof(vsg::vec4));
+                std::memcpy(&mat.ambientRoughness, &vsgMat.ambient, sizeof(vsg::vec4));
                 std::memcpy(&mat.specularDissolve, &vsgMat.specular, sizeof(vsg::vec4));
                 std::memcpy(&mat.diffuseIor, &vsgMat.diffuse, sizeof(vsg::vec4));
                 std::memcpy(&mat.emissionTextureId, &vsgMat.emissive, sizeof(vsg::vec4));
                 if (vsgMat.emissive.r + vsgMat.emissive.g + vsgMat.emissive.b != 0) meshEmissive = true;
                 else meshEmissive = false;
-                mat.ambientShininess.w = vsgMat.shininess;
-                mat.diffuseIor.w = 1;
+                // mapping of shininess to roughness: http://simonstechblog.blogspot.com/2011/12/microfacet-brdf.html
+                auto shin2Rough = [](float shininess){return  std::sqrt(2 / (shininess + 2));};
+                mat.ambientRoughness.w = 1 - shin2Rough(vsgMat.shininess);
+                mat.diffuseIor.w = 1.4f;
                 mat.specularDissolve.w = vsgMat.alphaMask;
                 mat.emissionTextureId.w = vsgMat.alphaMaskCutoff;
                 mat.category_id = vsgMat.category_id;

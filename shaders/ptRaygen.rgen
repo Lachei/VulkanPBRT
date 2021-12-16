@@ -50,6 +50,7 @@ void main(){
     traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, worldSpacePos.xyz, tmin, worldSpaceDir.xyz, tmax, 1);
     vec3 finalColor = vec3(0);
     finalColor += nextEventEsitmation(rayPayload.position, -normalize(worldSpaceDir.xyz), rayPayload.si, throughput, re);
+	vec3 t = vec3(rayPayload.si.perceptualRoughness);
     finalColor += rayPayload.si.emissiveColor;
 	if (rayPayload.si.normal == vec3(1)) 
 	{

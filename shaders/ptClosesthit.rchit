@@ -47,13 +47,14 @@ void main()
     normal = getNormal(TBN, normalMap[nonuniformEXT(objId)], texCoord);
 
     WaveFrontMaterial mat = unpackMaterial(materials.m[objId]);
+    diffuse.rgb *= mat.diffuse.rgb;
     float perceptualRoughness = 0;
 
     const vec3 f0 = vec3(.04);
 
     vec4 specular;
     if(textureSize(specularMap[nonuniformEXT(objId)], 0) == ivec2(1,1))
-        specular = vec4(0,0,0,0);
+        specular = vec4(mat.specular, mat.roughness);
     else
         specular = SRGBtoLINEAR(texture(specularMap[nonuniformEXT(objId)], texCoord));
     perceptualRoughness = 1.0 - specular.a;
@@ -62,8 +63,8 @@ void main()
 
     float metallic = convertMetallic(diffuse.rgb, specular.rgb, maxSpecular);
 
-    vec3 baseColorDiffusePart = diffuse.rgb * ((1.0 - maxSpecular) / (1 - c_MinRoughness) / max(1 - metallic, epsilon)) * mat.diffuse.rgb;
-    vec3 baseColorSpecularPart = specular.rgb - (vec3(c_MinRoughness) * (1 - metallic) * (1 / max(metallic, epsilon))) * mat.specular.rgb;
+    vec3 baseColorDiffusePart = diffuse.rgb * ((1.0 - maxSpecular) / (1 - c_MinRoughness) / max(1 - metallic, epsilon));
+    vec3 baseColorSpecularPart = specular.rgb - (vec3(c_MinRoughness) * (1 - metallic) * (1 / max(metallic, epsilon)));
     vec4 baseColor = vec4(mix(baseColorDiffusePart, baseColorSpecularPart, metallic * metallic), diffuse.a);
 
     vec3 diffuseColor = baseColor.rgb * (vec3(1.0) - f0);

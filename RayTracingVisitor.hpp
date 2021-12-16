@@ -66,7 +66,7 @@ protected:
     };
     struct WaveFrontMaterialPacked
     {
-        vsg::vec4  ambientShininess;
+        vsg::vec4  ambientRoughness;
         vsg::vec4  diffuseIor;
         vsg::vec4  specularDissolve;
         vsg::vec4  transmittanceIllum;

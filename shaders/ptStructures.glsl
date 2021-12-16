@@ -9,7 +9,7 @@ struct Vertex{
 
 struct WaveFrontMaterialPacked
 {
-  vec4  ambientShininess;
+  vec4  ambientRoughness;
   vec4  diffuseIor;
   vec4  specularDissolve;
   vec4  transmittanceIllum;
@@ -32,7 +32,7 @@ struct WaveFrontMaterial
   vec3  specular;
   vec3  transmittance;
   vec3  emission;
-  float shininess;
+  float roughness;
   float ior;       // index of refraction
   float dissolve;  // 1 == opaque; 0 == fully transparent
   int   illum;     // illumination model (see http://www.fileformat.info/format/material/)
