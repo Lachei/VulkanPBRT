@@ -12,7 +12,6 @@ add_subdirectory(External/vsgXchange)
 add_subdirectory(External/vsgImGui)
 set(SLAVE_PROJECTS false)
 
-
 include_directories(External/vsg/include/vsg)
 include_directories(Buffers)
 include_directories(RenderModules)
@@ -35,6 +34,10 @@ file(GLOB_RECURSE VSG_SRC vsg/*)
 foreach(source ${VSG_SRC})
     list(REMOVE_ITEM SRC ${source})
 endforeach()
+
+add_executable(VulkanPBRT ${SRC})
+
+target_link_libraries(VulkanPBRT vsg vsgXchange vsgImGui)
 
 set(SHADERS
     shadow.rmiss
@@ -73,10 +76,6 @@ set(UNCOMPILED_SHADERS
     accumulator.comp
     formatConverter.comp
 )
-
-add_executable(VulkanPBRT ${SRC})
-
-target_link_libraries(VulkanPBRT vsg vsgXchange vsgImGui)
 
 ## compilation of shader files
 function(add_shader TARGET SHADER)
