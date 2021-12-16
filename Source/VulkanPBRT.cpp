@@ -10,10 +10,10 @@
 #include "RenderModules/Denoisers/BFR.hpp"
 #include "RenderModules/Denoisers/BFRBlender.hpp"
 #include "RenderModules/Denoisers/BMFR.hpp"
-#include "RenderModules/taa.hpp"
+#include "RenderModules/Taa.hpp"
 #include "IO/RenderIO.hpp"
 
-#include "gui.hpp"
+#include "Gui.hpp"
 
 #include <vsg/all.h>
 #include <vsgXchange/images.h>
