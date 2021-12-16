@@ -7,13 +7,13 @@ project(VulkanPBRT
 find_package(nlohmann_json REQUIRED)
 
 set(SLAVE_PROJECTS true)    #information for the subprojects to not find packes via find_package they can assume the packages exist
-add_subdirectory(external/vsg)
-add_subdirectory(external/vsgXchange)
-add_subdirectory(external/vsgImGui)
+add_subdirectory(External/vsg)
+add_subdirectory(External/vsgXchange)
+add_subdirectory(External/vsgImGui)
 set(SLAVE_PROJECTS false)
 
 
-include_directories(external/vsg/include/vsg)
+include_directories(External/vsg/include/vsg)
 include_directories(Buffers)
 include_directories(RenderModules)
 include_directories(Scene)
