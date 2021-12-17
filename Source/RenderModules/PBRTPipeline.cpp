@@ -209,6 +209,8 @@ vsg::ref_ptr<vsg::ShaderStage> PBRTPipeline::setupRaygenShader(std::string rayge
 
     auto options = vsg::Options::create(vsgXchange::glsl::create());
     auto raygenShader = vsg::ShaderStage::read(VK_SHADER_STAGE_RAYGEN_BIT_KHR, "main", raygenPath, options);
+    if(!raygenShader)
+        throw vsg::Exception{"Error: PBRTPipeline::setupRaygenShader() Could not load ray generation shader."};
     auto compileHints = vsg::ShaderCompileSettings::create();
     compileHints->vulkanVersion = VK_API_VERSION_1_2;
     compileHints->target = vsg::ShaderCompileSettings::SPIRV_1_4;
