@@ -33,24 +33,24 @@ void AccumulationBuffer::updateImageLayouts(vsg::Context& context)
 {
     VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     auto prevIlluLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-                                                          VK_IMAGE_LAYOUT_GENERAL, 0, 0, prevIllu->imageInfoList[0].imageView->image,
+                                                          VK_IMAGE_LAYOUT_GENERAL, 0, 0, prevIllu->imageInfoList[0]->imageView->image,
                                                           resourceRange);
     auto prevIlluSquaredLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
                                                                  VK_IMAGE_LAYOUT_GENERAL, 0, 0,
-                                                                 prevIlluSquared->imageInfoList[0].imageView->image, resourceRange);
+                                                                 prevIlluSquared->imageInfoList[0]->imageView->image, resourceRange);
     auto prevDepthLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-                                                           VK_IMAGE_LAYOUT_GENERAL, 0, 0, prevDepth->imageInfoList[0].imageView->image,
+                                                           VK_IMAGE_LAYOUT_GENERAL, 0, 0, prevDepth->imageInfoList[0]->imageView->image,
                                                            resourceRange);
     auto prevNormalLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-                                                            VK_IMAGE_LAYOUT_GENERAL, 0, 0, prevNormal->imageInfoList[0].imageView->image,
+                                                            VK_IMAGE_LAYOUT_GENERAL, 0, 0, prevNormal->imageInfoList[0]->imageView->image,
                                                             resourceRange);
     auto sppLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-                                                     VK_IMAGE_LAYOUT_GENERAL, 0, 0, spp->imageInfoList[0].imageView->image, resourceRange);
+                                                     VK_IMAGE_LAYOUT_GENERAL, 0, 0, spp->imageInfoList[0]->imageView->image, resourceRange);
     auto prevSppLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-                                                         VK_IMAGE_LAYOUT_GENERAL, 0, 0, prevSpp->imageInfoList[0].imageView->image,
+                                                         VK_IMAGE_LAYOUT_GENERAL, 0, 0, prevSpp->imageInfoList[0]->imageView->image,
                                                          resourceRange);
     auto motionLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-                                                        VK_IMAGE_LAYOUT_GENERAL, 0, 0, motion->imageInfoList[0].imageView->image,
+                                                        VK_IMAGE_LAYOUT_GENERAL, 0, 0, motion->imageInfoList[0]->imageView->image,
                                                         resourceRange);
 
     auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
@@ -73,8 +73,8 @@ void AccumulationBuffer::copyToBackImages(vsg::ref_ptr<vsg::Commands> commands, 
                                           vsg::ref_ptr<IlluminationBuffer> illuminationBuffer)
 {
     // depth image
-    auto srcImage = gBuffer->depth->imageInfoList[0].imageView->image;
-    auto dstImage = prevDepth->imageInfoList[0].imageView->image;
+    auto srcImage = gBuffer->depth->imageInfoList[0]->imageView->image;
+    auto dstImage = prevDepth->imageInfoList[0]->imageView->image;
 
     VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     auto srcBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL,
@@ -111,8 +111,8 @@ void AccumulationBuffer::copyToBackImages(vsg::ref_ptr<vsg::Commands> commands, 
     commands->addChild(pipelineBarrier);
 
     //normal image
-    srcImage = gBuffer->normal->imageInfoList[0].imageView->image;
-    dstImage = prevNormal->imageInfoList[0].imageView->image;
+    srcImage = gBuffer->normal->imageInfoList[0]->imageView->image;
+    dstImage = prevNormal->imageInfoList[0]->imageView->image;
 
     srcBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL,
                                                  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0, srcImage, resourceRange);
@@ -141,8 +141,8 @@ void AccumulationBuffer::copyToBackImages(vsg::ref_ptr<vsg::Commands> commands, 
     commands->addChild(pipelineBarrier);
 
     // spp image
-    srcImage = spp->imageInfoList[0].imageView->image;
-    dstImage = prevSpp->imageInfoList[0].imageView->image;
+    srcImage = spp->imageInfoList[0]->imageView->image;
+    dstImage = prevSpp->imageInfoList[0]->imageView->image;
 
     srcBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL,
                                                  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0, srcImage, resourceRange);
@@ -172,12 +172,12 @@ void AccumulationBuffer::copyToBackImages(vsg::ref_ptr<vsg::Commands> commands, 
 
     // illumination
     if (illuminationBuffer.cast<IlluminationBufferFinalDemodulated>())
-        srcImage = illuminationBuffer->illuminationImages[1]->imageInfoList[0].imageView->image;
+        srcImage = illuminationBuffer->illuminationImages[1]->imageInfoList[0]->imageView->image;
     else if (illuminationBuffer.cast<IlluminationBufferDemodulated>())
-        srcImage = illuminationBuffer->illuminationImages[0]->imageInfoList[0].imageView->image;
+        srcImage = illuminationBuffer->illuminationImages[0]->imageInfoList[0]->imageView->image;
     else
         throw vsg::Exception{"Error: AccumulationBuffer::copyToBackImages(...) Illumination buffer not supported."};
-    dstImage = prevIllu->imageInfoList[0].imageView->image;
+    dstImage = prevIllu->imageInfoList[0]->imageView->image;
 
     srcBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL,
                                                  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0, srcImage, resourceRange);
@@ -207,12 +207,12 @@ void AccumulationBuffer::copyToBackImages(vsg::ref_ptr<vsg::Commands> commands, 
 
     // illumination squared
     if (illuminationBuffer.cast<IlluminationBufferFinalDemodulated>())
-        srcImage = illuminationBuffer->illuminationImages[2]->imageInfoList[0].imageView->image;
+        srcImage = illuminationBuffer->illuminationImages[2]->imageInfoList[0]->imageView->image;
     else if (illuminationBuffer.cast<IlluminationBufferDemodulated>())
-        srcImage = illuminationBuffer->illuminationImages[1]->imageInfoList[0].imageView->image;
+        srcImage = illuminationBuffer->illuminationImages[1]->imageInfoList[0]->imageView->image;
     else
         throw vsg::Exception{"Error: AccumulationBuffer::copyToBackImages(...) Illumination buffer not supported."};
-    dstImage = prevIlluSquared->imageInfoList[0].imageView->image;
+    dstImage = prevIlluSquared->imageInfoList[0]->imageView->image;
 
     srcBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL,
                                                  VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0, srcImage, resourceRange);
@@ -254,7 +254,7 @@ void AccumulationBuffer::setupImages()
     image->arrayLayers = 1;
     image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
     auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    vsg::ImageInfo imageInfo{nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
+    auto imageInfo = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL);
     spp = vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
     image = vsg::Image::create();
@@ -267,7 +267,7 @@ void AccumulationBuffer::setupImages()
     image->arrayLayers = 1;
     image->usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    imageInfo = {sampler, imageView, VK_IMAGE_LAYOUT_GENERAL};
+    imageInfo = vsg::ImageInfo::create(sampler, imageView, VK_IMAGE_LAYOUT_GENERAL);
     prevSpp = vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
     image = vsg::Image::create();
@@ -280,7 +280,7 @@ void AccumulationBuffer::setupImages()
     image->arrayLayers = 1;
     image->usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    imageInfo = {sampler, imageView, VK_IMAGE_LAYOUT_GENERAL};
+    imageInfo = vsg::ImageInfo::create(sampler, imageView, VK_IMAGE_LAYOUT_GENERAL);
     prevDepth = vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
     image = vsg::Image::create();
@@ -293,7 +293,7 @@ void AccumulationBuffer::setupImages()
     image->arrayLayers = 1;
     image->usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    imageInfo = {sampler, imageView, VK_IMAGE_LAYOUT_GENERAL};
+    imageInfo = vsg::ImageInfo::create(sampler, imageView, VK_IMAGE_LAYOUT_GENERAL);
     prevNormal = vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
     image = vsg::Image::create();
@@ -306,7 +306,7 @@ void AccumulationBuffer::setupImages()
     image->arrayLayers = 1;
     image->usage = VK_IMAGE_USAGE_STORAGE_BIT;
     imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    imageInfo = {nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
+    imageInfo = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL);
     motion = vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
     image = vsg::Image::create();
@@ -319,7 +319,7 @@ void AccumulationBuffer::setupImages()
     image->arrayLayers = 1;
     image->usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    imageInfo = {sampler, imageView, VK_IMAGE_LAYOUT_GENERAL};
+    imageInfo = vsg::ImageInfo::create(sampler, imageView, VK_IMAGE_LAYOUT_GENERAL);
     prevIllu = vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
     image = vsg::Image::create();
@@ -332,6 +332,6 @@ void AccumulationBuffer::setupImages()
     image->arrayLayers = 1;
     image->usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    imageInfo = {sampler, imageView, VK_IMAGE_LAYOUT_GENERAL};
+    imageInfo = vsg::ImageInfo::create(sampler, imageView, VK_IMAGE_LAYOUT_GENERAL);
     prevIlluSquared = vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 }

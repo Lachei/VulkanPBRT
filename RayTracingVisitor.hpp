@@ -12,7 +12,7 @@ public:
     void apply(vsg::Object& object);
 
     //matrix transformation
-    void apply(vsg::MatrixTransform& mt);
+    void apply(vsg::Transform& t);
 
     //getting the normals, texture coordinates and vertex data
     void apply(vsg::VertexIndexDraw& vid);

@@ -19,9 +19,9 @@ BFR::BFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeigh
     }
     auto illumination = illuBuffer;
         //adding usage bits to illumination buffer
-    illumination->illuminationImages[0]->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+    illumination->illuminationImages[0]->imageInfoList[0]->imageView->image->usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
     std::string shaderPath = "shaders/bfr.comp.spv";
-    auto computeStage = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_COMPUTE_BIT, "main", shaderPath);
+    auto computeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", shaderPath);
     computeStage->specializationConstants = vsg::ShaderStage::SpecializationConstants{
         {0, vsg::intValue::create(width)},
         {1, vsg::intValue::create(height)},
@@ -45,9 +45,9 @@ BFR::BFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeigh
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
     imageView->viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-    vsg::ImageInfo imageInfo = { nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL };
+    auto imageInfo = vsg::ImageInfo::create( vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL );
     accumulatedIllumination = vsg::DescriptorImage::create(imageInfo, denoisedIlluBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-    imageInfo.sampler = sampler;
+    imageInfo->sampler = sampler;
     sampledAccIllu = vsg::DescriptorImage::create(imageInfo, sampledDenIlluBinding, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
     image = vsg::Image::create();
@@ -64,14 +64,14 @@ BFR::BFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeigh
     image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    imageInfo = { nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL };
+    imageInfo = vsg::ImageInfo::create( vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL );
     finalIllumination = vsg::DescriptorImage::create(imageInfo, finalBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
     // descriptor set layout
     auto bindingMap = computeStage->getDescriptorSetLayoutBindingsMap();
     auto descriptorSetLayout = vsg::DescriptorSetLayout::create(bindingMap.begin()->second.bindings);
     auto illuminationInfo = illumination->illuminationImages[0]->imageInfoList[0];
-    illuminationInfo.sampler = sampler;
+    illuminationInfo->sampler = sampler;
     // filling descriptor set
     vsg::Descriptors descriptors{
         vsg::DescriptorImage::create(gBuffer->depth->imageInfoList[0], depthBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE),
@@ -108,11 +108,11 @@ void BFR::updateImageLayouts(vsg::Context& context)
     VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 2};
     auto accIlluLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
                                                          VK_IMAGE_LAYOUT_GENERAL, 0, 0,
-                                                         accumulatedIllumination->imageInfoList[0].imageView->image, resourceRange);
+                                                         accumulatedIllumination->imageInfoList[0]->imageView->image, resourceRange);
     resourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     auto finalIluLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
                                                           VK_IMAGE_LAYOUT_GENERAL, 0, 0,
-                                                          finalIllumination->imageInfoList[0].imageView->image, resourceRange);
+                                                          finalIllumination->imageInfoList[0]->imageView->image, resourceRange);
 
     auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                                                         VK_DEPENDENCY_BY_REGION_BIT,

@@ -6,21 +6,18 @@ project(VulkanPBRT
     LANGUAGES C CXX
 )
 
-find_package(Vulkan REQUIRED)
-find_package(Threads REQUIRED)
-find_package(assimp CONFIG REQUIRED)
-find_package(OpenEXR REQUIRED)
-find_package(nlohmann_json REQUIRED)
-include(CMakeFindDependencyMacro)
-set(vsg_glslang_DIR ${CMAKE_SOURCE_DIR}/vsg)
-find_dependency(vsg_glslang)
+set(SLAVE_PROJECTS true)    #information for the subprojects to not find packes via find_package they can assume the packages exist
+add_subdirectory(external/vsg)
+add_subdirectory(external/vsgXchange)
+add_subdirectory(external/vsgImGui)
+set(SLAVE_PROJECTS false)
 
-add_subdirectory(vsg)
+find_package(nlohmann_json REQUIRED)
+
 add_subdirectory(Denoiser)
 add_subdirectory(TAA)
-set(IMGUI_HEADER
-    vsg/src/imgui/)
-include_directories(vsg/include ${glslang_INCLUDE_DIRS} ${IMGUI_HEADER} ${OpenEXR_INCLUDE_DIRS})
+
+include_directories(${OpenEXR_INCLUDE_DIRS})
 set(CMAKE_CXX_STANDARD 17)
 
 file(GLOB SRC_TOP
@@ -74,25 +71,9 @@ set(UNCOMPILED_SHADERS
     formatConverter.comp
 )
 
-add_executable(VulkanPBRT ${SRC} ${VSG_ALL})
+add_executable(VulkanPBRT ${SRC})
 
-target_compile_definitions(VulkanPBRT PRIVATE ${EXTRA_DEFINES})
-target_link_libraries(VulkanPBRT Vulkan::Vulkan 
-    glslang::glslang glslang::MachineIndependent glslang::OSDependent glslang::OGLCompiler glslang::SPIRV glslang::GenericCodeGen glslang::SPIRV-Tools-opt glslang::SPIRV-Tools
-    Threads::Threads)
-message(STATUS "OpenEXR_VERSION: " ${OpenEXR_VERSION})
-if(OpenEXR_VERSION VERSION_LESS "3.0")
-    target_link_libraries(VulkanPBRT OpenEXR::IlmImf)
-    else()
-    add_compile_definitions(EXRVERSION3)
-    target_link_libraries(VulkanPBRT OpenEXR::OpenEXR)
-endif()
-if(UNIX)
-    target_link_libraries(VulkanPBRT xcb ${ASSIMP_LIBRARIES})
-elseif(WIN32)
-    target_link_libraries(VulkanPBRT assimp::assimp)
-endif()
-target_link_libraries(VulkanPBRT nlohmann_json nlohmann_json::nlohmann_json)
+target_link_libraries(VulkanPBRT vsg vsgXchange vsgImGui)
 
 ## compilation of shader files
 function(add_shader TARGET SHADER)

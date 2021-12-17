@@ -23,8 +23,8 @@ namespace
 
 PBRTPipeline::PBRTPipeline(vsg::ref_ptr<vsg::Node> scene, vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<AccumulationBuffer> accumulationBuffer,
                  vsg::ref_ptr<IlluminationBuffer> illuminationBuffer, bool writeGBuffer, RayTracingRayOrigin rayTracingRayOrigin) : 
-    width(illuminationBuffer->illuminationImages[0]->imageInfoList[0].imageView->image->extent.width), 
-    height(illuminationBuffer->illuminationImages[0]->imageInfoList[0].imageView->image->extent.height), 
+    width(illuminationBuffer->illuminationImages[0]->imageInfoList[0]->imageView->image->extent.width), 
+    height(illuminationBuffer->illuminationImages[0]->imageInfoList[0]->imageView->image->extent.height), 
     maxRecursionDepth(2), 
     accumulationBuffer(accumulationBuffer),
     illuminationBuffer(illuminationBuffer),
@@ -44,7 +44,7 @@ void PBRTPipeline::setTlas(vsg::ref_ptr<vsg::AccelerationStructure> as)
             tlas->geometryInstances[i]->shaderOffset = 0;
         else
             tlas->geometryInstances[i]->shaderOffset = 1;
-        tlas->geometryInstances[i]->geometryFlags = VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR;
+        tlas->geometryInstances[i]->flags = VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR;
     }
     auto accelDescriptor = vsg::DescriptorAccelerationStructure::create(vsg::AccelerationStructures{as}, 0, 0);
     bindRayTracingDescriptorSet->descriptorSet->descriptors.push_back(accelDescriptor);
@@ -91,10 +91,10 @@ void PBRTPipeline::setupPipeline(vsg::Node *scene, bool useExternalGbuffer)
     std::string anyHitPath = "shaders/ptAlphaHit.rahit.spv";
 
     auto raygenShader = setupRaygenShader(raygenPath, useExternalGbuffer);
-    auto raymissShader = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_MISS_BIT_KHR, "main", raymissPath);
-    auto shadowMissShader = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_MISS_BIT_KHR, "main", shadowMissPath);
-    auto closesthitShader = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, "main", closesthitPath);
-    auto anyHitShader = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_ANY_HIT_BIT_KHR, "main", anyHitPath);
+    auto raymissShader = vsg::ShaderStage::read(VK_SHADER_STAGE_MISS_BIT_KHR, "main", raymissPath);
+    auto shadowMissShader = vsg::ShaderStage::read(VK_SHADER_STAGE_MISS_BIT_KHR, "main", shadowMissPath);
+    auto closesthitShader = vsg::ShaderStage::read(VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR, "main", closesthitPath);
+    auto anyHitShader = vsg::ShaderStage::read(VK_SHADER_STAGE_ANY_HIT_BIT_KHR, "main", anyHitPath);
     if (!raygenShader || !raymissShader || !closesthitShader || !shadowMissShader || !anyHitShader)
     {
         throw vsg::Exception{"Error: PBRTPipeline::PBRTPipeline(...) failed to create shader stages."};
@@ -133,7 +133,7 @@ void PBRTPipeline::setupPipeline(vsg::Node *scene, bool useExternalGbuffer)
     shaderBindingTable->bindingTableEntries.raygenGroups = {raygenShaderGroup};
     shaderBindingTable->bindingTableEntries.raymissGroups = {raymissShaderGroup, shadowMissShaderGroup};
     shaderBindingTable->bindingTableEntries.hitGroups = {closesthitShaderGroup, transparenthitShaderGroup};
-    auto pipeline = vsg::RayTracingPipeline::create(rayTracingPipelineLayout, shaderStage, shaderGroups, shaderBindingTable);
+    auto pipeline = vsg::RayTracingPipeline::create(rayTracingPipelineLayout, shaderStage, shaderGroups, shaderBindingTable, 1);
     bindRayTracingPipeline = vsg::BindRayTracingPipeline::create(pipeline);
     auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{});
     bindRayTracingDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, rayTracingPipelineLayout, descriptorSet);
@@ -209,9 +209,11 @@ vsg::ref_ptr<vsg::ShaderStage> PBRTPipeline::setupRaygenShader(std::string rayge
 
     auto options = vsg::Options::create(vsgXchange::glsl::create());
     auto raygenShader = vsg::ShaderStage::read(VK_SHADER_STAGE_RAYGEN_BIT_KHR, "main", raygenPath, options);
-    auto shaderCompiler = vsg::ShaderCompiler::create();
-    vsg::Paths searchPaths{"shaders"};
-    shaderCompiler->compile(raygenShader, defines, searchPaths);
+    auto compileHints = vsg::ShaderCompileSettings::create();
+    compileHints->vulkanVersion = VK_API_VERSION_1_2;
+    compileHints->target = vsg::ShaderCompileSettings::SPIRV_1_4;
+    compileHints->defines = defines;
+    raygenShader->module->hints = compileHints;
 
     return raygenShader;
 }

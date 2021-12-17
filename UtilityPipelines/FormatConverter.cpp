@@ -22,9 +22,11 @@ FormatConverter::FormatConverter(vsg::ref_ptr<vsg::ImageView> srcImage, VkFormat
         {0, vsg::intValue::create(workWidth)}, 
         {1, vsg::intValue::create(workHeight)}
     };
-    auto shaderCompiler = vsg::ShaderCompiler::create();
-    vsg::Paths searchPaths{"shaders"};
-    shaderCompiler->compile(computeStage, defines, searchPaths);
+    auto compileHints = vsg::ShaderCompileSettings::create();
+    compileHints->vulkanVersion = VK_API_VERSION_1_2;
+    compileHints->target = vsg::ShaderCompileSettings::SPIRV_1_4;
+    compileHints->defines = defines;
+    computeStage->module->hints = compileHints;
 
     auto bindingMap = computeStage->getDescriptorSetLayoutBindingsMap();
     auto descriptorSetLayout = vsg::DescriptorSetLayout::create(bindingMap.begin()->second.bindings);
@@ -40,12 +42,12 @@ FormatConverter::FormatConverter(vsg::ref_ptr<vsg::ImageView> srcImage, VkFormat
     image->arrayLayers = 1;
     image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
     auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    vsg::ImageInfo imageInfo = {nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL};
+    auto imageInfo = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL);
     finalImage = vsg::DescriptorImage::create(imageInfo, finalIndex, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
     int sourceIndex = vsg::ShaderStage::getSetBindingIndex(bindingMap, "source").second;
     srcImage->image->usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-    imageInfo = {vsg::Sampler::create(), srcImage, VK_IMAGE_LAYOUT_GENERAL};
+    imageInfo = vsg::ImageInfo::create(vsg::Sampler::create(), srcImage, VK_IMAGE_LAYOUT_GENERAL);
     auto srcDscImage = vsg::DescriptorImage::create(imageInfo, sourceIndex, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
     auto descriptorSet = vsg::DescriptorSet::create(pipelineLayout->setLayouts[0], vsg::Descriptors{finalImage, srcDscImage });
     bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, descriptorSet);
@@ -62,7 +64,7 @@ void FormatConverter::updateImageLayouts(vsg::Context &context)
 {
     VkImageSubresourceRange resourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
     auto finalLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_GENERAL, 0, 0, finalImage->imageInfoList[0].imageView->image,
+        VK_IMAGE_LAYOUT_GENERAL, 0, 0, finalImage->imageInfoList[0]->imageView->image,
         resourceRange);
     auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
         VK_DEPENDENCY_BY_REGION_BIT,

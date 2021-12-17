@@ -9,12 +9,12 @@ Taa::Taa(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeigh
     workWidth(workWidth),
     workHeight(workHeight)
 {
-    denoised->imageInfoList[0].imageView->image->usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+    denoised->imageInfoList[0]->imageView->image->usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
 
     sampler = vsg::Sampler::create();
 
     std::string shaderPath = "shaders/taa.comp.spv";
-    auto computeStage = vsg::ShaderStage::readSpv(VK_SHADER_STAGE_COMPUTE_BIT, "main", shaderPath);
+    auto computeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", shaderPath);
     computeStage->specializationConstants = vsg::ShaderStage::SpecializationConstants{
         {0, vsg::intValue::create(width)},
         {1, vsg::intValue::create(height)},
@@ -37,7 +37,7 @@ Taa::Taa(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeigh
     image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    vsg::ImageInfo imageInfo = { sampler, imageView, VK_IMAGE_LAYOUT_GENERAL };
+    auto imageInfo = vsg::ImageInfo::create( sampler, imageView, VK_IMAGE_LAYOUT_GENERAL );
     accumulationImage = vsg::DescriptorImage::create(imageInfo, accumulationBinding, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
 
     image = vsg::Image::create();
@@ -54,14 +54,14 @@ Taa::Taa(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeigh
     image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    imageInfo = { nullptr, imageView, VK_IMAGE_LAYOUT_GENERAL };
+    imageInfo = vsg::ImageInfo::create( vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL );
     finalImage = vsg::DescriptorImage::create(imageInfo, finalImageBinding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
     //descriptor set layout
     auto bindingMap = computeStage->getDescriptorSetLayoutBindingsMap();
     auto descriptorSetLayout = vsg::DescriptorSetLayout::create(bindingMap.begin()->second.bindings);
     auto denoisedInfo = denoised->imageInfoList[0];
-    denoisedInfo.sampler = sampler;
+    denoisedInfo->sampler = sampler;
     //filling descriptor set
     //vsg::Descriptors descriptors{vsg::DescriptorBuffer::create(vsg::BufferInfoList{vsg::BufferInfo(buffer, 0, bufferSize)}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER)};
     auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{
@@ -94,9 +94,9 @@ void Taa::updateImageLayouts(vsg::Context& context)
     VkImageSubresourceRange resourceRange{ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
     auto accumulationLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
         VK_IMAGE_LAYOUT_GENERAL, 0, 0,
-        accumulationImage->imageInfoList[0].imageView->image, resourceRange);
+        accumulationImage->imageInfoList[0]->imageView->image, resourceRange);
     auto finalLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_GENERAL, 0, 0, finalImage->imageInfoList[0].imageView->image,
+        VK_IMAGE_LAYOUT_GENERAL, 0, 0, finalImage->imageInfoList[0]->imageView->image,
         resourceRange);
     auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
         VK_DEPENDENCY_BY_REGION_BIT,
@@ -109,11 +109,11 @@ void Taa::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph)
     commandGraph->addChild(bindDescriptorSet);
     commandGraph->addChild(vsg::Dispatch::create(uint32_t(ceil(float(width) / float(workWidth))), uint32_t(ceil(float(height) / float(workHeight))),
                                                  1));
-    copyFinalImage(commandGraph, accumulationImage->imageInfoList[0].imageView->image);
+    copyFinalImage(commandGraph, accumulationImage->imageInfoList[0]->imageView->image);
 }
 void Taa::copyFinalImage(vsg::ref_ptr<vsg::Commands> commands, vsg::ref_ptr<vsg::Image> dstImage)
 {
-    auto srcImage = finalImage->imageInfoList[0].imageView->image;
+    auto srcImage = finalImage->imageInfoList[0]->imageView->image;
 
     VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     auto srcBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL,
