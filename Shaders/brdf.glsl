@@ -91,6 +91,12 @@ vec3 specularReflection(PBRInfo pbrInputs)
     return pbrInputs.s.reflectance0 + (pbrInputs.s.reflectance90 - pbrInputs.s.reflectance90*pbrInputs.s.reflectance0) * exp2((-5.55473 * pbrInputs.VdotH - 6.98316) * pbrInputs.VdotH);
 }
 
+vec3 specularReflection(vec3 reflectance0, vec3 reflectance90, float VdotH)
+{
+    //return pbrInputs.reflectance0 + (pbrInputs.reflectance90 - pbrInputs.reflectance0) * pow(clamp(1.0 - pbrInputs.VdotH, 0.0, 1.0), 5.0);
+    return reflectance0 + (reflectance90 - reflectance90*reflectance0) * exp2((-5.55473 * VdotH - 6.98316) * VdotH);
+}
+
 // This calculates the specular geometric attenuation (aka G()),
 // where rougher material will reflect less light back to the viewer.
 // This implementation is based on [1] Equation 4, and we adopt their modifications to

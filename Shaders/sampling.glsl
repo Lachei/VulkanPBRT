@@ -30,20 +30,35 @@ vec3 sampleBRDF(SurfaceInfo s, RandomEngine re, vec3 v,out vec3 l,out float pdf)
     vec3 h;
     vec3 u = randomVec3(re);
     float specularSW = specularSampleWeight(s);
+    mat3 basis = s.basis;
+    bool entering = dot(v, s.normal) >= 0;
+    if(s.illuminationType == 7 && !entering) basis[2] *= -1;
 
     //sample specular or diffuse reflection based on sampling weight
     if(u.z < specularSW){
         h = sampleGGX(u.xy, pow2(s.alphaRoughness));
-        h = s.basis * h;
+        h = basis * h;
         l = -reflect(v, h);
     }
     else{
         l = sampleHemisphere(u.xy);
-        l = s.basis * l;
+        l = basis * l;
         h = normalize(v + l);
     }
+
     pdf = pdfBRDF(s, v, l, h);
-    return BRDF(v, l, h, s);
+    vec3 brdf = BRDF(v, l, h, s);
+    //decide if material should refract
+    if(s.illuminationType == 7){
+        float f = luminance(specularReflection(s.reflectance0, s.reflectance90, dot(v, h)));
+        if(randomFloat(re) > f){    //refracting
+            float t = entering ? s.indexOfRefraction : 1 / s.indexOfRefraction; // it is assumed that only air is anohter medium that is participating
+            l -= 2 * (dot(s.n, l)) * s.n * t;
+            le = normalize(l);
+            brdf *= s.transmissiveColor;
+        }
+    }
+    return brdf;
 }
 
 #endif //SAMPLING_H

@@ -30,6 +30,7 @@ void main()
     const vec3 bar = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
     vec2 texCoord = v0.uv * bar.x + v1.uv * bar.y + v2.uv * bar.z;
     vec4 diffuse = SRGBtoLINEAR(texture(diffuseMap[nonuniformEXT(objId)], texCoord));
+    diffuse.rgb *= diffuse.a;
     vec3 position = v0.pos * bar.x + v1.pos * bar.y + v2.pos * bar.z;
     position = (instance.objectMat * vec4(position, 1)).xyz;
     vec3 normal = normalize(v0.normal * bar.x + v1.normal * bar.y + v2.normal * bar.z).xyz;//.xzy;
@@ -83,7 +84,7 @@ void main()
     vec3 emissiveColor = mat.emission * SRGBtoLINEAR(texture(emissiveMap[nonuniformEXT(objId)], texCoord)).rgb;
     if(dot(v, normal) < 0) emissiveColor = vec3(0);
 
-    rayPayload.si = SurfaceInfo(perceptualRoughness, metallic, alphaRoughness, specularEnvironmentR0, specularEnvironmentR90, diffuseColor, specularColor, emissiveColor, mat.transmittance, normal, TBN);
+    rayPayload.si = SurfaceInfo(perceptualRoughness, metallic, alphaRoughness, mat.illum, specularEnvironmentR0, specularEnvironmentR90, diffuseColor, specularColor, emissiveColor, mat.transmittance, normal, TBN, mat.ior);
 
     rayPayload.position = position;
 	

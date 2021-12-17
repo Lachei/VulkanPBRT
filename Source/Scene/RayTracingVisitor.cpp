@@ -237,7 +237,7 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::BindDescriptorSet& bds
                 else meshEmissive = false;
                 // mapping of shininess to roughness: http://simonstechblog.blogspot.com/2011/12/microfacet-brdf.html
                 auto shin2Rough = [](float shininess){return  std::sqrt(2 / (shininess + 2));};
-                mat.ambientRoughness.w = 1 - shin2Rough(vsgMat.shininess);
+                mat.ambientRoughness.w = shin2Rough(vsgMat.shininess);
                 mat.diffuseIor.w = vsgMat.indexOfRefraction;
                 mat.specularDissolve.w = vsgMat.alphaMask;
                 mat.emissionTextureId.w = vsgMat.alphaMaskCutoff;

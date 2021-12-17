@@ -69,6 +69,7 @@ struct SurfaceInfo{
     float perceptualRoughness;    // roughness value, as authored by the model creator (input to shader)
     float metalness;              // metallic value at the surface
     float alphaRoughness;         // roughness mapped to a more linear change in the roughness (proposed by [2])
+    int illuminationType;         // holds extra information about surface illumination such as refraction, subsurface scatter...
     vec3 reflectance0;            // full reflectance color (normal incidence angle)
     vec3 reflectance90;           // reflectance color at grazing angle
     vec3 diffuseColor;            // color contribution from diffuse lighting
@@ -77,6 +78,7 @@ struct SurfaceInfo{
     vec3 transmissiveColor;
     vec3 normal;
     mat3 basis;                   // tbn matrix for converting form object to world space
+    float indexOfRefraction;
 };
 
 struct PBRInfo
