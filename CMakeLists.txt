@@ -5,6 +5,7 @@ add_subdirectory(Source)
 add_executable(VulkanPBRT ${VulkanPBRT_SRC})
 target_include_directories(VulkanPBRT PRIVATE Source)
 target_link_libraries(VulkanPBRT vsg vsgXchange vsgImGui)
+set_property(TARGET VulkanPBRT PROPERTY CXX_STANDARD 17)
 
 set(SHADERS
     shadow.rmiss
