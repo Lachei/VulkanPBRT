@@ -13,18 +13,18 @@ The todos, in progress and done tasks can be found in the [Projects tab](https:/
 A list of supported features and screenshots (Top is most recent feature):
 - [x] First denoising with gradient descent l2 feature regression implemented
 
-![sponza denoised bfr](pictures/raytracing_denoising_bfr.png)
+![sponza denoised bfr](Screenshots/raytracing_denoising_bfr.png)
 
 - [x] Importance sampling and ray recursion done(Small generalisation for normals still has to be done).
 
-![sponza texture pbr lighting](pictures/raytrace_multi_importance.png)
-![sponza texture pbr lighting](pictures/raytrace.png)
+![sponza texture pbr lighting](Screenshots/raytrace_multi_importance.png)
+![sponza texture pbr lighting](Screenshots/raytrace.png)
 
-![sponza texture pbr lighting](pictures/lighting_no_bounces.png)
+![sponza texture pbr lighting](Screenshots/lighting_no_bounces.png)
 
 - [x] Physically based lighting computation implemented.
 
-![sponza texture shadow](pictures/textured_shadow.png)
+![sponza texture shadow](Screenshots/textured_shadow.png)
 
 - [x] Shadow test via shadow rays works
 - [x] Textures now supported for arbitrary scenes (All textures for physically based rendering already included)
@@ -32,7 +32,7 @@ A list of supported features and screenshots (Top is most recent feature):
 
 - [x] Changed NV_Raytracing completeley to KHR_Raytracing
 
-![sponza easy](pictures/basic_raytracing.png)
+![sponza easy](Screenshots/basic_raytracing.png)
 
 - [x] Basic camera navigation via trackball
 - [x] Inclusion of obj, stl, ... opener, supported 3d types are:
@@ -65,9 +65,9 @@ The local copy of the vsg library is being held up to date via `git subtree`.
 
 In order to update `vsg`, `vsgXchange` and `vsgImGui` open a terminal in the `VulkanPBRT` folder and type the following commands:
 ```
-git subtree pull --prefix external/vsg git@github.com:vsg-dev/VulkanSceneGraph.git master --squash 
-git subtree pull --prefix external/vsgXchange git@github.com:vsg-dev/vsgXchange.git master --squash 
-git subtree pull --prefix external/vsgImGui git@github.com:vsg-dev/vsgImGui.git master --squash 
+git subtree pull --prefix Source/External/vsg git@github.com:vsg-dev/VulkanSceneGraph.git master --squash 
+git subtree pull --prefix Source/External/vsgXchange git@github.com:vsg-dev/vsgXchange.git master --squash 
+git subtree pull --prefix Source/External/vsgImGui git@github.com:vsg-dev/vsgImGui.git master --squash 
 ```
 
 For more information about how to use more complex `git subtree` commands see the [subtree manual](https://manpages.debian.org/testing/git-man/git-subtree.1.en.html).
