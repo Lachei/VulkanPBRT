@@ -1,4 +1,4 @@
-#include "GBufferRasterizer.hpp"
+#include <RenderModules/GBufferRasterizer.hpp>
 
 GBufferRasterizer::GBufferRasterizer(vsg::Device* device, uint32_t width, uint32_t height, bool doubleSided, bool blend) :
     width(width), height(height), device(device), gBuffer(GBuffer::create(width, height)), doubleSided(doubleSided), blend(blend)

@@ -1,9 +1,9 @@
 #pragma once
 #include <vsg/all.h>
-#include "RenderIO.hpp"
-#include "GBuffer.hpp"
-#include "IlluminationBuffer.hpp"
-#include "AccumulationBuffer.hpp"
+#include <IO/RenderIO.hpp>
+#include <Buffers/GBuffer.hpp>
+#include <Buffers/IlluminationBuffer.hpp>
+#include <Buffers/AccumulationBuffer.hpp>
 
 class Accumulator : public vsg::Inherit<vsg::Object, Accumulator>
 {

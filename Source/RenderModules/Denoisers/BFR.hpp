@@ -1,7 +1,7 @@
 #pragma once
-#include "AccumulationBuffer.hpp"
-#include "GBuffer.hpp"
-#include "IlluminationBuffer.hpp"
+#include <Buffers/AccumulationBuffer.hpp>
+#include <Buffers/GBuffer.hpp>
+#include <Buffers/IlluminationBuffer.hpp>
 
 #include <vsg/all.h>
 

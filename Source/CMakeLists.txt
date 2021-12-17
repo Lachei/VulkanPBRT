@@ -35,6 +35,4 @@ foreach(source ${VSG_SRC})
     list(REMOVE_ITEM SRC ${source})
 endforeach()
 
-add_executable(VulkanPBRT ${SRC})
-
-target_link_libraries(VulkanPBRT vsg vsgXchange vsgImGui)
+set(VulkanPBRT_SRC ${VulkanPBRT_SRC} ${SRC} PARENT_SCOPE)

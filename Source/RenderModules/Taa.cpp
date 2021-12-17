@@ -1,6 +1,5 @@
-#include "Taa.hpp"
-
-#include "PipelineStructs.hpp"
+#include <RenderModules/Taa.hpp>
+#include <RenderModules/PipelineStructs.hpp>
 
 Taa::Taa(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeight, vsg::ref_ptr<GBuffer> gBuffer,
     vsg::ref_ptr<AccumulationBuffer> accBuffer, vsg::ref_ptr<vsg::DescriptorImage> denoised) :

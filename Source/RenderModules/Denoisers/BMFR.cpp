@@ -1,6 +1,6 @@
-#include "BMFR.hpp"
+#include <RenderModules/Denoisers/BMFR.hpp>
 
-#include "../PipelineStructs.hpp"
+#include <RenderModules/PipelineStructs.hpp>
 
 BMFR::BMFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeight, vsg::ref_ptr<GBuffer> gBuffer,
     vsg::ref_ptr<IlluminationBuffer> illuBuffer, vsg::ref_ptr<AccumulationBuffer> accBuffer, uint32_t fittingKernel) :

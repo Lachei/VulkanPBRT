@@ -1,6 +1,6 @@
 #pragma once
-#include "GBuffer.hpp"
-#include "AccumulationBuffer.hpp"
+#include <Buffers/GBuffer.hpp>
+#include <Buffers/AccumulationBuffer.hpp>
 
 #include <vsg/all.h>
 

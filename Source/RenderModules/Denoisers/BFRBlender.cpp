@@ -1,4 +1,4 @@
-#include "BFRBlender.hpp"
+#include <RenderModules/Denoisers/BFRBlender.hpp>
 
 #include <string>
 

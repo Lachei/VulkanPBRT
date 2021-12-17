@@ -1,4 +1,4 @@
-#include "PBRTPipeline.hpp"
+#include <RenderModules/PBRTPipeline.hpp>
 
 #include <cassert>
 

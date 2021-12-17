@@ -1,6 +1,6 @@
-#include "BFR.hpp"
+#include <RenderModules/Denoisers/BFR.hpp>
 
-#include "../PipelineStructs.hpp"
+#include <RenderModules/PipelineStructs.hpp>
 
 #include <string>
 

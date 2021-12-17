@@ -1,4 +1,4 @@
-#include "FormatConverter.hpp"
+#include <RenderModules/FormatConverter.hpp>
 #include <vsgXchange/glsl.h>
 
 FormatConverter::FormatConverter(vsg::ref_ptr<vsg::ImageView> srcImage, VkFormat dstFormat, int workWidth, int workHeight):
