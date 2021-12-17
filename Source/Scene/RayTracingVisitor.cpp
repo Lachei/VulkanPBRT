@@ -210,14 +210,16 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::BindDescriptorSet& bds
                 //std::memcpy(&mat.diffuseIor, &vsgMat.diffuseFactor, sizeof(vsg::vec4));
                 std::memcpy(&mat.diffuseIor, &vsgMat.baseColorFactor, sizeof(vsg::vec4));
                 std::memcpy(&mat.emissionTextureId, &vsgMat.emissiveFactor, sizeof(vsg::vec4));
-                std::memcpy(&mat.transmissiveCategoryID, &vsgMat.transmissionFactor, sizeof(vsgMat.transmissionFactor));
+                std::memcpy(&mat.transmittanceIllum, &vsgMat.transmissionFactor, sizeof(vsgMat.transmissionFactor));
                 if (vsgMat.emissiveFactor.r + vsgMat.emissiveFactor.g + vsgMat.emissiveFactor.b != 0) meshEmissive = true;
                 else meshEmissive = false;
                 mat.ambientRoughness.w = vsgMat.roughnessFactor;
                 mat.diffuseIor.w = vsgMat.indexOfRefraction;
                 mat.specularDissolve.w = vsgMat.alphaMask;
                 mat.emissionTextureId.w = vsgMat.alphaMaskCutoff;
-                mat.transmissiveCategoryID.w = *reinterpret_cast<float*>(&vsgMat.categoryId);
+                mat.categoryID= vsgMat.categoryId;
+                if(vsgMat.transmissionFactor.x == 1 && vsgMat.transmissionFactor.y == 1 && vsgMat.transmissionFactor.z == 1)
+                    mat.transmittanceIllum.w = 7;   // means that refraction and reflection should be active
                 _materialArray.push_back(mat);
             }
             else
@@ -230,7 +232,7 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::BindDescriptorSet& bds
                 std::memcpy(&mat.specularDissolve, &vsgMat.specular, sizeof(vsg::vec4));
                 std::memcpy(&mat.diffuseIor, &vsgMat.diffuse, sizeof(vsg::vec4));
                 std::memcpy(&mat.emissionTextureId, &vsgMat.emissive, sizeof(vsg::vec4));
-                std::memcpy(&mat.transmissiveCategoryID, &vsgMat.transmissive, sizeof(vsgMat.transmissive));
+                std::memcpy(&mat.transmittanceIllum, &vsgMat.transmissive, sizeof(vsgMat.transmissive));
                 if (vsgMat.emissive.r + vsgMat.emissive.g + vsgMat.emissive.b != 0) meshEmissive = true;
                 else meshEmissive = false;
                 // mapping of shininess to roughness: http://simonstechblog.blogspot.com/2011/12/microfacet-brdf.html
@@ -239,7 +241,9 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::BindDescriptorSet& bds
                 mat.diffuseIor.w = vsgMat.indexOfRefraction;
                 mat.specularDissolve.w = vsgMat.alphaMask;
                 mat.emissionTextureId.w = vsgMat.alphaMaskCutoff;
-                mat.transmissiveCategoryID.w = *reinterpret_cast<float*>(&vsgMat.categoryId);
+                mat.categoryID = vsgMat.categoryId;
+                if(vsgMat.transmissive.x == 1 && vsgMat.transmissive.y == 1 && vsgMat.transmissive.z == 1)
+                    mat.transmittanceIllum.w = 7;   // means that refraction and reflection should be active
                 _materialArray.push_back(mat);
             }
             continue;

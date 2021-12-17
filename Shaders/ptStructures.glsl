@@ -7,6 +7,14 @@ struct Vertex{
     vec2 uv;
 };
 
+struct ObjectInstance{
+  mat4 objectMat;
+  int meshId;
+  uint indexStride;
+  int pad[2];
+};
+
+// unpacking code is in geometry.glsl
 struct WaveFrontMaterialPacked
 {
   vec4  ambientRoughness;
@@ -16,13 +24,6 @@ struct WaveFrontMaterialPacked
   vec4  emissionTextureId;
   uint category_id;
   float pad[3];
-};
-
-struct ObjectInstance{
-  mat4 objectMat;
-  int meshId;
-  uint indexStride;
-  int pad[2];
 };
 
 struct WaveFrontMaterial
@@ -73,6 +74,7 @@ struct SurfaceInfo{
     vec3 diffuseColor;            // color contribution from diffuse lighting
     vec3 specularColor;           // color contribution from specular lighting
     vec3 emissiveColor;
+    vec3 transmissiveColor;
     vec3 normal;
     mat3 basis;                   // tbn matrix for converting form object to world space
 };

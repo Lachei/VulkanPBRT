@@ -46,7 +46,8 @@ protected:
         vsg::vec4  specularDissolve;
         vsg::vec4  transmittanceIllum;
         vsg::vec4  emissionTextureId;
-        vsg::vec4  transmissiveCategoryID;
+        uint32_t categoryID;
+        float   padding[3];
     };
     vsg::ref_ptr<vsg::DescriptorBuffer> _instances;
     std::vector<ObjectInstance> _instancesArray;

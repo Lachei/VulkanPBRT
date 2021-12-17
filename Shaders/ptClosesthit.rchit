@@ -57,7 +57,7 @@ void main()
         specular = vec4(mat.specular, mat.roughness);
     else
         specular = SRGBtoLINEAR(texture(specularMap[nonuniformEXT(objId)], texCoord));
-    perceptualRoughness = 1.0 - specular.a;
+    perceptualRoughness = specular.a;
 
     float maxSpecular = max(max(specular.r, specular.g), specular.b);
 
@@ -83,7 +83,7 @@ void main()
     vec3 emissiveColor = mat.emission * SRGBtoLINEAR(texture(emissiveMap[nonuniformEXT(objId)], texCoord)).rgb;
     if(dot(v, normal) < 0) emissiveColor = vec3(0);
 
-    rayPayload.si = SurfaceInfo(perceptualRoughness, metallic, alphaRoughness, specularEnvironmentR0, specularEnvironmentR90, diffuseColor, specularColor, emissiveColor, normal, TBN);
+    rayPayload.si = SurfaceInfo(perceptualRoughness, metallic, alphaRoughness, specularEnvironmentR0, specularEnvironmentR90, diffuseColor, specularColor, emissiveColor, mat.transmittance, normal, TBN);
 
     rayPayload.position = position;
 	
