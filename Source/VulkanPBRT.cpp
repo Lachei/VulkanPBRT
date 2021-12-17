@@ -23,7 +23,7 @@
 
 #include <iostream>
 
-#include "external/vsgXchange/src/assimp/3DFrontImporter.h"
+#include "External/vsgXchange/src/assimp/3DFrontImporter.h"
 
 #define _DEBUG
 
