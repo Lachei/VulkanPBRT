@@ -162,11 +162,19 @@ Path vsg::removeExtension(const Path& path)
         return {};
 }
 
-Path vsg::concatPaths(const Path& left, const Path& right)
+Path vsg::concatPaths(Path left, Path right)
 {
     if (left.empty())
     {
         return (right);
+    }
+    if (!left.empty())
+    {
+        std::replace(left.begin(), left.end(), delimiterForeign, delimiterNative);
+    }
+    if (!right.empty())
+    {
+        std::replace(right.begin(), right.end(), delimiterForeign, delimiterNative);
     }
     char lastChar = left[left.size() - 1];
 
