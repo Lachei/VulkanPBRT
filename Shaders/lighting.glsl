@@ -264,16 +264,13 @@ vec3 indirectLighting(vec3 pos, vec3 v, SurfaceInfo s, int recDepth, inout vec3 
   vec3 l;
   float pdf;
   vec3 brdf = sampleBRDF(s, re, v, l, pdf);
-  if(s.illuminationType == 7){
-    traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, pos, tmin, l, tmax, 1);
-    return 0;
-  }
   if(brdf == vec3(0) || pdf < EPSILON){
     return vec3(0);
   }
 
   float t = dot(l, s.normal);
-  vec3 pathThroughput = throughput * (brdf * dot(l, s.normal)) / pdf;
+  if(s.illuminationType == 7) t = 1;
+  vec3 pathThroughput = throughput * (brdf * t) / pdf;
   if(recDepth > infos.minRecursionDepth) {
     float termination = max(c_MinTermination, 1.0 - max(max(pathThroughput.x, pathThroughput.y),pathThroughput.z));
     if(randomFloat(re) < c_MinTermination){

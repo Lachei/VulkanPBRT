@@ -42,7 +42,6 @@ void main(){
     vec3 finalColor = vec3(0);
     finalColor += nextEventEsitmation(rayPayload.position, -normalize(worldSpaceDir.xyz), rayPayload.si, throughput, re);
     finalColor += rayPayload.si.emissiveColor;
-	int t = rayPayload.si.illuminationType;
     // --------------------------------------------------------------------
 	// storing GBuffer information
 	// --------------------------------------------------------------------

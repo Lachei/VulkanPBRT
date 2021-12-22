@@ -50,20 +50,19 @@ vec3 sampleBRDF(SurfaceInfo s, RandomEngine re, vec3 v,out vec3 l,out float pdf)
     vec3 brdf = BRDF(v, l, h, s);
     //decide if material should refract
     if(s.illuminationType == 7){
-        l = -v;
-        //l -= dot(l, s.normal) * s.normal;
-        l = normalize(l);
-        pdf = 1;
-        return vec3(1);
-        float f = luminance(specularReflection(s.reflectance0, s.reflectance90, dot(v, h)));
-        if(true || randomFloat(re) > f){    //refracting
+        float f = specularReflection(vec3(1), vec3(0), dot(v, h)).x;
+        if(randomFloat(re) < f || !entering){    //refracting
             float t = entering ? s.indexOfRefraction : 1 / s.indexOfRefraction; // it is assumed that only air is anohter medium that is participating
-            l -= 2 * (dot(basis[2], l)) * basis[2] * t;
+            vec3 diff = (dot(basis[2], l)) * basis[2];
+            l -= diff + diff  * t;
             l = normalize(l);
-            l = s.basis[1];
+            
+            brdf = s.transmissiveColor;
+            pdf = 1;
+        }
+        else{
+            pdf = 1;
             brdf = vec3(1);
-            pdf = .4;
-            //brdf *= s.transmissiveColor;
         }
     }
     return brdf;

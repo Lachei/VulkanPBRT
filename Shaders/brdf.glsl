@@ -93,8 +93,8 @@ vec3 specularReflection(PBRInfo pbrInputs)
 
 vec3 specularReflection(vec3 reflectance0, vec3 reflectance90, float VdotH)
 {
-    //return pbrInputs.reflectance0 + (pbrInputs.reflectance90 - pbrInputs.reflectance0) * pow(clamp(1.0 - pbrInputs.VdotH, 0.0, 1.0), 5.0);
-    return reflectance0 + (reflectance90 - reflectance90*reflectance0) * exp2((-5.55473 * VdotH - 6.98316) * VdotH);
+    return reflectance0 + (reflectance90 - reflectance0) * pow(clamp(1.0 - VdotH, 0.0, 1.0), 5.0);
+    //return reflectance0 + (reflectance90 - reflectance90*reflectance0) * exp2((-5.55473 * VdotH - 6.98316) * VdotH);
 }
 
 // This calculates the specular geometric attenuation (aka G()),
