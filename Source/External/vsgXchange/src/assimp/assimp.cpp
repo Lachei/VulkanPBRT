@@ -630,7 +630,6 @@ assimp::Implementation::BindState assimp::Implementation::processMaterials(const
             // Phong shading
             vsg::PhongMaterial mat;
 
-            uint32_t maxAmt = 4;
             material->Get(AI_MATKEY_GLTF_ALPHACUTOFF, mat.alphaMaskCutoff);
             material->Get(AI_MATKEY_COLOR_AMBIENT, &mat.ambient.x, &maxAmt);
             const auto diffuseResult = material->Get(AI_MATKEY_COLOR_DIFFUSE, &mat.diffuse.x, &maxAmt);

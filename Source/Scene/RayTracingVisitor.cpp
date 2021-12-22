@@ -218,7 +218,7 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::BindDescriptorSet& bds
                 mat.specularDissolve.w = vsgMat.alphaMask;
                 mat.emissionTextureId.w = vsgMat.alphaMaskCutoff;
                 mat.categoryID= vsgMat.categoryId;
-                if(vsgMat.transmissionFactor.x == 1 && vsgMat.transmissionFactor.y == 1 && vsgMat.transmissionFactor.z == 1)
+                if(vsgMat.transmissionFactor.x != 1 || vsgMat.transmissionFactor.y != 1 || vsgMat.transmissionFactor.z != 1)
                     mat.transmittanceIllum.w = 7;   // means that refraction and reflection should be active
                 _materialArray.push_back(mat);
             }
@@ -227,7 +227,7 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::BindDescriptorSet& bds
                 // normal material
                 vsg::PhongMaterial vsgMat;
                 std::memcpy(&vsgMat, d->bufferInfoList[0]->data->dataPointer(), sizeof(vsg::PhongMaterial));
-                WaveFrontMaterialPacked mat;
+                WaveFrontMaterialPacked mat{};
                 std::memcpy(&mat.ambientRoughness, &vsgMat.ambient, sizeof(vsg::vec4));
                 std::memcpy(&mat.specularDissolve, &vsgMat.specular, sizeof(vsg::vec4));
                 std::memcpy(&mat.diffuseIor, &vsgMat.diffuse, sizeof(vsg::vec4));
@@ -242,7 +242,7 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::BindDescriptorSet& bds
                 mat.specularDissolve.w = vsgMat.alphaMask;
                 mat.emissionTextureId.w = vsgMat.alphaMaskCutoff;
                 mat.categoryID = vsgMat.categoryId;
-                if(vsgMat.transmissive.x == 1 && vsgMat.transmissive.y == 1 && vsgMat.transmissive.z == 1)
+                if(vsgMat.transmissive.x != 1 || vsgMat.transmissive.y != 1 || vsgMat.transmissive.z != 1)
                     mat.transmittanceIllum.w = 7;   // means that refraction and reflection should be active
                 _materialArray.push_back(mat);
             }
