@@ -107,6 +107,8 @@ int main(int argc, char** argv){
         arguments.read("--screen", windowTraits->screenNum);	
 
         auto numFrames = arguments.value(-1, "-f");
+        auto numExportFrames = arguments.value(-1, "-ef");
+        auto samplesPerPixel = arguments.value(1, "-spp");
         auto depthPath = arguments.value(std::string(), "--depths");
         auto exportDepthPath = arguments.value(std::string(), "--exportDepth");
         auto positionPath = arguments.value(std::string(), "--positions");
@@ -597,6 +599,7 @@ int main(int argc, char** argv){
         imageLayoutCompile.context.waitForCompletion();
 
         int numFramesC = numFrames;
+        int exportCount = -1;
         while(viewer->advanceToNextFrame() && (numFrames < 0 || (numFrames--) > 0)){
             if(externalRenderings)
             {
@@ -623,19 +626,20 @@ int main(int argc, char** argv){
 
             rayTracingPushConstantsValue->value().prevView = lookAt->transform();
 
-            if(exportGBuffer || exportIllumination){
+            if((exportGBuffer || exportIllumination) && rayTracingPushConstantsValue->value().sampleNumber >= samplesPerPixel){
+                ++exportCount;
                 viewer->deviceWaitIdle();
             }
             if(exportIllumination){
-                int frame = offlineIlluminations.size() - 1 - numFrames;
+                int frame = exportCount;
                 offlineIlluminationBufferStager->transferStagingDataTo(offlineIlluminations[frame]);
             }
             if(exportGBuffer){
-                int frame = offlineGBuffers.size() - 1 - numFrames;
+                int frame = exportCount;
                 offlineGBufferStager->transferStagingDataTo(offlineGBuffers[frame]);
             }
             if(storeMatrices){
-                int frame = cameraMatrices.size() - 1 - numFrames;
+                int frame = exportCount;
                 cameraMatrices[frame].view = lookAt->transform();
                 cameraMatrices[frame].invView = lookAt->inverse();
                 cameraMatrices[frame].proj.value() = perspective->transform();
