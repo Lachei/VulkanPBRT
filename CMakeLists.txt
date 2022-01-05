@@ -1,6 +1,23 @@
 cmake_minimum_required(VERSION 3.7)
 
+project(VulkanPBRT
+    VERSION 1.0.0
+    DESCRIPTION "Vulkan physically based raytracer"
+    LANGUAGES C CXX
+)
+
+find_package(nlohmann_json REQUIRED)
+
+set(SLAVE_PROJECTS true)    #information for the subprojects to not find packes via find_package they can assume the packages exist
+add_subdirectory(External/vsg)
+add_subdirectory(External/vsgXchange)
+add_subdirectory(External/vsgImGui)
+set(SLAVE_PROJECTS false)
+
 add_subdirectory(Source)
+
+include_directories(${OpenEXR_INCLUDE_DIRS})
+set(CMAKE_CXX_STANDARD 17)
 
 add_executable(VulkanPBRT ${VulkanPBRT_SRC})
 target_include_directories(VulkanPBRT PRIVATE Source)
