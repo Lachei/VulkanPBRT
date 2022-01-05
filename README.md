@@ -65,9 +65,9 @@ The local copy of the vsg library is being held up to date via `git subtree`.
 
 In order to update `vsg`, `vsgXchange` and `vsgImGui` open a terminal in the `VulkanPBRT` folder and type the following commands:
 ```
-git subtree pull --prefix External/vsg git@github.com:vsg-dev/VulkanSceneGraph.git master --squash 
-git subtree pull --prefix External/vsgXchange git@github.com:vsg-dev/vsgXchange.git master --squash 
-git subtree pull --prefix External/vsgImGui git@github.com:vsg-dev/vsgImGui.git master --squash 
+git subtree pull --prefix external/vsg git@github.com:vsg-dev/VulkanSceneGraph.git master --squash 
+git subtree pull --prefix external/vsgXchange git@github.com:vsg-dev/vsgXchange.git master --squash 
+git subtree pull --prefix external/vsgImGui git@github.com:vsg-dev/vsgImGui.git master --squash 
 ```
 
 For more information about how to use more complex `git subtree` commands see the [subtree manual](https://manpages.debian.org/testing/git-man/git-subtree.1.en.html).
