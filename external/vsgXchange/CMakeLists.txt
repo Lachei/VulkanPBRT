@@ -18,7 +18,11 @@ if (VULKAN_SDK)
 endif()
 
 if(NOT SLAVE_PROJECTS)
-    find_package(vsg 0.1.14 REQUIRED)
+    set(VSG_MIN_VERSION 0.2.1)
+    find_package(vsg ${VSG_MIN_VERSION} REQUIRED)
+
+    # for generated cmake support files
+    set(FIND_DEPENDENCY ${FIND_DEPENDENCY} "find_dependency(vsg ${VSG_MIN_VERSION} REQUIRED)")
 else()
     set(CMAKE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 endif()
