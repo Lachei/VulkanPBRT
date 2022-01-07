@@ -1,4 +1,4 @@
-#include <Buffers/GBuffer.hpp>
+#include <buffers/GBuffer.hpp>
 
 GBuffer::GBuffer(uint32_t width, uint32_t height) : width(width), height(height)
 {

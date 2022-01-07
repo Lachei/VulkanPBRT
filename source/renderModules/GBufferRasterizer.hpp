@@ -1,5 +1,5 @@
 #pragma once
-#include <Buffers/GBuffer.hpp>
+#include <buffers/GBuffer.hpp>
 
 #include <vsg/all.h>
 

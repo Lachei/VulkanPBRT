@@ -11,7 +11,7 @@ public:
     void addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph);
     vsg::ref_ptr<vsg::DescriptorImage> finalImage;
 private:
-    std::string shaderPath = "Shaders/formatConverter.comp";
+    std::string shaderPath = "shaders/formatConverter.comp";
     vsg::ref_ptr<vsg::BindDescriptorSet> bindDescriptorSet;
     vsg::ref_ptr<vsg::BindComputePipeline> bindPipeline;
     int width, height, workWidth, workHeight;

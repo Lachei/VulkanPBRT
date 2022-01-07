@@ -1,4 +1,4 @@
-#include <Buffers/AccumulationBuffer.hpp>
+#include <buffers/AccumulationBuffer.hpp>
 
 AccumulationBuffer::AccumulationBuffer(uint32_t width, uint32_t height) : width(width), height(height)
 {

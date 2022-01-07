@@ -9,18 +9,18 @@ project(VulkanPBRT
 find_package(nlohmann_json REQUIRED)
 
 set(SLAVE_PROJECTS true)    #information for the subprojects to not find packes via find_package they can assume the packages exist
-add_subdirectory(External/vsg)
-add_subdirectory(External/vsgXchange)
-add_subdirectory(External/vsgImGui)
+add_subdirectory(external/vsg)
+add_subdirectory(external/vsgXchange)
+add_subdirectory(external/vsgImGui)
 set(SLAVE_PROJECTS false)
 
-add_subdirectory(Source)
+add_subdirectory(source)
 
 include_directories(${OpenEXR_INCLUDE_DIRS})
 set(CMAKE_CXX_STANDARD 17)
 
 add_executable(VulkanPBRT ${VulkanPBRT_SRC})
-target_include_directories(VulkanPBRT PRIVATE Source)
+target_include_directories(VulkanPBRT PRIVATE source)
 target_link_libraries(VulkanPBRT vsg vsgXchange vsgImGui)
 set_property(TARGET VulkanPBRT PROPERTY CXX_STANDARD 17)
 
@@ -66,8 +66,8 @@ set(UNCOMPILED_SHADERS
 foreach(SHADER IN LISTS SHADERS)
     find_program(GLSLC glslc)
 
-    set(current-shader-path ${CMAKE_CURRENT_SOURCE_DIR}/Shaders/${SHADER})
-    set(current-output-path ${CMAKE_BINARY_DIR}/Shaders/${SHADER}.spv)
+    set(current-shader-path ${CMAKE_CURRENT_SOURCE_DIR}/shaders/${SHADER})
+    set(current-output-path ${CMAKE_BINARY_DIR}/shaders/${SHADER}.spv)
 
     # Add a custom command to compile GLSL to SPIR-V.
     get_filename_component(current-output-dir ${current-output-path} DIRECTORY)
@@ -87,8 +87,8 @@ add_dependencies(VulkanPBRT CompileShaders)
 
 
 foreach(S IN LISTS UNCOMPILED_SHADERS)
-    set(current-shader-path ${CMAKE_CURRENT_SOURCE_DIR}/Shaders/${S})
-    set(current-output-path ${CMAKE_BINARY_DIR}/Shaders/${S})
+    set(current-shader-path ${CMAKE_CURRENT_SOURCE_DIR}/shaders/${S})
+    set(current-output-path ${CMAKE_BINARY_DIR}/shaders/${S})
 
     get_filename_component(current-output-dir ${current-output-path} DIRECTORY)
     file(MAKE_DIRECTORY ${current-output-dir})

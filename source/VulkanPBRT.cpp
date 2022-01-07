@@ -1,17 +1,17 @@
 
 
-#include "Scene/CountTrianglesVisitor.hpp"
+#include "scene/CountTrianglesVisitor.hpp"
 
-#include "RenderModules/PipelineStructs.hpp"
+#include "renderModules/PipelineStructs.hpp"
 
-#include "RenderModules/PBRTPipeline.hpp"
-#include "RenderModules/Accumulator.hpp"
-#include "RenderModules/FormatConverter.hpp"
-#include "RenderModules/Denoisers/BFR.hpp"
-#include "RenderModules/Denoisers/BFRBlender.hpp"
-#include "RenderModules/Denoisers/BMFR.hpp"
-#include "RenderModules/Taa.hpp"
-#include "IO/RenderIO.hpp"
+#include "renderModules/PBRTPipeline.hpp"
+#include "renderModules/Accumulator.hpp"
+#include "renderModules/FormatConverter.hpp"
+#include "renderModules/denoisers/BFR.hpp"
+#include "renderModules/denoisers/BFRBlender.hpp"
+#include "renderModules/denoisers/BMFR.hpp"
+#include "renderModules/Taa.hpp"
+#include "io/RenderIO.hpp"
 
 #include "Gui.hpp"
 
@@ -23,7 +23,7 @@
 
 #include <iostream>
 
-#include "../External/vsgXchange/src/assimp/3DFrontImporter.h"
+#include "../external/vsgXchange/src/assimp/3DFrontImporter.h"
 
 #define _DEBUG
 

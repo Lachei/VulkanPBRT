@@ -1,9 +1,9 @@
 #pragma once
 
-#include <Buffers/GBuffer.hpp>
-#include <Buffers/IlluminationBuffer.hpp>
-#include <Scene/RayTracingVisitor.hpp>
-#include <Buffers/AccumulationBuffer.hpp>
+#include <buffers/GBuffer.hpp>
+#include <buffers/IlluminationBuffer.hpp>
+#include <scene/RayTracingVisitor.hpp>
+#include <buffers/AccumulationBuffer.hpp>
 
 #include <vsg/all.h>
 #include <vsgXchange/glsl.h>

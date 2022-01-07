@@ -1,4 +1,4 @@
-#include <RenderModules/Accumulator.hpp>
+#include <renderModules/Accumulator.hpp>
 
 Accumulator::Accumulator(vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<IlluminationBuffer> illuminationBuffer, DoubleMatrices& matrices, int workWidth, int workHeight):
     width(gBuffer->depth->imageInfoList[0]->imageView->image->extent.width),

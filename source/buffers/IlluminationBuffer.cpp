@@ -1,4 +1,4 @@
-#include <Buffers/IlluminationBuffer.hpp>
+#include <buffers/IlluminationBuffer.hpp>
 
 #include <cassert>
 

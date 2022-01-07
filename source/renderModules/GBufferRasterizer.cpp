@@ -1,4 +1,4 @@
-#include <RenderModules/GBufferRasterizer.hpp>
+#include <renderModules/GBufferRasterizer.hpp>
 
 GBufferRasterizer::GBufferRasterizer(vsg::Device* device, uint32_t width, uint32_t height, bool doubleSided, bool blend) :
     width(width), height(height), device(device), gBuffer(GBuffer::create(width, height)), doubleSided(doubleSided), blend(blend)
@@ -16,8 +16,8 @@ void GBufferRasterizer::updateImageLayouts(vsg::Context& context)
 void GBufferRasterizer::setupGraphicsPipeline()
 {
     //loading shaders and getting the descriptor set layout from the shader
-    std::string vertexPath = "Shaders/rasterizer.vert.spv";
-    std::string fragmentPath = "Shaders/rasterizer.frag.spv";
+    std::string vertexPath = "shaders/rasterizer.vert.spv";
+    std::string fragmentPath = "shaders/rasterizer.frag.spv";
 
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexPath);
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragmentPath);

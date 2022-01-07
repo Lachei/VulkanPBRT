@@ -5,8 +5,8 @@
 #include <vsgXchange/images.h>
 #include <vector>
 #include <string>
-#include <Buffers/GBuffer.hpp>
-#include <Buffers/IlluminationBuffer.hpp>
+#include <buffers/GBuffer.hpp>
+#include <buffers/IlluminationBuffer.hpp>
 
 // vk copy Buffer to image wrapper class
 class CopyBufferToImage: public vsg::Inherit<vsg::Command, CopyBufferToImage>{

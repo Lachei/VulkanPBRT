@@ -1,4 +1,4 @@
-#include <RenderModules/PBRTPipeline.hpp>
+#include <renderModules/PBRTPipeline.hpp>
 
 #include <cassert>
 
@@ -84,11 +84,11 @@ void PBRTPipeline::setupPipeline(vsg::Node *scene, bool useExternalGbuffer)
     if(buildDescriptorBinding.packedLights.size() > maxLights) lightSamplingMethod = LightSamplingMethod::SampleUniform;
 
     //creating the shader stages and shader binding table
-    std::string raygenPath = "Shaders/ptRaygen.rgen"; //raygen shader not yet precompiled
-    std::string raymissPath = "Shaders/ptMiss.rmiss.spv";
-    std::string shadowMissPath = "Shaders/shadow.rmiss.spv";
-    std::string closesthitPath = "Shaders/ptClosesthit.rchit.spv";
-    std::string anyHitPath = "Shaders/ptAlphaHit.rahit.spv";
+    std::string raygenPath = "shaders/ptRaygen.rgen"; //raygen shader not yet precompiled
+    std::string raymissPath = "shaders/ptMiss.rmiss.spv";
+    std::string shadowMissPath = "shaders/shadow.rmiss.spv";
+    std::string closesthitPath = "shaders/ptClosesthit.rchit.spv";
+    std::string anyHitPath = "shaders/ptAlphaHit.rahit.spv";
 
     auto raygenShader = setupRaygenShader(raygenPath, useExternalGbuffer);
     auto raymissShader = vsg::ShaderStage::read(VK_SHADER_STAGE_MISS_BIT_KHR, "main", raymissPath);

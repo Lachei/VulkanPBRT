@@ -1,9 +1,9 @@
 #pragma once
 #include <vsg/all.h>
-#include <IO/RenderIO.hpp>
-#include <Buffers/GBuffer.hpp>
-#include <Buffers/IlluminationBuffer.hpp>
-#include <Buffers/AccumulationBuffer.hpp>
+#include <io/RenderIO.hpp>
+#include <buffers/GBuffer.hpp>
+#include <buffers/IlluminationBuffer.hpp>
+#include <buffers/AccumulationBuffer.hpp>
 
 class Accumulator : public vsg::Inherit<vsg::Object, Accumulator>
 {
@@ -34,7 +34,7 @@ private:
     public:
         PCValue(){}
     };
-    std::string shaderPath = "Shaders/accumulator.comp.spv";
+    std::string shaderPath = "shaders/accumulator.comp.spv";
     int workWidth, workHeight;
     vsg::ref_ptr<GBuffer> gBuffer;
     vsg::ref_ptr<IlluminationBuffer> originalIllumination;
