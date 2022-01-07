@@ -13,18 +13,18 @@ The todos, in progress and done tasks can be found in the [Projects tab](https:/
 A list of supported features and screenshots (Top is most recent feature):
 - [x] First denoising with gradient descent l2 feature regression implemented
 
-![sponza denoised bfr](pictures/raytracing_denoising_bfr.png)
+![sponza denoised bfr](screenshots/raytracing_denoising_bfr.png)
 
 - [x] Importance sampling and ray recursion done(Small generalisation for normals still has to be done).
 
-![sponza texture pbr lighting](pictures/raytrace_multi_importance.png)
-![sponza texture pbr lighting](pictures/raytrace.png)
+![sponza texture pbr lighting](screenshots/raytrace_multi_importance.png)
+![sponza texture pbr lighting](screenshots/raytrace.png)
 
-![sponza texture pbr lighting](pictures/lighting_no_bounces.png)
+![sponza texture pbr lighting](screenshots/lighting_no_bounces.png)
 
 - [x] Physically based lighting computation implemented.
 
-![sponza texture shadow](pictures/textured_shadow.png)
+![sponza texture shadow](screenshots/textured_shadow.png)
 
 - [x] Shadow test via shadow rays works
 - [x] Textures now supported for arbitrary scenes (All textures for physically based rendering already included)
@@ -32,7 +32,7 @@ A list of supported features and screenshots (Top is most recent feature):
 
 - [x] Changed NV_Raytracing completeley to KHR_Raytracing
 
-![sponza easy](pictures/basic_raytracing.png)
+![sponza easy](screenshots/basic_raytracing.png)
 
 - [x] Basic camera navigation via trackball
 - [x] Inclusion of obj, stl, ... opener, supported 3d types are:

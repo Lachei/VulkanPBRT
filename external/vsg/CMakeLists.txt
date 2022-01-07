@@ -20,6 +20,8 @@ endif()
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 include(vsgMacros)
 
+find_package(nlohmann_json REQUIRED)
+
 vsg_setup_dir_vars()
 vsg_setup_build_vars()
 
