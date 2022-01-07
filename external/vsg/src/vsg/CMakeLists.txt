@@ -25,7 +25,7 @@ set(SOURCES
 
     introspection/c_interface.cpp
 
-    maths/transform.cpp
+    maths/maths_transform.cpp
 
     nodes/Group.cpp
     nodes/Geometry.cpp
@@ -41,7 +41,6 @@ set(SOURCES
     nodes/DepthSorted.cpp
     nodes/Bin.cpp
     nodes/Switch.cpp
-    nodes/MaskGroup.cpp
     nodes/StateGroup.cpp
 
     commands/BindIndexBuffer.cpp
@@ -84,6 +83,7 @@ set(SOURCES
     state/Sampler.cpp
     state/ResourceHints.cpp
     state/StateCommand.cpp
+    state/StateSwitch.cpp
     state/Image.cpp
     state/ImageInfo.cpp
     state/ImageView.cpp
