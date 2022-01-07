@@ -6,6 +6,10 @@ using namespace vsgXchange;
 //
 // openEXR ReaderWriter fallback
 //
+openexr::openexr() :
+{
+}
+
 vsg::ref_ptr<vsg::Object> openexr::read(const vsg::Path& filename, vsg::ref_ptr<const vsg::Options> options) const
 {
     return {};
