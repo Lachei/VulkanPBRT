@@ -44,6 +44,7 @@ namespace vsg
         virtual void zoom(double ratio);
         virtual void pan(const dvec2& delta);
 
+        std::pair<int32_t, int32_t> cameraRenderAreaCoordinates(const PointerEvent& pointerEvent) const;
         bool withinRenderArea(const PointerEvent& pointerEvent) const;
 
         void clampToGlobe();
