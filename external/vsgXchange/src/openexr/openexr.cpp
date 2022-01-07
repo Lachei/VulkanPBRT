@@ -211,7 +211,7 @@ static vsg::ref_ptr<vsg::Object> parseOpenExr(Imf::InputFile& file){
 }
 
 openexr::openexr() :
-    _supportedExtensions{"exr"}
+    _supportedExtensions{".exr"}
 {
 }
 
