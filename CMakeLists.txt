@@ -21,7 +21,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_executable(VulkanPBRT ${VulkanPBRT_SRC})
 target_include_directories(VulkanPBRT PRIVATE source)
-target_link_libraries(VulkanPBRT vsg vsgXchange vsgImGui)
+target_link_libraries(VulkanPBRT vsg vsgXchange vsgImGui nlohmann_json)
 set_property(TARGET VulkanPBRT PROPERTY CXX_STANDARD 17)
 
 set(SHADERS
