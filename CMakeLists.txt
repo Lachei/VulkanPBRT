@@ -37,6 +37,7 @@ set(SHADERS
     ptRaygen.rgen
     ptClosesthit.rchit
     ptMiss.rmiss
+    accumulator.comp
 )
 
 set(UNCOMPILED_SHADERS
@@ -58,7 +59,6 @@ set(UNCOMPILED_SHADERS
     camera.glsl
     color.glsl
     ptRaygen.rgen
-    accumulator.comp
     formatConverter.comp
 )
 

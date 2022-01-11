@@ -376,8 +376,18 @@ int main(int argc, char** argv){
         auto commands = vsg::Commands::create();
         auto offlineGBufferStager = OfflineGBuffer::create();
         auto offlineIlluminationBufferStager = OfflineIllumination::create();
+        vsg::ref_ptr<vsg::QueryPool> queryPool;
         if(pbrtPipeline){
+            queryPool = vsg::QueryPool::create();   //standard init has 1 timestamp place
+            queryPool->queryCount = 2;
+            queryPool->compile(imageLayoutCompile.context);
+            auto resetQuery = vsg::ResetQueryPool::create(queryPool);
+            auto write1 = vsg::WriteTimestamp::create(queryPool, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+            auto write2 = vsg::WriteTimestamp::create(queryPool, 1, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+            commands->addChild(resetQuery);
+            commands->addChild(write1);
             pbrtPipeline->addTraceRaysToCommandGraph(commands, pushConstants);
+            commands->addChild(write2);
             illuminationBuffer = pbrtPipeline->getIlluminationBuffer();
         }
         else{
@@ -391,8 +401,17 @@ int main(int argc, char** argv){
 
         vsg::ref_ptr<Accumulator> accumulator;
         if(externalRenderings && denoisingType != DenoisingType::None){
+            queryPool = vsg::QueryPool::create();   //standard init has 1 timestamp place
+            queryPool->queryCount = 2;
+            queryPool->compile(imageLayoutCompile.context);
+            auto resetQuery = vsg::ResetQueryPool::create(queryPool);
+            auto write1 = vsg::WriteTimestamp::create(queryPool, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+            auto write2 = vsg::WriteTimestamp::create(queryPool, 1, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
             accumulator = Accumulator::create(gBuffer, illuminationBuffer, cameraMatrices);
+            commands->addChild(resetQuery);
+            commands->addChild(write1);
             accumulator->addDispatchToCommandGraph(commands);
+            commands->addChild(write2);
             accumulationBuffer = accumulator->accumulationBuffer;
             illuminationBuffer->compile(imageLayoutCompile.context);
             illuminationBuffer->updateImageLayouts(imageLayoutCompile.context);
@@ -623,6 +642,15 @@ int main(int argc, char** argv){
             viewer->update();
             viewer->recordAndSubmit();
             viewer->present();
+            if(queryPool){
+                viewer->deviceWaitIdle();
+                auto results = queryPool->getResults();
+                static double running = 0;
+                static int count = 0;
+                double a = count / double(++count);
+                running = a * running + (1 - a) * (results[1] - results[0]) / 1e6;
+                std::cout << running << std::endl;
+            }
 
             rayTracingPushConstantsValue->value().prevView = lookAt->transform();
 

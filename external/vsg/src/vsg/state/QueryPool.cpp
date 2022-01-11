@@ -31,14 +31,14 @@ void QueryPool::write(Output& output) const{
     output.writeValue<uint32_t>("PipelineStatisticFlags", pipelineStatistics);
 }
 
-void QueryPool::reset(Context& context){
+void QueryPool::reset(){
     if(_queryPool)
-        vkResetQueryPool(*context.device, _queryPool, 0, queryCount);
+        vkResetQueryPool(*_device, _queryPool, 0, queryCount);
 }
 
-std::vector<uint32_t> QueryPool::getResults(Context& context){
+std::vector<uint32_t> QueryPool::getResults(){
     std::vector<uint32_t> res(queryCount);
-    if (VkResult result = vkGetQueryPoolResults(*context.device, _queryPool, 0, queryCount, queryCount + sizeof(uint32_t), res.data(), sizeof(uint32_t), 0); result != VK_SUCCESS){
+    if (VkResult result = vkGetQueryPoolResults(*_device, _queryPool, 0, queryCount, queryCount * sizeof(uint32_t), res.data(), sizeof(uint32_t), 0); result != VK_SUCCESS){
         throw Exception{"Error: Failed to get QueryPool results.", result};
     }
     return res;

@@ -9,7 +9,7 @@ namespace vsg
     class VSG_DECLSPEC QueryPool : public Inherit<Object, QueryPool>
     {
     public:
-        QueryPool();
+        QueryPool(){};
 
         ~QueryPool();
 
@@ -21,15 +21,15 @@ namespace vsg
         void read(Input& input) override;
         void write(Output& output) const override;
 
-        void reset(Context& context);
-        std::vector<uint32_t> getResults(Context& context);
+        void reset();
+        std::vector<uint32_t> getResults();
 
         void compile(Context& context);
 
         operator VkQueryPool() const { return _queryPool; }
     protected:
-        VkQueryPool _queryPool;
-        ref_ptr<Device> _device;
+        VkQueryPool _queryPool{};
+        ref_ptr<Device> _device{};
     };
 
 } // namespace vsg
