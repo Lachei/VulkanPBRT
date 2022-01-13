@@ -1,5 +1,7 @@
 #version 450
 
+#pragma import_defines(SEPARATE_MATRICES)
+
 layout(binding = 0) uniform sampler2D srcImage;
 layout(binding = 1, r32f) uniform image2D depthImage;
 layout(binding = 2, rg32f) uniform image2D normalImage;
@@ -17,7 +19,7 @@ layout(binding = 13, rgba16f) uniform image2D illuminationSquared;
 
 layout(push_constant) uniform PushConstants 
 {
-	mat4 view;
+	mat4 view;			//for separate matrices view is the inverse projection matrix
 	mat4 inverseView;
 	mat4 prevView;
     vec4 prevOrigin;

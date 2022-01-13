@@ -1,6 +1,6 @@
 #include <renderModules/Accumulator.hpp>
 
-Accumulator::Accumulator(vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<IlluminationBuffer> illuminationBuffer, DoubleMatrices& matrices, int workWidth, int workHeight):
+Accumulator::Accumulator(vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<IlluminationBuffer> illuminationBuffer, bool separateMatrices, int workWidth, int workHeight):
     width(gBuffer->depth->imageInfoList[0]->imageView->image->extent.width),
     height(gBuffer->depth->imageInfoList[0]->imageView->image->extent.height),
     matrices(matrices),
@@ -8,7 +8,8 @@ Accumulator::Accumulator(vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<Illuminatio
     workHeight(workHeight),
     accumulationBuffer(AccumulationBuffer::create(width, height)),
     accumulatedIllumination(IlluminationBufferDemodulated::create(width, height)),
-    originalIllumination(illuminationBuffer)
+    originalIllumination(illuminationBuffer),
+    _separateMatrices(separateMatrices)
 {
     auto computeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", shaderPath);
     if(!computeStage){
@@ -18,6 +19,8 @@ Accumulator::Accumulator(vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<Illuminatio
         {0, vsg::intValue::create(workWidth)}, 
         {1, vsg::intValue::create(workHeight)}
     };
+    if(separateMatrices)
+        computeStage->module->hints->defines.push_back("SEPARATE_MATRICES");
 
     auto bindingMap = computeStage->getDescriptorSetLayoutBindingsMap();
     auto descriptorSetLayout = vsg::DescriptorSetLayout::create(bindingMap.begin()->second.bindings);
@@ -40,9 +43,6 @@ Accumulator::Accumulator(vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<Illuminatio
     accumulatedIllumination->updateDescriptor(bindDescriptorSet, bindingMap);
     
     pushConstantsValue = PCValue::create();
-    pushConstantsValue->value().view = matrices[frameIndex].view;
-    pushConstantsValue->value().invView = matrices[frameIndex].invView;
-    pushConstantsValue->value().frameNumber = frameIndex;
     pushConstants = vsg::PushConstants::create(VK_SHADER_STAGE_COMPUTE_BIT, 0, pushConstantsValue);
 }
 
@@ -67,15 +67,25 @@ void Accumulator::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandG
                                                  1));
 }
 
-void Accumulator::setFrameIndex(int frame) 
+void Accumulator::setDoubleMatrix(int frameIndex, const DoubleMatrix& cur, const DoubleMatrix& prev)
 {
-    frameIndex = frame;
-    pushConstantsValue->value().view = matrices[frameIndex].view;
-    pushConstantsValue->value().invView = matrices[frameIndex].invView;
-    if(frameIndex != 0){
-        pushConstantsValue->value().prevView = matrices[frameIndex - 1].view;
-        pushConstantsValue->value().prevPos = matrices[frameIndex - 1].invView[2];
-        pushConstantsValue->value().prevPos /= pushConstantsValue->value().prevPos.w;
+    if(_separateMatrices){
+        if(!cur.proj || !cur.invProj) throw vsg::Exception{"Accumulator::setDoubleMatrix(...) Accumulator was created with separateMatrices = true, but DubleMatrix is missing seperate matrices"};
+        pushConstantsValue->value().view = cur.invProj.value();
+        pushConstantsValue->value().invView = cur.invView;
+        if(frameIndex){
+            pushConstantsValue->value().prevView = prev.view;
+        }
+        pushConstantsValue->value().frameNumber = frameIndex;
     }
-    pushConstantsValue->value().frameNumber = frameIndex;
+    else{
+        pushConstantsValue->value().view = cur.view;
+        pushConstantsValue->value().invView = cur.invView;
+        if(frameIndex){
+            pushConstantsValue->value().prevView = prev.view;
+            pushConstantsValue->value().prevPos = prev.invView[2];
+            pushConstantsValue->value().prevPos /= pushConstantsValue->value().prevPos.w;
+        }
+        pushConstantsValue->value().frameNumber = frameIndex;
+    }
 }
