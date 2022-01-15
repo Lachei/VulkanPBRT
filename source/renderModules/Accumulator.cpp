@@ -64,11 +64,14 @@ void Accumulator::updateImageLayouts(vsg::Context& context)
 
 void Accumulator::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph) 
 {
+    auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        0);
     commandGraph->addChild(bindPipeline);
     commandGraph->addChild(bindDescriptorSet);
     commandGraph->addChild(pushConstants);
     commandGraph->addChild(vsg::Dispatch::create(uint32_t(ceil(float(width) / float(workWidth))), uint32_t(ceil(float(height) / float(workHeight))),
                                                  1));
+    commandGraph->addChild(pipelineBarrier);
 }
 
 void Accumulator::setDoubleMatrix(int frameIndex, const DoubleMatrix& cur, const DoubleMatrix& prev)

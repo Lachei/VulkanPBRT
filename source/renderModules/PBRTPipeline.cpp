@@ -59,6 +59,8 @@ void PBRTPipeline::updateImageLayouts(vsg::Context &context)
 }
 void PBRTPipeline::addTraceRaysToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants)
 {
+    auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_DEPENDENCY_DEVICE_GROUP_BIT);
     commandGraph->addChild(bindRayTracingPipeline);
     commandGraph->addChild(bindRayTracingDescriptorSet);
     commandGraph->addChild(pushConstants);
@@ -68,6 +70,7 @@ void PBRTPipeline::addTraceRaysToCommandGraph(vsg::ref_ptr<vsg::Commands> comman
     traceRays->height = height;
     traceRays->depth = 1;
     commandGraph->addChild(traceRays);
+    commandGraph->addChild(pipelineBarrier);
 }
 vsg::ref_ptr<IlluminationBuffer> PBRTPipeline::getIlluminationBuffer() const
 {
