@@ -52,7 +52,7 @@ void main(){
 	dir = camParams.inverseView * vec4(normalize(dir.xyz), 0);
 	vec4 p = pos + depth * dir;
 	vec4 prevPos = proj * camParams.prevView * p;
-#elif
+#else
     vec4 curOrigin = camParams.inverseView[2];
     curOrigin /= curOrigin.w;
     vec2 clipSpaceCoord = ((vec2(gl_GlobalInvocationID.xy) + vec2(.5)) / vec2(imageSize)) * 2 - 1;
