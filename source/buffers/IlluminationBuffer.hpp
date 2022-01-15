@@ -62,9 +62,9 @@ public:
     void fillImages();
 };
 
-class IlluminatonBufferFinalFloat: public vsg::Inherit<IlluminationBuffer, IlluminatonBufferFinalFloat>{
+class IlluminationBufferFinalFloat: public vsg::Inherit<IlluminationBuffer, IlluminationBufferFinalFloat>{
 public:
-    IlluminatonBufferFinalFloat(uint32_t width, uint32_t height);
+    IlluminationBufferFinalFloat(uint32_t width, uint32_t height);
 
     void fillImages();
 };

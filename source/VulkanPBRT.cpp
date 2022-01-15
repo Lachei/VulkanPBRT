@@ -361,15 +361,14 @@ int main(int argc, char **argv)
         bool writeGBuffer;
         if (denoisingType != DenoisingType::None)
         {
-            gBuffer = GBuffer::create(windowTraits->width, windowTraits->height);
-            accumulationBuffer = AccumulationBuffer::create(windowTraits->width, windowTraits->height);
             writeGBuffer = true;
-            illuminationBuffer = IlluminationBufferDemodulated::create(windowTraits->width, windowTraits->height);
+            gBuffer = GBuffer::create(windowTraits->width, windowTraits->height);
+            illuminationBuffer = IlluminationBufferDemodulatedFloat::create(windowTraits->width, windowTraits->height);
         }
         else
         {
             writeGBuffer = false;
-            illuminationBuffer = IlluminatonBufferFinalFloat::create(windowTraits->width, windowTraits->height);
+            illuminationBuffer = IlluminationBufferFinalFloat::create(windowTraits->width, windowTraits->height);
         }
         if (exportIllumination && !gBuffer)
         {
@@ -444,7 +443,7 @@ int main(int argc, char **argv)
         }
 
         vsg::ref_ptr<Accumulator> accumulator;
-        if (externalRenderings && denoisingType != DenoisingType::None)
+        if (denoisingType != DenoisingType::None)
         {
             queryPool = vsg::QueryPool::create(); //standard init has 1 timestamp place
             queryPool->queryCount = 2;
@@ -452,7 +451,7 @@ int main(int argc, char **argv)
             auto resetQuery = vsg::ResetQueryPool::create(queryPool);
             auto write1 = vsg::WriteTimestamp::create(queryPool, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
             auto write2 = vsg::WriteTimestamp::create(queryPool, 1, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-            accumulator = Accumulator::create(gBuffer, illuminationBuffer, false);
+            accumulator = Accumulator::create(gBuffer, illuminationBuffer, !externalRenderings);
             commands->addChild(resetQuery);
             commands->addChild(write1);
             accumulator->addDispatchToCommandGraph(commands);
@@ -461,9 +460,6 @@ int main(int argc, char **argv)
             illuminationBuffer->compile(imageLayoutCompile.context);
             illuminationBuffer->updateImageLayouts(imageLayoutCompile.context);
             illuminationBuffer = accumulator->accumulatedIllumination; //swap illumination buffer to accumulated illumination for correct use in the following pipelines
-        }
-        else{
-            accumulator = Accumulator::create(gBuffer, illuminationBuffer, true);
         }
 
         vsg::ref_ptr<vsg::DescriptorImage> finalDescriptorImage;
@@ -678,6 +674,8 @@ int main(int argc, char **argv)
         int exportCount = -1;
         while (viewer->advanceToNextFrame() && (numFrames < 0 || (numFrames--) > 0))
         {
+            viewer->handleEvents();
+
             if (externalRenderings)
             {
                 int frame = offlineGBuffers.size() - 1 - numFrames; //invert numFrames as it is counting down
@@ -691,11 +689,10 @@ int main(int argc, char **argv)
                 DoubleMatrix a{}, b{};
                 a.invView = lookAt->inverse();
                 a.invProj = perspective->inverse();
+                a.proj = perspective->transform();
                 b.view = rayTracingPushConstantsValue->value().prevView;
                 accumulator->setDoubleMatrix(rayTracingPushConstantsValue->value().frameNumber, a, b);
             }
-
-            viewer->handleEvents();
 
             //update push constants
             rayTracingPushConstantsValue->value().viewInverse = lookAt->inverse();
@@ -717,7 +714,9 @@ int main(int argc, char **argv)
                 static int count = 0;
                 double a = count / double(++count);
                 running = a * running + (1 - a) * (results[1] - results[0]) / 1e6;
-                std::cout << running << std::endl;
+                if(count > 1) std::cout << "\r";
+                std::cout << running;
+                std::cout.flush();
             }
 
             rayTracingPushConstantsValue->value().prevView = lookAt->transform();
@@ -746,6 +745,7 @@ int main(int argc, char **argv)
                 cameraMatrices[frame].invProj.value() = perspective->inverse();
             }
         }
+        std::cout << std::endl;
         numFrames = numFramesC;
 
         // exporting all images

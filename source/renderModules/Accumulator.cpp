@@ -1,9 +1,9 @@
 #include <renderModules/Accumulator.hpp>
+#include <vsgXchange/glsl.h>
 
 Accumulator::Accumulator(vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<IlluminationBuffer> illuminationBuffer, bool separateMatrices, int workWidth, int workHeight):
     width(gBuffer->depth->imageInfoList[0]->imageView->image->extent.width),
     height(gBuffer->depth->imageInfoList[0]->imageView->image->extent.height),
-    matrices(matrices),
     workWidth(workWidth),
     workHeight(workHeight),
     accumulationBuffer(AccumulationBuffer::create(width, height)),
@@ -11,7 +11,8 @@ Accumulator::Accumulator(vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<Illuminatio
     originalIllumination(illuminationBuffer),
     _separateMatrices(separateMatrices)
 {
-    auto computeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", shaderPath);
+    auto options = vsg::Options::create(vsgXchange::glsl::create());
+    auto computeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", shaderPath, options);
     if(!computeStage){
         throw vsg::Exception{"Accumulator::create() could not open compute shader stage"};
     }
@@ -19,8 +20,11 @@ Accumulator::Accumulator(vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<Illuminatio
         {0, vsg::intValue::create(workWidth)}, 
         {1, vsg::intValue::create(workHeight)}
     };
-    if(separateMatrices)
-        computeStage->module->hints->defines.push_back("SEPARATE_MATRICES");
+    if(separateMatrices){
+        auto compileHints = vsg::ShaderCompileSettings::create();
+        compileHints->defines = {"SEPARATE_MATRICES"};
+        computeStage->module->hints = compileHints;
+    }
 
     auto bindingMap = computeStage->getDescriptorSetLayoutBindingsMap();
     auto descriptorSetLayout = vsg::DescriptorSetLayout::create(bindingMap.begin()->second.bindings);
@@ -75,6 +79,8 @@ void Accumulator::setDoubleMatrix(int frameIndex, const DoubleMatrix& cur, const
         pushConstantsValue->value().invView = cur.invView;
         if(frameIndex){
             pushConstantsValue->value().prevView = prev.view;
+            pushConstantsValue->value().prevPos = vsg::inverse(prev.view)[3];
+            pushConstantsValue->value().prevPos.w = 1;
         }
         pushConstantsValue->value().frameNumber = frameIndex;
     }

@@ -37,7 +37,6 @@ set(SHADERS
     ptRaygen.rgen
     ptClosesthit.rchit
     ptMiss.rmiss
-    accumulator.comp
 )
 
 set(UNCOMPILED_SHADERS
@@ -60,6 +59,7 @@ set(UNCOMPILED_SHADERS
     color.glsl
     ptRaygen.rgen
     formatConverter.comp
+    accumulator.comp
 )
 
 ## compilation of shader files

@@ -38,7 +38,6 @@ private:
     int workWidth, workHeight;
     vsg::ref_ptr<GBuffer> gBuffer;
     vsg::ref_ptr<IlluminationBuffer> originalIllumination;
-    DoubleMatrices matrices;
     vsg::ref_ptr<vsg::BindComputePipeline> bindPipeline;
     vsg::ref_ptr<vsg::BindDescriptorSet> bindDescriptorSet;
     vsg::ref_ptr<vsg::PushConstants> pushConstants;

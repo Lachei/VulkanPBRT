@@ -30,4 +30,8 @@ layout(binding = 27, rgba16f) uniform image2D illuminationSquared;
 layout(binding = 28) uniform sampler2D prevIlluminationSquared;
 #endif
 
+#ifdef DEMOD_ILLUMINATION_FLOAT
+layout(binding = 25, rgba32f) uniform image2D illumination;
+#endif
+
 #endif //LAYOUTPTIMAGES_H
