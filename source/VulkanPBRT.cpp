@@ -421,7 +421,6 @@ int main(int argc, char **argv)
         {
             queryPool = vsg::QueryPool::create(); //standard init has 1 timestamp place
             queryPool->queryCount = 2;
-            queryPool->compile(imageLayoutCompile.context);
             auto resetQuery = vsg::ResetQueryPool::create(queryPool);
             auto write1 = vsg::WriteTimestamp::create(queryPool, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
             auto write2 = vsg::WriteTimestamp::create(queryPool, 1, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
@@ -447,7 +446,6 @@ int main(int argc, char **argv)
         {
             queryPool = vsg::QueryPool::create(); //standard init has 1 timestamp place
             queryPool->queryCount = 2;
-            queryPool->compile(imageLayoutCompile.context);
             auto resetQuery = vsg::ResetQueryPool::create(queryPool);
             auto write1 = vsg::WriteTimestamp::create(queryPool, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
             auto write2 = vsg::WriteTimestamp::create(queryPool, 1, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
@@ -708,7 +706,6 @@ int main(int argc, char **argv)
             viewer->present();
             if (queryPool)
             {
-                viewer->deviceWaitIdle();
                 auto results = queryPool->getResults();
                 static double running = 0;
                 static int count = 0;

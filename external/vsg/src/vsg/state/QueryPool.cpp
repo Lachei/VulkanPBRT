@@ -38,7 +38,7 @@ void QueryPool::reset(){
 
 std::vector<uint32_t> QueryPool::getResults(){
     std::vector<uint32_t> res(queryCount);
-    if (VkResult result = vkGetQueryPoolResults(*_device, _queryPool, 0, queryCount, queryCount * sizeof(uint32_t), res.data(), sizeof(uint32_t), 0); result != VK_SUCCESS){
+    if (VkResult result = vkGetQueryPoolResults(*_device, _queryPool, 0, queryCount, queryCount * sizeof(uint32_t), res.data(), sizeof(uint32_t), VK_QUERY_RESULT_WAIT_BIT); result != VK_SUCCESS){
         throw Exception{"Error: Failed to get QueryPool results.", result};
     }
     return res;
