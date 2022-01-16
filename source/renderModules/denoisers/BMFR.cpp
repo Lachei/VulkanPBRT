@@ -9,7 +9,7 @@ BMFR::BMFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHei
     workWidth(workWidth),
     workHeight(workHeight),
     fittingKernel(fittingKernel),
-    widthPadded((width / workWidth + 1) * workWidth),
+    widthPadded((width / workWidth + 2) * workWidth),
     heightPadded((height / workHeight + 2) * workHeight),
     gBuffer(gBuffer),
     sampler(vsg::Sampler::create())

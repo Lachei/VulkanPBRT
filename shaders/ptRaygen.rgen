@@ -47,7 +47,6 @@ void main(){
 	// --------------------------------------------------------------------
 	vec3 curAlbedo = (rayPayload.si.diffuseColor + rayPayload.si.specularColor).xyz;
 	float depth = distance(rayPayload.position, worldSpacePos.xyz);
-	vec3 pp = rayPayload.si.normal.xyz;
 	vec3 curNorm = rayPayload.si.normal;
 #ifdef GBUFFER
 	imageStore(depthImage, ivec2(gl_LaunchIDEXT.xy), vec4(depth));
