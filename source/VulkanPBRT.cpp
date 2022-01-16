@@ -385,7 +385,7 @@ int main(int argc, char **argv)
         vsg::ref_ptr<PBRTPipeline> pbrtPipeline;
         if (!externalRenderings)
         {
-            pbrtPipeline = PBRTPipeline::create(loaded_scene, gBuffer, accumulationBuffer, illuminationBuffer, writeGBuffer, RayTracingRayOrigin::CAMERA);
+            pbrtPipeline = PBRTPipeline::create(loaded_scene, gBuffer, illuminationBuffer, writeGBuffer, RayTracingRayOrigin::CAMERA);
 
             // setup tlas
             vsg::BuildAccelerationStructureTraversal buildAccelStruct(device);

@@ -21,12 +21,11 @@ namespace
     };
 }
 
-PBRTPipeline::PBRTPipeline(vsg::ref_ptr<vsg::Node> scene, vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<AccumulationBuffer> accumulationBuffer,
+PBRTPipeline::PBRTPipeline(vsg::ref_ptr<vsg::Node> scene, vsg::ref_ptr<GBuffer> gBuffer,
                  vsg::ref_ptr<IlluminationBuffer> illuminationBuffer, bool writeGBuffer, RayTracingRayOrigin rayTracingRayOrigin) : 
     width(illuminationBuffer->illuminationImages[0]->imageInfoList[0]->imageView->image->extent.width), 
     height(illuminationBuffer->illuminationImages[0]->imageInfoList[0]->imageView->image->extent.height), 
     maxRecursionDepth(2), 
-    accumulationBuffer(accumulationBuffer),
     illuminationBuffer(illuminationBuffer),
     gBuffer(gBuffer)
 {
@@ -155,8 +154,6 @@ void PBRTPipeline::setupPipeline(vsg::Node *scene, bool useExternalGbuffer)
     illuminationBuffer->updateDescriptor(bindRayTracingDescriptorSet, bindingMap);
     if (gBuffer)
         gBuffer->updateDescriptor(bindRayTracingDescriptorSet, bindingMap);
-    if (accumulationBuffer)
-        accumulationBuffer->updateDescriptor(bindRayTracingDescriptorSet, bindingMap);
 }
 vsg::ref_ptr<vsg::ShaderStage> PBRTPipeline::setupRaygenShader(std::string raygenPath, bool useExternalGBuffer)
 {
@@ -181,17 +178,6 @@ vsg::ref_ptr<vsg::ShaderStage> PBRTPipeline::setupRaygenShader(std::string rayge
         {
             // TODO:
         }
-        else if (illuminationBuffer.cast<IlluminationBufferFinalDemodulated>())
-        {
-            defines.push_back("FINAL_IMAGE");
-            defines.push_back("DEMOD_ILLUMINATION");
-            defines.push_back("DEMOD_ILLUMINATION_SQUARED");
-        }
-        else if (illuminationBuffer.cast<IlluminationBufferDemodulated>())
-        {
-            defines.push_back("DEMOD_ILLUMINATION");
-            defines.push_back("DEMOD_ILLUMINATION_SQUARED");
-        }
         else
         {
             throw vsg::Exception{"Error: PBRTPipeline::setupRaygenShader(...) Illumination buffer not supported."};
@@ -199,8 +185,6 @@ vsg::ref_ptr<vsg::ShaderStage> PBRTPipeline::setupRaygenShader(std::string rayge
     }
     if (gBuffer)
         defines.push_back("GBUFFER");
-    if (accumulationBuffer)
-        defines.push_back("PREV_GBUFFER");
 
     switch(lightSamplingMethod){
         case LightSamplingMethod::SampleSurfaceStrength:
