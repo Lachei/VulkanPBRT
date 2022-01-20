@@ -11,7 +11,7 @@ public:
     uint64_t GetId() const;
 
     template <typename T>
-    T* const GetComponent();
+    T* GetComponent();
     template <typename T>
     void AddComponent();
 private:
@@ -28,7 +28,7 @@ inline uint64_t Entity::GetId() const
     return _id;
 }
 template <typename T>
-T* const Entity::GetComponent()
+T* Entity::GetComponent()
 {
     return _entity_manager->GetComponent<T>(_id);
 }
