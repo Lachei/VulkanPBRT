@@ -26,6 +26,9 @@ public:
      */
     virtual void Terminate();
 protected:
+    /**
+     * \brief The entity this behavior is attached to.
+     */
     Entity _entity;
 };
 
