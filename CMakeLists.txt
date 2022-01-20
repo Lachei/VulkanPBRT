@@ -6,6 +6,7 @@ project(VulkanPBRT
     LANGUAGES C CXX
 )
 
+find_package(directxmath CONFIG REQUIRED)
 find_package(nlohmann_json REQUIRED)
 
 set(SLAVE_PROJECTS true)    #information for the subprojects to not find packes via find_package they can assume the packages exist
@@ -13,6 +14,8 @@ add_subdirectory(external/vsg)
 add_subdirectory(external/vsgXchange)
 add_subdirectory(external/vsgImGui)
 set(SLAVE_PROJECTS false)
+
+include_directories(external/simpleMath)
 
 add_subdirectory(source)
 

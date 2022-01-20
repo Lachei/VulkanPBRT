@@ -1,5 +1,3 @@
-
-include_directories(${PROJECT_SOURCE_DIR}/external/vsg/include/vsg)
 include_directories(buffers)
 include_directories(renderModules)
 include_directories(scene)
