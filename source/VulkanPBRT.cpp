@@ -1,5 +1,3 @@
-
-
 #include "scene/CountTrianglesVisitor.hpp"
 
 #include "renderModules/PipelineStructs.hpp"
@@ -24,6 +22,9 @@
 #include <iostream>
 
 #include "../external/vsgXchange/src/assimp/3DFrontImporter.h"
+
+// TODO: remove this
+#include "scene/entity/Components.h"
 
 #define _DEBUG
 

@@ -15,15 +15,13 @@ add_subdirectory(external/vsgXchange)
 add_subdirectory(external/vsgImGui)
 set(SLAVE_PROJECTS false)
 
-include_directories(external/simpleMath)
-
 add_subdirectory(source)
 
 include_directories(${OpenEXR_INCLUDE_DIRS})
 set(CMAKE_CXX_STANDARD 17)
 
 add_executable(VulkanPBRT ${VulkanPBRT_SRC})
-target_include_directories(VulkanPBRT PRIVATE source)
+target_include_directories(VulkanPBRT PRIVATE source external/simpleMath)
 target_link_libraries(VulkanPBRT vsg vsgXchange vsgImGui nlohmann_json)
 set_property(TARGET VulkanPBRT PROPERTY CXX_STANDARD 17)
 
