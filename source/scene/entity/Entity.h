@@ -35,10 +35,10 @@ inline uint64_t Entity::GetId() const
 template <typename T>
 T* Entity::GetComponent()
 {
-    return _entity_manager->GetComponent<T>(_id);
+    return _entity_manager.GetComponent<T>(_id);
 }
 template <typename T>
 void Entity::AddComponent()
 {
-    _entity_manager->AddComponents<T>(_id);
+    _entity_manager.AddComponents<T>(_id);
 }
