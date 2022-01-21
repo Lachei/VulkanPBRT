@@ -8,7 +8,7 @@ class EntityBehaviorBase
 {
 public:
     EntityBehaviorBase(Entity entity);
-    virtual ~EntityBehaviorBase() = default;
+    virtual ~EntityBehaviorBase() = 0;
 
     /**
      * \brief Called after this behaviour is attached to an entity.
@@ -34,6 +34,9 @@ protected:
 
 inline EntityBehaviorBase::EntityBehaviorBase(Entity entity)
     : _entity(entity)
+{
+}
+inline EntityBehaviorBase::~EntityBehaviorBase()
 {
 }
 inline void EntityBehaviorBase::Initialize()
