@@ -11,7 +11,7 @@ public:
     uint64_t GetId() const;
 
     /**
-     * \brief Get an component that is attached to this entity.
+     * \brief Get a component that is attached to this entity.
      * \tparam T The type of the component which should be returned.
      * \return Pointer to the component. Can be nullptr if this entity does not have a component of type T.
      */
