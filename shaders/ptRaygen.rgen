@@ -148,7 +148,7 @@ void main(){
 #endif
 
 #ifdef FINAL_IMAGE
-	vec3 prevFrameColor = vec3(1.0/0);
+	vec3 prevFrameColor = vec3(0);
 	if(camParams.sampleNumber > 0){
 		prevFrameColor = imageLoad(outputImage, ivec2(gl_LaunchIDEXT.xy)).xyz;
 		float alpha = 1.0 / (camParams.sampleNumber + 1);

@@ -598,33 +598,27 @@ int main(int argc, char** argv){
         imageLayoutCompile.context.waitForCompletion();
 
         int frame_index = 0;
-        int sample_index = 1;
-        while(viewer->advanceToNextFrame() && (numFrames < 0 || frame_index < numFrames)){
-            if(use_external_buffers)
-            {
-                offlineGBufferStager->transferStagingDataFrom(offlineGBuffers[frame_index]);
-                offlineIlluminationBufferStager->transferStagingDataFrom(offlineIlluminations[frame_index]);
-                if(accumulator)
-                    accumulator->setFrameIndex(frame_index);
-            }
-            
+        int sample_index = 0;
+        while(viewer->advanceToNextFrame() && (numFrames < 0 || frame_index < numFrames))
+        {
             viewer->handleEvents();
-
             if ((vsg::mat4)vsg::lookAt(lookAt->eye, lookAt->center, lookAt->up) != rayTracingPushConstantsValue->value().prevView)
             {
                 // clear samples when the camera has moved
                 sample_index = 0;
             }
-            else
-            {
-                sample_index++;
-            }
-
-            //update push constants
             rayTracingPushConstantsValue->value().viewInverse = lookAt->inverse();
             rayTracingPushConstantsValue->value().frameNumber = frame_index;
             rayTracingPushConstantsValue->value().sampleNumber = sample_index;
             guiValues->sampleNumber = sample_index;
+
+            if (use_external_buffers)
+            {
+                offlineGBufferStager->transferStagingDataFrom(offlineGBuffers[frame_index]);
+                offlineIlluminationBufferStager->transferStagingDataFrom(offlineIlluminations[frame_index]);
+                if (accumulator)
+                    accumulator->setFrameIndex(frame_index);
+            }
 
             viewer->update();
             viewer->recordAndSubmit();
@@ -650,6 +644,7 @@ int main(int argc, char** argv){
                 }
                 frame_index++;
             }
+            sample_index++;
         }
 
         // exporting all images
