@@ -598,7 +598,6 @@ int main(int argc, char** argv){
         // waiting for image layout transitions
         imageLayoutCompile.context.waitForCompletion();
 
-        int numFramesC = numFrames;
         int exportCount = -1;
         while(viewer->advanceToNextFrame() && (numFrames < 0 || (numFrames--) > 0)){
             if(externalRenderings)
@@ -646,7 +645,6 @@ int main(int argc, char** argv){
                 cameraMatrices[frame].invProj.value() = perspective->inverse();
             }
         }
-        numFrames = numFramesC;
 
         // exporting all images
         if(exportGBuffer)
