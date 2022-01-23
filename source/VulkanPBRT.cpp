@@ -107,8 +107,7 @@ int main(int argc, char** argv){
         arguments.read("--screen", windowTraits->screenNum);	
 
         auto numFrames = arguments.value(-1, "-f");
-        auto numExportFrames = arguments.value(-1, "-ef");
-        auto samplesPerPixel = arguments.value(1, "-spp");
+        auto samplesPerPixel = arguments.value(1, "--spp");
         auto depthPath = arguments.value(std::string(), "--depths");
         auto exportDepthPath = arguments.value(std::string(), "--exportDepth");
         auto positionPath = arguments.value(std::string(), "--positions");
@@ -124,11 +123,11 @@ int main(int argc, char** argv){
         auto matricesPath = arguments.value(std::string(), "--matrices");
         auto exportMatricesPath = arguments.value(std::string(), "--exportMatrices");
         auto sceneFilename = arguments.value(std::string(), "-i");
-        bool externalRenderings = normalPath.size();
+        bool use_external_buffers = normalPath.size();
         bool exportIllumination = exportIlluminationPath.size();
         bool exportGBuffer = exportNormalPath.size() || exportDepthPath.size() || exportPositionPath.size() || exportAlbedoPath.size() || exportMaterialPath.size();
         bool storeMatrices = exportGBuffer || exportMatricesPath.size();
-        if (sceneFilename.empty() && !externalRenderings)
+        if (sceneFilename.empty() && !use_external_buffers)
         {
             std::cout << "Missing input parameter \"-i <path_to_model>\"." << std::endl;
         }
@@ -173,7 +172,7 @@ int main(int argc, char** argv){
         std::vector<vsg::ref_ptr<OfflineGBuffer>> offlineGBuffers;
         std::vector<vsg::ref_ptr<OfflineIllumination>> offlineIlluminations;
         std::vector<DoubleMatrix> cameraMatrices;
-        if(!externalRenderings){
+        if(!use_external_buffers){
             AI3DFrontImporter::ReadConfig(config_json);
             auto options = vsg::Options::create(vsgXchange::assimp::create(), vsgXchange::dds::create(), vsgXchange::stbi::create()); //using the assimp loader
             loaded_scene = vsg::read_cast<vsg::Node>(sceneFilename, options);
@@ -349,7 +348,7 @@ int main(int argc, char** argv){
         // raytracing pipeline setup
         uint32_t maxRecursionDepth = 2;
         vsg::ref_ptr<PBRTPipeline> pbrtPipeline;
-        if(!externalRenderings)
+        if(!use_external_buffers)
         {
             pbrtPipeline = PBRTPipeline::create(loaded_scene, gBuffer, accumulationBuffer, illuminationBuffer, writeGBuffer, RayTracingRayOrigin::CAMERA);
 
@@ -390,7 +389,7 @@ int main(int argc, char** argv){
         }
 
         vsg::ref_ptr<Accumulator> accumulator;
-        if(externalRenderings && denoisingType != DenoisingType::None){
+        if(use_external_buffers && denoisingType != DenoisingType::None){
             accumulator = Accumulator::create(gBuffer, illuminationBuffer, cameraMatrices);
             accumulator->addDispatchToCommandGraph(commands);
             accumulationBuffer = accumulator->accumulationBuffer;
@@ -598,26 +597,34 @@ int main(int argc, char** argv){
         // waiting for image layout transitions
         imageLayoutCompile.context.waitForCompletion();
 
-        int exportCount = -1;
-        while(viewer->advanceToNextFrame() && (numFrames < 0 || (numFrames--) > 0)){
-            if(externalRenderings)
+        int frame_index = 0;
+        int sample_index = 1;
+        while(viewer->advanceToNextFrame() && (numFrames < 0 || frame_index < numFrames)){
+            if(use_external_buffers)
             {
-                int frame = offlineGBuffers.size() - 1 - numFrames;     //invert numFrames as it is counting down
-                offlineGBufferStager->transferStagingDataFrom(offlineGBuffers[frame]);
-                offlineIlluminationBufferStager->transferStagingDataFrom(offlineIlluminations[frame]);
+                offlineGBufferStager->transferStagingDataFrom(offlineGBuffers[frame_index]);
+                offlineIlluminationBufferStager->transferStagingDataFrom(offlineIlluminations[frame_index]);
                 if(accumulator)
-                    accumulator->setFrameIndex(frame);
+                    accumulator->setFrameIndex(frame_index);
             }
             
             viewer->handleEvents();
 
+            if ((vsg::mat4)vsg::lookAt(lookAt->eye, lookAt->center, lookAt->up) != rayTracingPushConstantsValue->value().prevView)
+            {
+                // clear samples when the camera has moved
+                sample_index = 0;
+            }
+            else
+            {
+                sample_index++;
+            }
+
             //update push constants
             rayTracingPushConstantsValue->value().viewInverse = lookAt->inverse();
-
-            rayTracingPushConstantsValue->value().frameNumber++;
-            rayTracingPushConstantsValue->value().sampleNumber++;
-            if((vsg::mat4)vsg::lookAt(lookAt->eye, lookAt->center, lookAt->up) != rayTracingPushConstantsValue->value().prevView) rayTracingPushConstantsValue->value().sampleNumber = 0;
-            guiValues->sampleNumber = rayTracingPushConstantsValue->value().sampleNumber;
+            rayTracingPushConstantsValue->value().frameNumber = frame_index;
+            rayTracingPushConstantsValue->value().sampleNumber = sample_index;
+            guiValues->sampleNumber = sample_index;
 
             viewer->update();
             viewer->recordAndSubmit();
@@ -625,24 +632,23 @@ int main(int argc, char** argv){
 
             rayTracingPushConstantsValue->value().prevView = lookAt->transform();
 
-            if((exportGBuffer || exportIllumination) && rayTracingPushConstantsValue->value().sampleNumber >= samplesPerPixel){
-                ++exportCount;
-                viewer->deviceWaitIdle();
-            }
-            if(exportIllumination){
-                int frame = exportCount;
-                offlineIlluminationBufferStager->transferStagingDataTo(offlineIlluminations[frame]);
-            }
-            if(exportGBuffer){
-                int frame = exportCount;
-                offlineGBufferStager->transferStagingDataTo(offlineGBuffers[frame]);
-            }
-            if(storeMatrices){
-                int frame = exportCount;
-                cameraMatrices[frame].view = lookAt->transform();
-                cameraMatrices[frame].invView = lookAt->inverse();
-                cameraMatrices[frame].proj.value() = perspective->transform();
-                cameraMatrices[frame].invProj.value() = perspective->inverse();
+            if (sample_index >= samplesPerPixel) {
+                if (exportGBuffer || exportIllumination) {
+                    viewer->deviceWaitIdle();
+                    if (exportIllumination) {
+                        offlineIlluminationBufferStager->transferStagingDataTo(offlineIlluminations[frame_index]);
+                    }
+                    if (exportGBuffer) {
+                        offlineGBufferStager->transferStagingDataTo(offlineGBuffers[frame_index]);
+                    }
+                }
+                if (storeMatrices) {
+                    cameraMatrices[frame_index].view = lookAt->transform();
+                    cameraMatrices[frame_index].invView = lookAt->inverse();
+                    cameraMatrices[frame_index].proj.value() = perspective->transform();
+                    cameraMatrices[frame_index].invProj.value() = perspective->inverse();
+                }
+                frame_index++;
             }
         }
 
