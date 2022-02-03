@@ -2,6 +2,7 @@ include_directories(buffers)
 include_directories(renderModules)
 include_directories(scene)
 include_directories(scene/entity)
+include_directories(scene/tests)
 include_directories(io)
 
 file(GLOB SRC_TOP

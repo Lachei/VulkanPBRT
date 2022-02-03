@@ -23,7 +23,7 @@ add_subdirectory(source)
 include_directories(${OpenEXR_INCLUDE_DIRS})
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(VulkanPBRT ${VulkanPBRT_SRC} "source/scene/entity/behaviors/TextureBehaviors.h" "source/scene/entity/behaviors/LightBehaviors.h" "source/scene/entity/CameraEntity.h" "source/scene/entity/SceneEntity.h" "source/scene/entity/LightEntity.h" "source/scene/entity/test.h" "source/scene/Archetype/table.h" "source/scene/entity/ComponentsTable.h")
+add_executable(VulkanPBRT ${VulkanPBRT_SRC})
 target_include_directories(VulkanPBRT PRIVATE source external/simpleMath)
 target_link_libraries(VulkanPBRT vsg vsgXchange vsgImGui nlohmann_json assimp::assimp)
 set_property(TARGET VulkanPBRT PROPERTY CXX_STANDARD 17)

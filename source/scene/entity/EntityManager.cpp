@@ -28,7 +28,7 @@ Component* EntityManager::GetComponent(uint64_t entity_id)
 }
 
 template <typename T>
-std::array<T> readKeyframes(std::string path)
+std::vector<T> readKeyframes(std::string path)
 {
     //TODO
     return NULL;
@@ -49,7 +49,7 @@ void EntityManager::AddKeyframesCamera(uint64_t entity_id, keyframeCameraData tr
 template <typename T>//T could be float, vector3f,transform, Component struct...
 void EntityManager::AddKeyframes(uint64_t entity_id, std::string path) 
 {
-    std::vector<T> KeyframesData = readKeyframes(path);
+    std::vector<T> KeyframesData = this->readKeyframes(path);
     if (GetEntityTYPE(entity_id) == Entity_TYPE::Camera)
     {
         AddKeyframesCamera(entity_id, KeyframesData);
