@@ -5,9 +5,12 @@ project(VulkanPBRT
     DESCRIPTION "Vulkan physically based raytracer"
     LANGUAGES C CXX
 )
+SET(nlohmann_json_DIR C:\\Users\\ge59yac\\code\\vcpkg\\packages\\nlohmann-json_x86-windows\\share\\nlohmann_json)
+SET(CMAKE_PREFIX_PATH C:\\Users\\ge59yac\\code\\vcpkg\\installed\\x64-windows\\share)
 
 find_package(directxmath CONFIG REQUIRED)
-find_package(nlohmann_json REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
+find_package(assimp CONFIG REQUIRED)
 
 set(SLAVE_PROJECTS true)    #information for the subprojects to not find packes via find_package they can assume the packages exist
 add_subdirectory(external/vsg)
@@ -20,9 +23,9 @@ add_subdirectory(source)
 include_directories(${OpenEXR_INCLUDE_DIRS})
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(VulkanPBRT ${VulkanPBRT_SRC})
+add_executable(VulkanPBRT ${VulkanPBRT_SRC} "source/scene/entity/behaviors/TextureBehaviors.h" "source/scene/entity/behaviors/LightBehaviors.h" "source/scene/entity/CameraEntity.h" "source/scene/entity/SceneEntity.h" "source/scene/entity/LightEntity.h" "source/scene/entity/test.h" "source/scene/Archetype/table.h" "source/scene/entity/ComponentsTable.h")
 target_include_directories(VulkanPBRT PRIVATE source external/simpleMath)
-target_link_libraries(VulkanPBRT vsg vsgXchange vsgImGui nlohmann_json)
+target_link_libraries(VulkanPBRT vsg vsgXchange vsgImGui nlohmann_json assimp::assimp)
 set_property(TARGET VulkanPBRT PROPERTY CXX_STANDARD 17)
 
 set(SHADERS

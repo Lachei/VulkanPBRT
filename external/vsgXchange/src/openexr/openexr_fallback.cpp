@@ -6,7 +6,7 @@ using namespace vsgXchange;
 //
 // openEXR ReaderWriter fallback
 //
-openexr::openexr() :
+openexr::openexr()
 {
 }
 

@@ -3,6 +3,7 @@
 
 /**
  * \brief Base class for entity behavior logic.
+ * \components manager
  */
 class EntityBehaviorBase
 {
@@ -19,7 +20,8 @@ public:
      * \brief Called once per frame.
      * \param frame_time The time between frames. Typically used to make behaviors independent of the framerate.
      */
-    virtual void Update(float frame_time);
+    template <typename ... Args>
+    virtual void Update(float frame_time, Args&&... args);
 
     /**
      * \brief Called before this behaviour is detached from an entity or when the entity is destroyed.
@@ -30,6 +32,7 @@ protected:
      * \brief The entity this behavior is attached to.
      */
     Entity _entity;
+    float keyframe_time;
 };
 
 inline EntityBehaviorBase::EntityBehaviorBase(Entity entity)
@@ -39,9 +42,12 @@ inline EntityBehaviorBase::EntityBehaviorBase(Entity entity)
 inline void EntityBehaviorBase::Initialize()
 {
 }
-inline void EntityBehaviorBase::Update(float frame_time)
+template <typename ... Args>
+inline void EntityBehaviorBase::Update(float frame_time, Args&&... args)
 {
+
 }
 inline void EntityBehaviorBase::Terminate()
 {
+    //run = false;
 }

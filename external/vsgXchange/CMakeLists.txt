@@ -10,6 +10,8 @@ SET(VSGXCHANGE_RELEASE_CANDIDATE 0)
 
 # set the use of C++17 globally as all examples require it
 set(CMAKE_CXX_STANDARD 17)
+# find assimp
+find_package(assimp CONFIG REQUIRED)
 
 
 # Find Vulkan and the VSG

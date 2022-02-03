@@ -7,7 +7,6 @@ class Entity
 {
 public:
     Entity(uint64_t entityId, EntityManager& entity_manager);
-
     uint64_t GetId() const;
 
     /**
@@ -17,7 +16,7 @@ public:
      */
     template <typename T>
     T* GetComponent();
-    template <typename T>
+    template <typename T, typename ... Args>
     void AddComponent();
 private:
     uint64_t _id;
@@ -35,10 +34,10 @@ inline uint64_t Entity::GetId() const
 template <typename T>
 T* Entity::GetComponent()
 {
-    return _entity_manager->GetComponent<T>(_id);
+    return _entity_manager.GetComponent<T>(_id);
 }
-template <typename T>
+template <typename T, typename ... Args>
 void Entity::AddComponent()
 {
-    _entity_manager->AddComponents<T>(_id);
+    _entity_manager.AddComponents<T>(_id);
 }
