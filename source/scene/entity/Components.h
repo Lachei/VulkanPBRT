@@ -7,11 +7,12 @@ struct Transform
     DirectX::SimpleMath::Vector3 position;
     DirectX::SimpleMath::Vector3 scale;
 };
+
+typedef std::vector<Transform> keyframeCameraData;
 struct CameraComponent
 {
     Transform current_Transform;
-    Transform firstFrame_Transform;
-    Transform nextFrame_Transform;//status of next keyframe
+    keyframeCameraData nextFrames_Transform;
 };
 
 enum class LightTYPE { POINT, SPOT, AMBIENT, DIRECTIONAL};
