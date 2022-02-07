@@ -89,6 +89,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/commands/SetLineWidth.h>
 #include <vsg/commands/SetScissor.h>
 #include <vsg/commands/SetViewport.h>
+#include <vsg/commands/WriteTimestamp.h>
+#include <vsg/commands/ResetQueryPool.h>
 
 // State header files
 #include <vsg/state/Buffer.h>
@@ -122,6 +124,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/state/VertexInputState.h>
 #include <vsg/state/ViewportState.h>
 #include <vsg/state/material.h>
+#include <vsg/state/QueryPool.h>
 
 // Traversal header files
 #include <vsg/traversals/ArrayState.h>

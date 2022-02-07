@@ -30,6 +30,7 @@ void main()
     const vec3 bar = vec3(1.0f - attribs.x - attribs.y, attribs.x, attribs.y);
     vec2 texCoord = v0.uv * bar.x + v1.uv * bar.y + v2.uv * bar.z;
     vec4 diffuse = SRGBtoLINEAR(texture(diffuseMap[nonuniformEXT(objId)], texCoord));
+    diffuse.rgb *= diffuse.a;
     vec3 position = v0.pos * bar.x + v1.pos * bar.y + v2.pos * bar.z;
     position = (instance.objectMat * vec4(position, 1)).xyz;
     vec3 normal = normalize(v0.normal * bar.x + v1.normal * bar.y + v2.normal * bar.z).xyz;//.xzy;
@@ -47,23 +48,24 @@ void main()
     normal = getNormal(TBN, normalMap[nonuniformEXT(objId)], texCoord);
 
     WaveFrontMaterial mat = unpackMaterial(materials.m[objId]);
+    diffuse.rgb *= mat.diffuse.rgb;
     float perceptualRoughness = 0;
 
     const vec3 f0 = vec3(.04);
 
     vec4 specular;
     if(textureSize(specularMap[nonuniformEXT(objId)], 0) == ivec2(1,1))
-        specular = vec4(0,0,0,0);
+        specular = vec4(mat.specular, mat.roughness);
     else
         specular = SRGBtoLINEAR(texture(specularMap[nonuniformEXT(objId)], texCoord));
-    perceptualRoughness = 1.0 - specular.a;
+    perceptualRoughness = specular.a;
 
     float maxSpecular = max(max(specular.r, specular.g), specular.b);
 
     float metallic = convertMetallic(diffuse.rgb, specular.rgb, maxSpecular);
 
-    vec3 baseColorDiffusePart = diffuse.rgb * ((1.0 - maxSpecular) / (1 - c_MinRoughness) / max(1 - metallic, epsilon)) * mat.diffuse.rgb;
-    vec3 baseColorSpecularPart = specular.rgb - (vec3(c_MinRoughness) * (1 - metallic) * (1 / max(metallic, epsilon))) * mat.specular.rgb;
+    vec3 baseColorDiffusePart = diffuse.rgb * ((1.0 - maxSpecular) / (1 - c_MinRoughness) / max(1 - metallic, epsilon));
+    vec3 baseColorSpecularPart = specular.rgb - (vec3(c_MinRoughness) * (1 - metallic) * (1 / max(metallic, epsilon)));
     vec4 baseColor = vec4(mix(baseColorDiffusePart, baseColorSpecularPart, metallic * metallic), diffuse.a);
 
     vec3 diffuseColor = baseColor.rgb * (vec3(1.0) - f0);
@@ -82,7 +84,7 @@ void main()
     vec3 emissiveColor = mat.emission * SRGBtoLINEAR(texture(emissiveMap[nonuniformEXT(objId)], texCoord)).rgb;
     if(dot(v, normal) < 0) emissiveColor = vec3(0);
 
-    rayPayload.si = SurfaceInfo(perceptualRoughness, metallic, alphaRoughness, specularEnvironmentR0, specularEnvironmentR90, diffuseColor, specularColor, emissiveColor, normal, TBN);
+    rayPayload.si = SurfaceInfo(perceptualRoughness, metallic, alphaRoughness, mat.illum, specularEnvironmentR0, specularEnvironmentR90, diffuseColor, specularColor, emissiveColor, mat.transmittance, normal, TBN, mat.ior);
 
     rayPayload.position = position;
 	

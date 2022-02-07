@@ -7,22 +7,23 @@ struct Vertex{
     vec2 uv;
 };
 
+struct ObjectInstance{
+  mat4 objectMat;
+  int meshId;
+  uint indexStride;
+  int pad[2];
+};
+
+// unpacking code is in geometry.glsl
 struct WaveFrontMaterialPacked
 {
-  vec4  ambientShininess;
+  vec4  ambientRoughness;
   vec4  diffuseIor;
   vec4  specularDissolve;
   vec4  transmittanceIllum;
   vec4  emissionTextureId;
   uint category_id;
   float pad[3];
-};
-
-struct ObjectInstance{
-  mat4 objectMat;
-  int meshId;
-  uint indexStride;
-  int pad[2];
 };
 
 struct WaveFrontMaterial
@@ -32,7 +33,7 @@ struct WaveFrontMaterial
   vec3  specular;
   vec3  transmittance;
   vec3  emission;
-  float shininess;
+  float roughness;
   float ior;       // index of refraction
   float dissolve;  // 1 == opaque; 0 == fully transparent
   int   illum;     // illumination model (see http://www.fileformat.info/format/material/)
@@ -68,13 +69,16 @@ struct SurfaceInfo{
     float perceptualRoughness;    // roughness value, as authored by the model creator (input to shader)
     float metalness;              // metallic value at the surface
     float alphaRoughness;         // roughness mapped to a more linear change in the roughness (proposed by [2])
+    int illuminationType;         // holds extra information about surface illumination such as refraction, subsurface scatter...
     vec3 reflectance0;            // full reflectance color (normal incidence angle)
     vec3 reflectance90;           // reflectance color at grazing angle
     vec3 diffuseColor;            // color contribution from diffuse lighting
     vec3 specularColor;           // color contribution from specular lighting
     vec3 emissiveColor;
+    vec3 transmissiveColor;
     vec3 normal;
     mat3 basis;                   // tbn matrix for converting form object to world space
+    float indexOfRefraction;
 };
 
 struct PBRInfo

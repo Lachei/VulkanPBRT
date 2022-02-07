@@ -65,6 +65,8 @@ set(SOURCES
     commands/SetLineWidth.cpp
     commands/SetScissor.cpp
     commands/SetViewport.cpp
+    commands/ResetQueryPool.cpp
+    commands/WriteTimestamp.cpp
 
     state/Buffer.cpp
     state/BufferInfo.cpp
@@ -96,6 +98,7 @@ set(SOURCES
     state/DepthStencilState.cpp
     state/ColorBlendState.cpp
     state/DynamicState.cpp
+    state/QueryPool.cpp
 
     io/FileSystem.cpp
     io/AsciiInput.cpp

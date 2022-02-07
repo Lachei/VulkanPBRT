@@ -21,15 +21,6 @@ float tmax = 10000.0;
 #include "camera.glsl"
 #include "lighting.glsl"
 
-vec3 GetSkyColor(vec3 direction) 
-{
-	vec3 upper_color = SRGBtoLINEAR(vec3(0.3, 0.5, 0.92));
-	upper_color = mix(vec3(1), upper_color, max(direction.z, 0));
-	vec3 lower_color = vec3(0.2, 0.2, 0.2);
-	float weight = smoothstep(-0.02, 0.02, direction.z);
-	return mix(lower_color, upper_color, weight);
-}
-
 void main(){
     // --------------------------------------------------------------------
 	// random engine generation + ray generation (including first hit infos and first hit direct lighting)
@@ -51,10 +42,6 @@ void main(){
     vec3 finalColor = vec3(0);
     finalColor += nextEventEsitmation(rayPayload.position, -normalize(worldSpaceDir.xyz), rayPayload.si, throughput, re);
     finalColor += rayPayload.si.emissiveColor;
-	if (rayPayload.si.normal == vec3(1)) 
-	{
-		finalColor += GetSkyColor(worldSpaceDir.xyz);
-	}
     // --------------------------------------------------------------------
 	// storing GBuffer information
 	// --------------------------------------------------------------------
@@ -127,16 +114,12 @@ void main(){
 	// --------------------------------------------------------------------
 #if defined FINAL_IMAGE || defined DEMOD_ILLUMINATION || defined DEMOD_ILLUMINATION_SQUARED
 	if(rayPayload.si.normal != vec3(1)){
-		for(int i = 0; i < infos.maxRecursionDepth; ++i){
+		int transDepth = 0;
+		for(int i = 0; i < infos.maxRecursionDepth && transDepth < 10; ++i){
+			if(rayPayload.si.illuminationType == 7) --i, ++transDepth;
 			vec3 v = normalize(worldSpacePos.xyz - rayPayload.position);
 			worldSpacePos = vec4(rayPayload.position, 1);
-			vec3 sampled_direction;
-			vec3 indir = indirectLighting(worldSpacePos.xyz, v, rayPayload.si, i, throughput, re, sampled_direction);
-			if(rayPayload.si.normal == vec3(1)) 
-			{
-				finalColor += GetSkyColor(sampled_direction) * throughput;
-				break;	//stop recursion when sky was hit
-			}
+			vec3 indir = indirectLighting(worldSpacePos.xyz, v, rayPayload.si, i, throughput, re);
 			finalColor += indir;
 		}
 	}
@@ -165,7 +148,7 @@ void main(){
 #endif
 
 #ifdef FINAL_IMAGE
-	vec3 prevFrameColor = vec3(1.0/0);
+	vec3 prevFrameColor = vec3(0);
 	if(camParams.sampleNumber > 0){
 		prevFrameColor = imageLoad(outputImage, ivec2(gl_LaunchIDEXT.xy)).xyz;
 		float alpha = 1.0 / (camParams.sampleNumber + 1);

@@ -228,11 +228,23 @@ vec3 sampleLight(vec3 pos, vec3 n, inout RandomEngine re, out vec3 l, out float 
 #endif
 
 // --------------------------------------------------------------------
+// sky intersection
+// --------------------------------------------------------------------s
+vec3 GetSkyColor(vec3 direction) 
+{
+	vec3 upper_color = SRGBtoLINEAR(vec3(0.3, 0.5, 0.92));
+	upper_color = mix(vec3(1), upper_color, max(direction.z, 0));
+	vec3 lower_color = vec3(0.2, 0.2, 0.2);
+	float weight = smoothstep(-0.02, 0.02, direction.z);
+	return mix(lower_color, upper_color, weight);
+}
+
+// --------------------------------------------------------------------
 // light calculation methods
 // --------------------------------------------------------------------
 //calculates direct lighting on the surface point at pos
 vec3 nextEventEsitmation(vec3 pos, vec3 o, SurfaceInfo s, vec3 throughput, inout RandomEngine re){
-  if(s.normal == vec3(1,1,1)) return vec3(0);
+  if(s.normal == vec3(1,1,1)) return GetSkyColor(-o) * throughput;
   vec3 light  = vec3(0);
 
   vec3 l;
@@ -248,17 +260,17 @@ vec3 nextEventEsitmation(vec3 pos, vec3 o, SurfaceInfo s, vec3 throughput, inout
   return min(throughput * light, vec3(c_MaxRadiance));
 }
 
-vec3 indirectLighting(vec3 pos, vec3 v, SurfaceInfo s, int recDepth, inout vec3 throughput, inout RandomEngine re, out vec3 sampled_direction){
+vec3 indirectLighting(vec3 pos, vec3 v, SurfaceInfo s, int recDepth, inout vec3 throughput, inout RandomEngine re){
   vec3 l;
   float pdf;
   vec3 brdf = sampleBRDF(s, re, v, l, pdf);
-  sampled_direction = l;
   if(brdf == vec3(0) || pdf < EPSILON){
     return vec3(0);
   }
 
   float t = dot(l, s.normal);
-  vec3 pathThroughput = throughput * (brdf * dot(l, s.normal)) / pdf;
+  if(s.illuminationType == 7) t = 1;
+  vec3 pathThroughput = throughput * (brdf * t) / pdf;
   if(recDepth > infos.minRecursionDepth) {
     float termination = max(c_MinTermination, 1.0 - max(max(pathThroughput.x, pathThroughput.y),pathThroughput.z));
     if(randomFloat(re) < c_MinTermination){
@@ -271,7 +283,7 @@ vec3 indirectLighting(vec3 pos, vec3 v, SurfaceInfo s, int recDepth, inout vec3 
   traceRayEXT(tlas, rayFlags, cullMask, 0, 0, 0, pos, tmin, l, tmax, 1);
 
 	//TODO: better firefly suppression (see nvpro samples for a good one)
-  return nextEventEsitmation(rayPayload.position, v, rayPayload.si, throughput, re) + rayPayload.si.emissiveColor * throughput;
+  return nextEventEsitmation(rayPayload.position, -l, rayPayload.si, throughput, re) + rayPayload.si.emissiveColor * throughput;
 }
 
 #endif //LIGHTING_H

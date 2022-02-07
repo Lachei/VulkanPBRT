@@ -49,10 +49,10 @@ namespace vsg
 
     extern VSG_DECLSPEC Path removeExtension(const Path& path);
 
-    extern VSG_DECLSPEC Path concatPaths(const Path& left, const Path& right);
+    extern VSG_DECLSPEC Path concatPaths(Path left, Path right);
 
     template<typename... Args>
-    Path concatPaths(const Path& left, Args... args)
+    Path concatPaths(Path left, Args... args)
     {
         return concatPaths(left, concatPaths(args...));
     }
