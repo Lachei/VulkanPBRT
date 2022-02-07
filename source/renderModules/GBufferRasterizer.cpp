@@ -16,7 +16,7 @@ void GBufferRasterizer::compile(vsg::Context& context)
 }
 void GBufferRasterizer::update_image_layouts(vsg::Context& context)
 {
-    g_buffer->updateImageLayouts(context);
+    g_buffer->update_image_layouts(context);
 }
 void GBufferRasterizer::setup_graphics_pipeline()
 {

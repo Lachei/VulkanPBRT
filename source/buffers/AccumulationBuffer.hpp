@@ -7,23 +7,24 @@
 
 // class to holding buffer needed for accumulation. These are:
 // prevIllu, prevDepth, prevNormal, spp, prevSpp, motion
-class AccumulationBuffer: public vsg::Inherit<vsg::Object, AccumulationBuffer>{
+class AccumulationBuffer : public vsg::Inherit<vsg::Object, AccumulationBuffer>
+{
 public:
     AccumulationBuffer(uint32_t width, uint32_t height);
 
-    vsg::ref_ptr<vsg::DescriptorImage> prevIllu, prevIlluSquared, prevDepth, prevNormal, spp, prevSpp, motion;
+    vsg::ref_ptr<vsg::DescriptorImage> prev_illu, prev_illu_squared, prev_depth, prev_normal, spp, prev_spp, motion;
 
-    void updateDescriptor(vsg::BindDescriptorSet* descSet, const vsg::BindingMap& bindingMap);
+    void update_descriptor(vsg::BindDescriptorSet* desc_set, const vsg::BindingMap& binding_map);
 
-    void updateImageLayouts(vsg::Context& context);
+    void update_image_layouts(vsg::Context& context);
 
     void compile(vsg::Context& context);
 
-    void copyToBackImages(vsg::ref_ptr<vsg::Commands> commands, vsg::ref_ptr<GBuffer> gBuffer,
-                          vsg::ref_ptr<IlluminationBuffer> illuminationBuffer);
+    void copy_to_back_images(vsg::ref_ptr<vsg::Commands> commands, vsg::ref_ptr<GBuffer> g_buffer,
+        vsg::ref_ptr<IlluminationBuffer> illumination_buffer);
 
 protected:
-    uint32_t width, height;
+    uint32_t _width, _height;
 
-    void setupImages();
+    void setup_images();
 };

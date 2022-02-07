@@ -25,10 +25,10 @@ Accumulator::Accumulator(vsg::ref_ptr<GBuffer> g_buffer, vsg::ref_ptr<Illuminati
     _bind_pipeline = vsg::BindComputePipeline::create(pipeline);
 
     // adding image usage bit for illumination buffer type
-    illuminationBuffer->illuminationImages[0]->imageInfoList[0]->imageView->image->usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+    illuminationBuffer->illumination_images[0]->imageInfoList[0]->imageView->image->usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
     vsg::Descriptors descriptors;
     auto image_info = vsg::ImageInfo::create(vsg::Sampler::create(),
-        illuminationBuffer->illuminationImages[0]->imageInfoList[0]->imageView, VK_IMAGE_LAYOUT_GENERAL);
+        illuminationBuffer->illumination_images[0]->imageInfoList[0]->imageView, VK_IMAGE_LAYOUT_GENERAL);
     int src_index = vsg::ShaderStage::getSetBindingIndex(binding_map, "srcImage").second;
     auto descriptor_image = vsg::DescriptorImage::create(image_info, src_index);
     descriptors.push_back(descriptor_image);
@@ -36,9 +36,9 @@ Accumulator::Accumulator(vsg::ref_ptr<GBuffer> g_buffer, vsg::ref_ptr<Illuminati
     _bind_descriptor_set
         = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipeline_layout, 0, descriptor_set);
 
-    g_buffer->updateDescriptor(_bind_descriptor_set, binding_map);
-    accumulation_buffer->updateDescriptor(_bind_descriptor_set, binding_map);
-    accumulated_illumination->updateDescriptor(_bind_descriptor_set, binding_map);
+    g_buffer->update_descriptor(_bind_descriptor_set, binding_map);
+    accumulation_buffer->update_descriptor(_bind_descriptor_set, binding_map);
+    accumulated_illumination->update_descriptor(_bind_descriptor_set, binding_map);
 
     _push_constants_value = PCValue::create();
     _push_constants_value->value().view = matrices[_frame_index].view;
@@ -53,8 +53,8 @@ void Accumulator::compile_images(vsg::Context& context)
 }
 void Accumulator::update_image_layouts(vsg::Context& context)
 {
-    accumulation_buffer->updateImageLayouts(context);
-    accumulated_illumination->updateImageLayouts(context);
+    accumulation_buffer->update_image_layouts(context);
+    accumulated_illumination->update_image_layouts(context);
 }
 void Accumulator::add_dispatch_to_command_graph(vsg::ref_ptr<vsg::Commands> command_graph)
 {

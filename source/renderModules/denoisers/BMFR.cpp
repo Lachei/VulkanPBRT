@@ -20,7 +20,7 @@ BMFR::BMFR(uint32_t width, uint32_t height, uint32_t work_width, uint32_t work_h
     }  
     auto illumination = illu_buffer;
     //adding usage bits to illumination buffer
-    illumination->illuminationImages[0]->imageInfoList[0]->imageView->image->usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+    illumination->illumination_images[0]->imageInfoList[0]->imageView->image->usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
     std::string pre_shader_path = "shaders/bmfrPre.comp.spv";
     std::string fit_shader_path = "shaders/bmfrFit.comp.spv";
     std::string post_shader_path = "shaders/bmfrPost.comp.spv";
@@ -129,7 +129,7 @@ BMFR::BMFR(uint32_t width, uint32_t height, uint32_t work_width, uint32_t work_h
 
     auto binding_map = pre_compute_stage->getDescriptorSetLayoutBindingsMap();
     auto descriptor_set_layout = vsg::DescriptorSetLayout::create(binding_map.begin()->second.bindings);
-    auto illumination_info = illumination->illuminationImages[0]->imageInfoList[0];
+    auto illumination_info = illumination->illumination_images[0]->imageInfoList[0];
     illumination_info->sampler = _sampler;
     // filling descriptor set
     vsg::Descriptors descriptors{

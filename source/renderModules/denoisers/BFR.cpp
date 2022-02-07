@@ -19,7 +19,7 @@ BFR::BFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeigh
     }
     auto illumination = illuBuffer;
         //adding usage bits to illumination buffer
-    illumination->illuminationImages[0]->imageInfoList[0]->imageView->image->usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+    illumination->illumination_images[0]->imageInfoList[0]->imageView->image->usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
     std::string shaderPath = "shaders/bfr.comp.spv";
     auto computeStage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", shaderPath);
     computeStage->specializationConstants = vsg::ShaderStage::SpecializationConstants{
@@ -70,7 +70,7 @@ BFR::BFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeigh
     // descriptor set layout
     auto bindingMap = computeStage->getDescriptorSetLayoutBindingsMap();
     auto descriptorSetLayout = vsg::DescriptorSetLayout::create(bindingMap.begin()->second.bindings);
-    auto illuminationInfo = illumination->illuminationImages[0]->imageInfoList[0];
+    auto illuminationInfo = illumination->illumination_images[0]->imageInfoList[0];
     illuminationInfo->sampler = sampler;
     // filling descriptor set
     vsg::Descriptors descriptors{

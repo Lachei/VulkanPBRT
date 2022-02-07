@@ -22,8 +22,8 @@ public:
 PBRTPipeline::PBRTPipeline(vsg::ref_ptr<vsg::Node> scene, vsg::ref_ptr<GBuffer> gBuffer,
     vsg::ref_ptr<AccumulationBuffer> accumulationBuffer, vsg::ref_ptr<IlluminationBuffer> illuminationBuffer,
     bool write_g_buffer, RayTracingRayOrigin ray_tracing_ray_origin)
-    : _width(illuminationBuffer->illuminationImages[0]->imageInfoList[0]->imageView->image->extent.width),
-      _height(illuminationBuffer->illuminationImages[0]->imageInfoList[0]->imageView->image->extent.height),
+    : _width(illuminationBuffer->illumination_images[0]->imageInfoList[0]->imageView->image->extent.width),
+      _height(illuminationBuffer->illumination_images[0]->imageInfoList[0]->imageView->image->extent.height),
       _max_recursion_depth(2),
       _g_buffer(gBuffer),
       _accumulation_buffer(accumulationBuffer),
@@ -59,7 +59,7 @@ void PBRTPipeline::compile(vsg::Context& context)
 }
 void PBRTPipeline::update_image_layouts(vsg::Context& context)
 {
-    _illumination_buffer->updateImageLayouts(context);
+    _illumination_buffer->update_image_layouts(context);
 }
 void PBRTPipeline::add_trace_rays_to_command_graph(
     vsg::ref_ptr<vsg::Commands> command_graph, vsg::ref_ptr<vsg::PushConstants> push_constants)
@@ -156,14 +156,14 @@ void PBRTPipeline::setup_pipeline(vsg::Node* scene, bool use_external_gbuffer)
     _bind_ray_tracing_descriptor_set->descriptorSet->descriptors.push_back(constant_infos_descriptor);
 
     // update the descriptor sets
-    _illumination_buffer->updateDescriptor(_bind_ray_tracing_descriptor_set, _binding_map);
+    _illumination_buffer->update_descriptor(_bind_ray_tracing_descriptor_set, _binding_map);
     if (_g_buffer)
     {
-        _g_buffer->updateDescriptor(_bind_ray_tracing_descriptor_set, _binding_map);
+        _g_buffer->update_descriptor(_bind_ray_tracing_descriptor_set, _binding_map);
     }
     if (_accumulation_buffer)
     {
-        _accumulation_buffer->updateDescriptor(_bind_ray_tracing_descriptor_set, _binding_map);
+        _accumulation_buffer->update_descriptor(_bind_ray_tracing_descriptor_set, _binding_map);
     }
 }
 vsg::ref_ptr<vsg::ShaderStage> PBRTPipeline::setup_raygen_shader(std::string raygen_path, bool use_external_g_buffer)

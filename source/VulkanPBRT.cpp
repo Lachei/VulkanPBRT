@@ -485,7 +485,7 @@ int main(int argc, char** argv)
             accumulator->add_dispatch_to_command_graph(commands);
             accumulation_buffer = accumulator->accumulation_buffer;
             illumination_buffer->compile(image_layout_compile.context);
-            illumination_buffer->updateImageLayouts(image_layout_compile.context);
+            illumination_buffer->update_image_layouts(image_layout_compile.context);
             illumination_buffer
                 = accumulator->accumulated_illumination;  // swap illumination buffer to accumulated illumination for
                                                           // correct use in the following pipelines
@@ -495,7 +495,7 @@ int main(int argc, char** argv)
         switch (denoising_type)
         {
         case DenoisingType::NONE:
-            final_descriptor_image = illumination_buffer->illuminationImages[0];
+            final_descriptor_image = illumination_buffer->illumination_images[0];
             break;
         case DenoisingType::BFR:
             switch (denoising_block_size)
@@ -539,7 +539,7 @@ int main(int argc, char** argv)
                     auto bfr32 = BFR::create(window_traits->width, window_traits->height, 32, 32, g_buffer,
                         illumination_buffer, accumulation_buffer);
                     auto blender = BFRBlender::create(window_traits->width, window_traits->height,
-                        illumination_buffer->illuminationImages[0], illumination_buffer->illuminationImages[1],
+                        illumination_buffer->illumination_images[0], illumination_buffer->illumination_images[1],
                         bfr8->getFinalDescriptorImage(), bfr16->getFinalDescriptorImage(),
                         bfr32->getFinalDescriptorImage());
                     bfr8->compile(image_layout_compile.context);
@@ -600,7 +600,7 @@ int main(int argc, char** argv)
                 auto bmfr32 = BMFR::create(window_traits->width, window_traits->height, 32, 32, g_buffer,
                     illumination_buffer, accumulation_buffer);
                 auto blender = BFRBlender::create(window_traits->width, window_traits->height,
-                    illumination_buffer->illuminationImages[1], illumination_buffer->illuminationImages[2],
+                    illumination_buffer->illumination_images[1], illumination_buffer->illumination_images[2],
                     bmfr8->get_final_descriptor_image(), bmfr16->get_final_descriptor_image(),
                     bmfr32->get_final_descriptor_image());
                 bmfr8->compile(image_layout_compile.context);
@@ -664,23 +664,23 @@ int main(int argc, char** argv)
         if (g_buffer)
         {
             g_buffer->compile(image_layout_compile.context);
-            g_buffer->updateImageLayouts(image_layout_compile.context);
+            g_buffer->update_image_layouts(image_layout_compile.context);
         }
         if (accumulation_buffer)
         {
             accumulation_buffer->compile(image_layout_compile.context);
-            accumulation_buffer->updateImageLayouts(image_layout_compile.context);
+            accumulation_buffer->update_image_layouts(image_layout_compile.context);
         }
         if (illumination_buffer)
         {
             illumination_buffer->compile(image_layout_compile.context);
-            illumination_buffer->updateImageLayouts(image_layout_compile.context);
+            illumination_buffer->update_image_layouts(image_layout_compile.context);
         }
         image_layout_compile.context.record();
 
         if (accumulation_buffer)
         {
-            accumulation_buffer->copyToBackImages(commands, g_buffer, illumination_buffer);
+            accumulation_buffer->copy_to_back_images(commands, g_buffer, illumination_buffer);
         }
 
         // set GUI values

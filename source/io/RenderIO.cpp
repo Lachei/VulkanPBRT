@@ -286,9 +286,9 @@ void OfflineIllumination::uploadToIlluminationBufferCommand(vsg::ref_ptr<Illumin
     stagingMemoryBufferPools = context.stagingMemoryBufferPools;
     if(!noisyStaging)
         setupStagingBuffer(illuBuffer->width, illuBuffer->height);
-    if(illuBuffer->illuminationImages[0]){
-        commands->addChild(CopyBufferToImage::create(noisyStaging, illuBuffer->illuminationImages[0]->imageInfoList.front(), 1));
-        illuBuffer->illuminationImages[0]->imageInfoList[0]->imageView->image->usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    if(illuBuffer->illumination_images[0]){
+        commands->addChild(CopyBufferToImage::create(noisyStaging, illuBuffer->illumination_images[0]->imageInfoList.front(), 1));
+        illuBuffer->illumination_images[0]->imageInfoList[0]->imageView->image->usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     }
 }
 
@@ -296,12 +296,12 @@ void OfflineIllumination::downloadFromIlluminationBufferCommand(vsg::ref_ptr<Ill
     stagingMemoryBufferPools = context.stagingMemoryBufferPools;
     if(!noisyStaging)
         setupStagingBuffer(illuBuffer->width, illuBuffer->height);
-    if(illuBuffer->illuminationImages[0])
+    if(illuBuffer->illumination_images[0])
     {
         //transfer image layout for optimal transfer and memory barrier
         VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
         auto memBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_TRANSFER_READ_BIT, VK_IMAGE_LAYOUT_GENERAL,
-                                                       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0, illuBuffer->illuminationImages[0]->imageInfoList.front()->imageView->image,
+                                                       VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0, illuBuffer->illumination_images[0]->imageInfoList.front()->imageView->image,
                                                        resourceRange);
         auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
                                                         VK_PIPELINE_STAGE_TRANSFER_BIT, VK_DEPENDENCY_BY_REGION_BIT,
@@ -309,7 +309,7 @@ void OfflineIllumination::downloadFromIlluminationBufferCommand(vsg::ref_ptr<Ill
         commands->addChild(pipelineBarrier);
         // copy image to buffer
         auto copy = vsg::CopyImageToBuffer::create();
-        auto info = illuBuffer->illuminationImages[0]->imageInfoList.front();
+        auto info = illuBuffer->illumination_images[0]->imageInfoList.front();
         copy->srcImage = info->imageView->image;
         copy->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
         copy->dstBuffer = noisyStaging->buffer;
@@ -317,14 +317,14 @@ void OfflineIllumination::downloadFromIlluminationBufferCommand(vsg::ref_ptr<Ill
         commands->addChild(copy);
         // transfer image layout back
         memBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 
-                                                    VK_IMAGE_LAYOUT_GENERAL, 0, 0, illuBuffer->illuminationImages[0]->imageInfoList.front()->imageView->image,
+                                                    VK_IMAGE_LAYOUT_GENERAL, 0, 0, illuBuffer->illumination_images[0]->imageInfoList.front()->imageView->image,
                                                     resourceRange);
         pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
                                                     VK_DEPENDENCY_BY_REGION_BIT,
                                                     memBarrier);
         commands->addChild(pipelineBarrier);
 
-        illuBuffer->illuminationImages[0]->imageInfoList[0]->imageView->image->usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        illuBuffer->illumination_images[0]->imageInfoList[0]->imageView->image->usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         noisyStaging->buffer->usage |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
     }
 }
