@@ -5,25 +5,28 @@
 
 #include <cstdint>
 
-class GBufferRasterizer{
+class GBufferRasterizer
+{
 public:
-    GBufferRasterizer(vsg::Device* device, uint32_t width, uint32_t height, bool doubleSided = false, bool blend = false);
+    GBufferRasterizer(
+        vsg::Device* device, uint32_t width, uint32_t height, bool double_sided = false, bool blend = false);
 
     void compile(vsg::Context& context);
 
-    void updateImageLayouts(vsg::Context& context);
+    void update_image_layouts(vsg::Context& context);
 
-    vsg::ref_ptr<GBuffer> gBuffer;
-    vsg::ref_ptr<vsg::BindGraphicsPipeline> bindGraphicsPipeline;
-    vsg::ref_ptr<vsg::BindDescriptorSet> bindDescriptorSet;
-    vsg::ref_ptr<vsg::RenderPass> renderPass;
-    vsg::ref_ptr<vsg::Framebuffer> frameBuffer;
+    vsg::ref_ptr<GBuffer> g_buffer;
+    vsg::ref_ptr<vsg::BindGraphicsPipeline> bind_graphics_pipeline;
+    vsg::ref_ptr<vsg::BindDescriptorSet> bind_descriptor_set;
+    vsg::ref_ptr<vsg::RenderPass> render_pass;
+    vsg::ref_ptr<vsg::Framebuffer> frame_buffer;
     vsg::ref_ptr<vsg::ImageView> depth;
-    vsg::ref_ptr<vsg::RenderGraph> renderGraph;
-protected:
-    uint32_t width, height;
-    bool doubleSided, blend;
-    vsg::Device* device;
+    vsg::ref_ptr<vsg::RenderGraph> render_graph;
 
-    void setupGraphicsPipeline();
+protected:
+    uint32_t _width, _height;
+    bool _double_sided, _blend;
+    vsg::Device* _device;
+
+    void setup_graphics_pipeline();
 };

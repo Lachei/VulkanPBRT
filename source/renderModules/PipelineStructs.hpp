@@ -3,10 +3,11 @@
 
 #include <cstdint>
 
-struct RayTracingPushConstants{
-    vsg::mat4 viewInverse;
-    vsg::mat4 projInverse;
-    vsg::mat4 prevView;
-    uint32_t frameNumber;
-    uint32_t sampleNumber;
+struct RayTracingPushConstants
+{
+    vsg::mat4 view_inverse;
+    vsg::mat4 proj_inverse;
+    vsg::mat4 prev_view;
+    uint32_t frame_number;
+    uint32_t sample_number;
 };

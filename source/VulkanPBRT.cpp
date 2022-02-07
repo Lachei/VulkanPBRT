@@ -384,11 +384,11 @@ int main(int argc, char** argv)
 
         // set push constants
         auto ray_tracing_push_constants_value = RayTracingPushConstantsValue::create();
-        ray_tracing_push_constants_value->value().projInverse = perspective->inverse();
-        ray_tracing_push_constants_value->value().viewInverse = look_at->inverse();
-        ray_tracing_push_constants_value->value().prevView = look_at->transform();
-        ray_tracing_push_constants_value->value().frameNumber = 0;
-        ray_tracing_push_constants_value->value().sampleNumber = 0;
+        ray_tracing_push_constants_value->value().proj_inverse = perspective->inverse();
+        ray_tracing_push_constants_value->value().view_inverse = look_at->inverse();
+        ray_tracing_push_constants_value->value().prev_view = look_at->transform();
+        ray_tracing_push_constants_value->value().frame_number = 0;
+        ray_tracing_push_constants_value->value().sample_number = 0;
         auto push_constants
             = vsg::PushConstants::create(VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, ray_tracing_push_constants_value);
         auto compute_constants
@@ -431,7 +431,7 @@ int main(int argc, char** argv)
             // setup tlas
             vsg::BuildAccelerationStructureTraversal build_accel_struct(device);
             loaded_scene->accept(build_accel_struct);
-            pbrt_pipeline->setTlas(build_accel_struct.tlas);
+            pbrt_pipeline->set_tlas(build_accel_struct.tlas);
         }
         else
         {
@@ -463,8 +463,8 @@ int main(int argc, char** argv)
         auto offline_illumination_buffer_stager = OfflineIllumination::create();
         if (pbrt_pipeline)
         {
-            pbrt_pipeline->addTraceRaysToCommandGraph(commands, push_constants);
-            illumination_buffer = pbrt_pipeline->getIlluminationBuffer();
+            pbrt_pipeline->add_trace_rays_to_command_graph(commands, push_constants);
+            illumination_buffer = pbrt_pipeline->get_illumination_buffer();
         }
         else
         {
@@ -482,13 +482,13 @@ int main(int argc, char** argv)
         if (use_external_buffers && denoising_type != DenoisingType::NONE)
         {
             accumulator = Accumulator::create(g_buffer, illumination_buffer, camera_matrices);
-            accumulator->addDispatchToCommandGraph(commands);
-            accumulation_buffer = accumulator->accumulationBuffer;
+            accumulator->add_dispatch_to_command_graph(commands);
+            accumulation_buffer = accumulator->accumulation_buffer;
             illumination_buffer->compile(image_layout_compile.context);
             illumination_buffer->updateImageLayouts(image_layout_compile.context);
             illumination_buffer
-                = accumulator->accumulatedIllumination;  // swap illumination buffer to accumulated illumination for
-            // correct use in the following pipelines
+                = accumulator->accumulated_illumination;  // swap illumination buffer to accumulated illumination for
+                                                          // correct use in the following pipelines
         }
 
         vsg::ref_ptr<vsg::DescriptorImage> final_descriptor_image;
@@ -629,9 +629,9 @@ int main(int argc, char** argv)
             auto taa = Taa::create(window_traits->width, window_traits->height, 16, 16, g_buffer, accumulation_buffer,
                 final_descriptor_image);
             taa->compile(image_layout_compile.context);
-            taa->updateImageLayouts(image_layout_compile.context);
-            taa->addDispatchToCommandGraph(commands);
-            final_descriptor_image = taa->getFinalDescriptorImage();
+            taa->update_image_layouts(image_layout_compile.context);
+            taa->add_dispatch_to_command_graph(commands);
+            final_descriptor_image = taa->get_final_descriptor_image();
         }
         if (export_g_buffer)
         {
@@ -656,10 +656,10 @@ int main(int argc, char** argv)
         {
             auto converter = FormatConverter::create(
                 final_descriptor_image->imageInfoList[0]->imageView, VK_FORMAT_B8G8R8A8_UNORM);
-            converter->compileImages(image_layout_compile.context);
-            converter->updateImageLayouts(image_layout_compile.context);
-            converter->addDispatchToCommandGraph(commands);
-            final_descriptor_image = converter->finalImage;
+            converter->compile_images(image_layout_compile.context);
+            converter->update_image_layouts(image_layout_compile.context);
+            converter->add_dispatch_to_command_graph(commands);
+            final_descriptor_image = converter->final_image;
         }
         if (g_buffer)
         {
@@ -731,14 +731,14 @@ int main(int argc, char** argv)
         {
             viewer->handleEvents();
             if (static_cast<vsg::mat4>(vsg::lookAt(look_at->eye, look_at->center, look_at->up))
-                != ray_tracing_push_constants_value->value().prevView)
+                != ray_tracing_push_constants_value->value().prev_view)
             {
                 // clear samples when the camera has moved
                 sample_index = 0;
             }
-            ray_tracing_push_constants_value->value().viewInverse = look_at->inverse();
-            ray_tracing_push_constants_value->value().frameNumber = frame_index;
-            ray_tracing_push_constants_value->value().sampleNumber = sample_index;
+            ray_tracing_push_constants_value->value().view_inverse = look_at->inverse();
+            ray_tracing_push_constants_value->value().frame_number = frame_index;
+            ray_tracing_push_constants_value->value().sample_number = sample_index;
             gui_values->sample_number = sample_index;
 
             if (use_external_buffers)
@@ -747,7 +747,7 @@ int main(int argc, char** argv)
                 offline_illumination_buffer_stager->transferStagingDataFrom(offline_illuminations[frame_index]);
                 if (accumulator)
                 {
-                    accumulator->setFrameIndex(frame_index);
+                    accumulator->set_frame_index(frame_index);
                 }
             }
 
@@ -755,7 +755,7 @@ int main(int argc, char** argv)
             viewer->recordAndSubmit();
             viewer->present();
 
-            ray_tracing_push_constants_value->value().prevView = look_at->transform();
+            ray_tracing_push_constants_value->value().prev_view = look_at->transform();
 
             if (sample_index >= samples_per_pixel)
             {
