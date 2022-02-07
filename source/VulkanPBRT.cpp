@@ -693,21 +693,10 @@ int main(int argc, char **argv)
             viewer->update();
             viewer->recordAndSubmit();
             viewer->present();
-            if (queryPool)
-            {
-                auto results = queryPool->getResults();
-                static double running = 0;
-                static int count = 0;
-                double a = count / double(++count);
-                running = a * running + (1 - a) * (results[1] - results[0]) / 1e6;
-                if(count > 1) std::cout << "\r";
-                std::cout << running;
-                std::cout.flush();
-            }
 
             rayTracingPushConstantsValue->value().prevView = lookAt->transform();
 
-            if (sample_index >= samplesPerPixel + 1) {
+            if (sample_index + 1 >= samplesPerPixel) {
                 if (exportGBuffer || exportIllumination) {
                     viewer->deviceWaitIdle();
                     if (exportIllumination) {
