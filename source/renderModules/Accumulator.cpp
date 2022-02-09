@@ -74,7 +74,7 @@ void Accumulator::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandG
     commandGraph->addChild(pipelineBarrier);
 }
 
-void Accumulator::setDoubleMatrix(int frameIndex, const DoubleMatrix& cur, const DoubleMatrix& prev)
+void Accumulator::setCameraMatrices(int frameIndex, const CameraMatrices& cur, const CameraMatrices& prev)
 {
     if(_separateMatrices){
         if(!cur.proj || !cur.invProj) throw vsg::Exception{"Accumulator::setDoubleMatrix(...) Accumulator was created with separateMatrices = true, but DubleMatrix is missing seperate matrices"};

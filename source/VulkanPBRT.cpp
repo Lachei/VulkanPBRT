@@ -186,7 +186,7 @@ int main(int argc, char **argv)
         vsg::ref_ptr<vsg::Node> loaded_scene;
         std::vector<vsg::ref_ptr<OfflineGBuffer>> offlineGBuffers;
         std::vector<vsg::ref_ptr<OfflineIllumination>> offlineIlluminations;
-        std::vector<DoubleMatrix> cameraMatrices;
+        std::vector<CameraMatrices> cameraMatrices;
         if(!use_external_buffers){
             AI3DFrontImporter::ReadConfig(config_json);
             auto options = vsg::Options::create(vsgXchange::assimp::create(), vsgXchange::dds::create(), vsgXchange::stbi::create()); //using the assimp loader
@@ -678,16 +678,16 @@ int main(int argc, char **argv)
                 offlineGBufferStager->transferStagingDataFrom(offlineGBuffers[frame_index]);
                 offlineIlluminationBufferStager->transferStagingDataFrom(offlineIlluminations[frame_index]);
                 if (accumulator)
-                   accumulator->setDoubleMatrix(frame_index, cameraMatrices[frame_index], cameraMatrices[frame_index ? frame_index - 1 : frame_index]);
+                   accumulator->setCameraMatrices(frame_index, cameraMatrices[frame_index], cameraMatrices[frame_index ? frame_index - 1 : frame_index]);
             }
             else if (accumulator)
             {
-                DoubleMatrix a{}, b{};
+                CameraMatrices a{}, b{};
                 a.invView = lookAt->inverse();
                 a.invProj = perspective->inverse();
                 a.proj = perspective->transform();
                 b.view = rayTracingPushConstantsValue->value().prevView;
-                accumulator->setDoubleMatrix(rayTracingPushConstantsValue->value().frameNumber, a, b);
+                accumulator->setCameraMatrices(rayTracingPushConstantsValue->value().frameNumber, a, b);
             }
 
             viewer->update();
