@@ -124,7 +124,7 @@ void BFR::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vs
     commandGraph->addChild(bindBfrPipeline);
     commandGraph->addChild(bindDescriptorSet);
     commandGraph->addChild(pushConstants);
-    commandGraph->addChild(vsg::Dispatch::create((width / workWidth + 1), (height / workHeight + 1), 1));
+    commandGraph->addChild(vsg::Dispatch::create((width / workWidth + 2), (height / workHeight + 2), 1));
     auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
         VK_DEPENDENCY_BY_REGION_BIT);
     commandGraph->addChild(pipelineBarrier); //barrier to wait for completion of denoising before taa is applied

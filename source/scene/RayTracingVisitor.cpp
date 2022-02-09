@@ -300,8 +300,9 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::BindDescriptorSet& bds
             texture = vsg::DescriptorImage::create(d->imageInfoList, 11, _specular.size());
             _specular.push_back(texture);
             setTextures.insert(11);
+            break;
         default:
-            std::cout << "Unkown texture binding. Could not properly detect material" << std::endl;
+            std::cout << "Unkown texture binding: " << descriptor->dstBinding << ". Could not properly detect material" << std::endl;
         }
     }
 

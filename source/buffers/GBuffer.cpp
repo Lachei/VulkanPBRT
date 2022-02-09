@@ -8,18 +8,18 @@ void GBuffer::updateDescriptor(vsg::BindDescriptorSet* descSet, const vsg::Bindi
 {
     vsg::DescriptorSetLayoutBindings& bindings = descSet->descriptorSet->setLayout->bindings;
     int depthInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "depthImage").second;
-    depth->dstBinding = depthInd;
+    auto depthBind = vsg::DescriptorImage::create(depth->imageInfoList, depthInd, 0, depth->descriptorType);
     int normalInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "normalImage").second;
-    normal->dstBinding = normalInd;
+    auto normalBind = vsg::DescriptorImage::create(normal->imageInfoList, normalInd, 0, normal->descriptorType);
     int materialInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "materialImage").second;
-    material->dstBinding = materialInd;
+    auto materialBind = vsg::DescriptorImage::create(material->imageInfoList, materialInd, 0, material->descriptorType);
     int albedoInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "albedoImage").second;
-    albedo->dstBinding = albedoInd;
+    auto albedoBind = vsg::DescriptorImage::create(albedo->imageInfoList, albedoInd, 0, albedo->descriptorType);
 
-    descSet->descriptorSet->descriptors.push_back(depth);
-    descSet->descriptorSet->descriptors.push_back(normal);
-    descSet->descriptorSet->descriptors.push_back(material);
-    descSet->descriptorSet->descriptors.push_back(albedo);
+    descSet->descriptorSet->descriptors.push_back(depthBind);
+    descSet->descriptorSet->descriptors.push_back(normalBind);
+    descSet->descriptorSet->descriptors.push_back(materialBind);
+    descSet->descriptorSet->descriptors.push_back(albedoBind);
 }
 void GBuffer::updateImageLayouts(vsg::Context& context)
 {
