@@ -78,7 +78,10 @@ void main(){
 			vec3 prevNor;
 			prevNor.xy = texture(prevNormal, prevPos.xy).xy;
 			prevNor = vec3(sin(prevNor.x) * cos(prevNor.y), sin(prevNor.x) * sin(prevNor.y), cos(prevNor.x));
-			if(true || dot(normal, prevNor) > .7f){	//we do have a point which can be reprojected
+			
+			// TODO: enable this check once normal decompression has been fixed
+			// if(dot(normal, prevNor) > .7f) //we do have a point which can be reprojected
+			{	
 				reprojected = true;
 				prevColor = texture(prevOutput, prevPos.xy).xyz;
 				pixelSpp += texture(prevSampleCounts, prevPos.xy).x;
