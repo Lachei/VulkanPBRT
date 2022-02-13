@@ -15,9 +15,9 @@ public:
      * \return Pointer to the component. Can be nullptr if this entity does not have a component of type T.
      */
     template <typename T>
-    T* GetComponent();
+    T& GetComponent();
     template <typename T, typename ... Args>
-    void AddComponent();
+    void AddComponent(T comp);//each entity has many different type pf components, but each type only one component
 private:
     uint64_t _id;
     EntityManager& _entity_manager;
@@ -32,12 +32,12 @@ inline uint64_t Entity::GetId() const
     return _id;
 }
 template <typename T>
-T* Entity::GetComponent()
+T& Entity::GetComponent()
 {
     return _entity_manager.GetComponent<T>(_id);
 }
 template <typename T, typename ... Args>
-void Entity::AddComponent()
+void Entity::AddComponent(T comp)
 {
-    _entity_manager.AddComponents<T>(_id);
+    _entity_manager.AddComponents<T>(_id, comp);
 }

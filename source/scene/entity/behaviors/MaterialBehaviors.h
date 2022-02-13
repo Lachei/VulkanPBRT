@@ -6,6 +6,7 @@ class MaterialBehavior : public EntityBehaviorBase
 {
 public:
     void Initialize() override;
-    void Update(float frame_time, MaterialComponent newcomponent) override;
+    template< typename T >
+    void Update(float frame_time, T newcomponent) override;
     void Terminate() override;
 };

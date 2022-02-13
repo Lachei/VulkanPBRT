@@ -9,7 +9,8 @@ void MaterialBehavior::Initialize()
 {
     //TODO
 }
-void MaterialBehavior::Update(float frame_time, MaterialComponent newcomponent)
+template< typename T >
+void MaterialBehavior::Update(float frame_time, T newcomponent)
 {
     //frame_time FIXME
     auto& pre_component = _entity.GetComponent<MaterialComponent>();

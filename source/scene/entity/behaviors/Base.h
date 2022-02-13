@@ -32,7 +32,6 @@ protected:
      * \brief The entity this behavior is attached to.
      */
     Entity _entity;
-    float keyframe_time;
 };
 
 inline EntityBehaviorBase::EntityBehaviorBase(Entity entity)

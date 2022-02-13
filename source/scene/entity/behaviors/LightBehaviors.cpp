@@ -8,11 +8,10 @@ LightBehavior::EntityBehaviorBase(Entity entity)
 void LightBehavior::Initialize()
 {
 }
-void LightBehavior::Update(float frame_time, LightComponent newcomponent)
+template< typename T >
+void LightBehavior::Update(float frame_time, T component)
 {
-    //frame_time FIXME
-    auto& pre_component = _entity.GetComponent<LightComponent>();
-    pre_component = newcomponent;
+    //TODO
 }
 void LightBehavior::Terminate()
 {
