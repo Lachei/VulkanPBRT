@@ -110,6 +110,13 @@ float geometricOcclusion(PBRInfo pbrInputs)
     float attenuationL = 2.0 * NdotL / (NdotL + sqrt(r + (1.0 - r) * (NdotL * NdotL)));
     float attenuationV = 2.0 * NdotV / (NdotV + sqrt(r + (1.0 - r) * (NdotV * NdotV)));
     return attenuationL * attenuationV;
+    //float GGXV = NdotL * sqrt(NdotV * NdotV * (1.0 - r) + r);
+    //float GGXL = NdotV * sqrt(NdotL * NdotL * (1.0 - r) + r);
+    //float GGX = GGXV + GGXL;
+    //if(GGX > 0){
+    //    return .5 / GGX;
+    //}
+    //return 0;
 }
 
 // The following equation(s) model the distribution of microfacet normals across the area being drawn (aka D())
