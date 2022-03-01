@@ -91,6 +91,12 @@ vec3 specularReflection(PBRInfo pbrInputs)
     return pbrInputs.s.reflectance0 + (pbrInputs.s.reflectance90 - pbrInputs.s.reflectance90*pbrInputs.s.reflectance0) * exp2((-5.55473 * pbrInputs.VdotH - 6.98316) * pbrInputs.VdotH);
 }
 
+vec3 specularReflection(vec3 reflectance0, vec3 reflectance90, float VdotH)
+{
+    return reflectance0 + (reflectance90 - reflectance0) * pow(clamp(1.0 - VdotH, 0.0, 1.0), 5.0);
+    //return reflectance0 + (reflectance90 - reflectance90*reflectance0) * exp2((-5.55473 * VdotH - 6.98316) * VdotH);
+}
+
 // This calculates the specular geometric attenuation (aka G()),
 // where rougher material will reflect less light back to the viewer.
 // This implementation is based on [1] Equation 4, and we adopt their modifications to
@@ -104,6 +110,13 @@ float geometricOcclusion(PBRInfo pbrInputs)
     float attenuationL = 2.0 * NdotL / (NdotL + sqrt(r + (1.0 - r) * (NdotL * NdotL)));
     float attenuationV = 2.0 * NdotV / (NdotV + sqrt(r + (1.0 - r) * (NdotV * NdotV)));
     return attenuationL * attenuationV;
+    //float GGXV = NdotL * sqrt(NdotV * NdotV * (1.0 - r) + r);
+    //float GGXL = NdotV * sqrt(NdotL * NdotL * (1.0 - r) + r);
+    //float GGX = GGXV + GGXL;
+    //if(GGX > 0){
+    //    return .5 / GGX;
+    //}
+    //return 0;
 }
 
 // The following equation(s) model the distribution of microfacet normals across the area being drawn (aka D())
@@ -139,8 +152,6 @@ vec3 BRDF(vec3 v, vec3 l, vec3 h, SurfaceInfo s)
     vec3 F = specularReflection(pbrInputs);
     float G = geometricOcclusion(pbrInputs);
     float D = microfacetDistribution(pbrInputs);
-
-    const vec3 u_LightColor = vec3(1.0);
 
     // Calculation of analytical lighting contribution
     vec3 diffuseContrib = (1.0 - F) * BRDF_Diffuse_Disney(pbrInputs);

@@ -54,9 +54,11 @@ namespace vsg
         vec4 diffuse{1.0f, 1.0f, 1.0f, 1.0f};
         vec4 specular{0.0f, 0.0f, 0.0f, 1.0f};
         vec4 emissive{0.0f, 0.0f, 0.0f, 1.0f};
+        vec3 transmissive{1.f, 1.f, 1.f};
         float shininess{0.0f};
         float alphaMask{1.0f};
         float alphaMaskCutoff{0.5f};
+        float indexOfRefraction{1.f};
         uint32_t categoryId{0};
 
         void read(vsg::Input& input)
@@ -68,7 +70,8 @@ namespace vsg
             input.read("shininess", shininess);
             input.read("alphaMask", alphaMask);
             input.read("alphaMaskCutoff", alphaMaskCutoff);
-            input.read("categoryId", categoryId);
+            input.read("transmissive", transmissive);
+            input.read("indexOfRefraction", indexOfRefraction);
         }
 
         void write(vsg::Output& output) const
@@ -80,7 +83,8 @@ namespace vsg
             output.write("shininess", shininess);
             output.write("alphaMask", alphaMask);
             output.write("alphaMaskCutoff", alphaMaskCutoff);
-            output.write("categoryId", categoryId);
+            output.write("transmissive", transmissive);
+            output.write("indexOfRefraction", indexOfRefraction);
         }
     };
 
@@ -96,6 +100,7 @@ namespace vsg
         vec4 emissiveFactor{0.0f, 0.0f, 0.0f, 1.0f};
         vec4 diffuseFactor{1.0f, 1.0f, 1.0f, 1.0f};
         vec4 specularFactor{0.0f, 0.0f, 0.0f, 1.0f};
+        vec3 transmissionFactor{1.f, 1.f, 1.f};
         float metallicFactor{1.0f};
         float roughnessFactor{1.0f};
         float alphaMask{1.0f};
@@ -115,6 +120,7 @@ namespace vsg
             input.read("alphaMaskCutoff", alphaMaskCutoff);
             input.read("indexOfRefraction", indexOfRefraction);
             input.read("categoryId", categoryId);
+            input.read("transmissionFactor", transmissionFactor);
         }
 
         void write(vsg::Output& output) const
@@ -129,6 +135,7 @@ namespace vsg
             output.write("alphaMaskCutoff", alphaMaskCutoff);
             output.write("indexOfRefraction", indexOfRefraction);
             output.write("categoryId", categoryId);
+            output.write("transmissionFactor", transmissionFactor);
         }
     };
 

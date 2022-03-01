@@ -542,22 +542,28 @@ assimp::Implementation::BindState assimp::Implementation::processMaterials(const
         auto shaderHints = vsg::ShaderCompileSettings::create();
         std::vector<std::string>& defines = shaderHints->defines;
 
+        uint32_t maxAmt = 4;
+        uint32_t maxAmt3 = 3;
         vsg::PbrMaterial pbr;
         bool hasPbrSpecularGlossiness = material->Get(AI_MATKEY_COLOR_SPECULAR, pbr.specularFactor);
 
-        if (material->Get(AI_MATKEY_BASE_COLOR, pbr.baseColorFactor) == AI_SUCCESS || hasPbrSpecularGlossiness)
+        if (material->Get(AI_MATKEY_BASE_COLOR, &pbr.baseColorFactor.x, &maxAmt) == AI_SUCCESS || hasPbrSpecularGlossiness)
         {
             // PBR path
 
             if (hasPbrSpecularGlossiness)
             {
                 defines.push_back("VSG_WORKFLOW_SPECGLOSS");
-                material->Get(AI_MATKEY_COLOR_DIFFUSE, pbr.diffuseFactor);
+                material->Get(AI_MATKEY_COLOR_DIFFUSE, &pbr.diffuseFactor.x, &maxAmt);
+                material->Get(AI_MATKEY_COLOR_SPECULAR, &pbr.specularFactor.x, &maxAmt);
 
                 if (material->Get(AI_MATKEY_GLOSSINESS_FACTOR, pbr.specularFactor.a) != AI_SUCCESS)
                 {
-                    if (float shininess; material->Get(AI_MATKEY_SHININESS, shininess))
+                    if (float shininess; material->Get(AI_MATKEY_SHININESS, shininess) == AI_SUCCESS){
                         pbr.specularFactor.a = shininess / 1000;
+                        auto shin2Rough = [](float shininess){return  std::sqrt(2 / (shininess + 2));};
+                        pbr.roughnessFactor = shin2Rough(shininess);
+                    }
                 }
             }
             else
@@ -566,8 +572,9 @@ assimp::Implementation::BindState assimp::Implementation::processMaterials(const
                 material->Get(AI_MATKEY_ROUGHNESS_FACTOR, pbr.roughnessFactor);
             }
 
-            material->Get(AI_MATKEY_COLOR_EMISSIVE, pbr.emissiveFactor);
+            material->Get(AI_MATKEY_COLOR_EMISSIVE, &pbr.emissiveFactor.x, &maxAmt);
             material->Get(AI_MATKEY_GLTF_ALPHACUTOFF, pbr.alphaMaskCutoff);
+            material->Get(AI_MATKEY_COLOR_TRANSPARENT, &pbr.transmissionFactor.x, &maxAmt3);
             material->Get(AI_MATKEY_REFRACTI, pbr.indexOfRefraction);
             material->Get(AI_MATKEY_CATEGORY_ID, pbr.categoryId);
 
@@ -641,11 +648,13 @@ assimp::Implementation::BindState assimp::Implementation::processMaterials(const
             vsg::PhongMaterial mat;
 
             material->Get(AI_MATKEY_GLTF_ALPHACUTOFF, mat.alphaMaskCutoff);
-            material->Get(AI_MATKEY_COLOR_AMBIENT, mat.ambient);
-            const auto diffuseResult = material->Get(AI_MATKEY_COLOR_DIFFUSE, mat.diffuse);
-            const auto emissiveResult = material->Get(AI_MATKEY_COLOR_EMISSIVE, mat.emissive);
-            const auto specularResult = material->Get(AI_MATKEY_COLOR_SPECULAR, mat.specular);
+            material->Get(AI_MATKEY_COLOR_AMBIENT, &mat.ambient.x, &maxAmt);
+            const auto diffuseResult = material->Get(AI_MATKEY_COLOR_DIFFUSE, &mat.diffuse.x, &maxAmt);
+            const auto emissiveResult = material->Get(AI_MATKEY_COLOR_EMISSIVE, &mat.emissive.x, &maxAmt);
+            const auto specularResult = material->Get(AI_MATKEY_COLOR_SPECULAR, &mat.specular.x, &maxAmt);
             material->Get(AI_MATKEY_CATEGORY_ID, mat.categoryId);
+            material->Get(AI_MATKEY_COLOR_TRANSPARENT, &mat.transmissive.x, &maxAmt3);
+            material->Get(AI_MATKEY_REFRACTI, mat.indexOfRefraction);
 
             aiShadingMode shadingModel = aiShadingMode_Phong;
             material->Get(AI_MATKEY_SHADING_MODEL, shadingModel);

@@ -21,12 +21,11 @@ namespace
     };
 }
 
-PBRTPipeline::PBRTPipeline(vsg::ref_ptr<vsg::Node> scene, vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<AccumulationBuffer> accumulationBuffer,
+PBRTPipeline::PBRTPipeline(vsg::ref_ptr<vsg::Node> scene, vsg::ref_ptr<GBuffer> gBuffer,
                  vsg::ref_ptr<IlluminationBuffer> illuminationBuffer, bool writeGBuffer, RayTracingRayOrigin rayTracingRayOrigin) : 
     width(illuminationBuffer->illuminationImages[0]->imageInfoList[0]->imageView->image->extent.width), 
     height(illuminationBuffer->illuminationImages[0]->imageInfoList[0]->imageView->image->extent.height), 
     maxRecursionDepth(2), 
-    accumulationBuffer(accumulationBuffer),
     illuminationBuffer(illuminationBuffer),
     gBuffer(gBuffer)
 {
@@ -59,6 +58,8 @@ void PBRTPipeline::updateImageLayouts(vsg::Context &context)
 }
 void PBRTPipeline::addTraceRaysToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants)
 {
+    auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_DEPENDENCY_DEVICE_GROUP_BIT);
     commandGraph->addChild(bindRayTracingPipeline);
     commandGraph->addChild(bindRayTracingDescriptorSet);
     commandGraph->addChild(pushConstants);
@@ -68,6 +69,7 @@ void PBRTPipeline::addTraceRaysToCommandGraph(vsg::ref_ptr<vsg::Commands> comman
     traceRays->height = height;
     traceRays->depth = 1;
     commandGraph->addChild(traceRays);
+    commandGraph->addChild(pipelineBarrier);
 }
 vsg::ref_ptr<IlluminationBuffer> PBRTPipeline::getIlluminationBuffer() const
 {
@@ -152,8 +154,6 @@ void PBRTPipeline::setupPipeline(vsg::Node *scene, bool useExternalGbuffer)
     illuminationBuffer->updateDescriptor(bindRayTracingDescriptorSet, bindingMap);
     if (gBuffer)
         gBuffer->updateDescriptor(bindRayTracingDescriptorSet, bindingMap);
-    if (accumulationBuffer)
-        accumulationBuffer->updateDescriptor(bindRayTracingDescriptorSet, bindingMap);
 }
 vsg::ref_ptr<vsg::ShaderStage> PBRTPipeline::setupRaygenShader(std::string raygenPath, bool useExternalGBuffer)
 {
@@ -167,24 +167,16 @@ vsg::ref_ptr<vsg::ShaderStage> PBRTPipeline::setupRaygenShader(std::string rayge
     }
     else
     {
-        if (illuminationBuffer.cast<IlluminatonBufferFinalFloat>())
+        if (illuminationBuffer.cast<IlluminationBufferFinalFloat>())
         {
             defines.push_back("FINAL_IMAGE");
+        }
+        else if(illuminationBuffer.cast<IlluminationBufferDemodulatedFloat>()){
+            defines.push_back("DEMOD_ILLUMINATION_FLOAT");
         }
         else if (illuminationBuffer.cast<IlluminationBufferFinalDirIndir>())
         {
             // TODO:
-        }
-        else if (illuminationBuffer.cast<IlluminationBufferFinalDemodulated>())
-        {
-            defines.push_back("FINAL_IMAGE");
-            defines.push_back("DEMOD_ILLUMINATION");
-            defines.push_back("DEMOD_ILLUMINATION_SQUARED");
-        }
-        else if (illuminationBuffer.cast<IlluminationBufferDemodulated>())
-        {
-            defines.push_back("DEMOD_ILLUMINATION");
-            defines.push_back("DEMOD_ILLUMINATION_SQUARED");
         }
         else
         {
@@ -193,8 +185,6 @@ vsg::ref_ptr<vsg::ShaderStage> PBRTPipeline::setupRaygenShader(std::string rayge
     }
     if (gBuffer)
         defines.push_back("GBUFFER");
-    if (accumulationBuffer)
-        defines.push_back("PREV_GBUFFER");
 
     switch(lightSamplingMethod){
         case LightSamplingMethod::SampleSurfaceStrength:

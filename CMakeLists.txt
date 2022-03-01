@@ -59,8 +59,8 @@ set(UNCOMPILED_SHADERS
     camera.glsl
     color.glsl
     ptRaygen.rgen
-    accumulator.comp
     formatConverter.comp
+    accumulator.comp
 )
 
 ## compilation of shader files

@@ -9,8 +9,8 @@ BMFR::BMFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHei
     workWidth(workWidth),
     workHeight(workHeight),
     fittingKernel(fittingKernel),
-    widthPadded((width / workWidth + 1) * workWidth),
-    heightPadded((height / workHeight + 1) * workHeight),
+    widthPadded((width / workWidth + 2) * workWidth),
+    heightPadded((height / workHeight + 2) * workHeight),
     gBuffer(gBuffer),
     sampler(vsg::Sampler::create())
 {
@@ -196,7 +196,7 @@ void BMFR::updateImageLayouts(vsg::Context& context)
 void BMFR::addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants)
 {
     auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        VK_DEPENDENCY_BY_REGION_BIT);
+        0);
     uint32_t dispatchX = widthPadded / workWidth, dispatchY = heightPadded / workHeight;
     // pre pipeline
     commandGraph->addChild(bindPrePipeline);

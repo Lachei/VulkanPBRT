@@ -20,17 +20,17 @@ public:
 };
 
 // Matrices ------------------------------------------------------------------------
-class DoubleMatrix{
+class CameraMatrices{
 public:
     vsg::mat4 view, invView;    //if no projection matrix is available, the projection and view matricesa are combined in the view matrix
     std::optional<vsg::mat4> proj, invProj;
 };
-using DoubleMatrices = std::vector<DoubleMatrix>;
+using CameraMatricesVec = std::vector<CameraMatrices>;
 
 class MatrixIO{
 public:
-    static std::vector<DoubleMatrix> importMatrices(const std::string& matrixPath);
-    static bool exportMatrices(const std::string& matrixPath, const DoubleMatrices& matrices);
+    static std::vector<CameraMatrices> importMatrices(const std::string& matrixPath);
+    static bool exportMatrices(const std::string& matrixPath, const CameraMatricesVec& matrices);
 };
 
 // GBuffer --------------------------------------------------------------------------
@@ -53,14 +53,14 @@ using OfflineGBuffers = std::vector<vsg::ref_ptr<OfflineGBuffer>>;
 class GBufferIO{
 public:
     static OfflineGBuffers importGBufferDepth(const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, int verbosity = 1);
-    static OfflineGBuffers importGBufferPosition(const std::string& positionFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, const std::vector<DoubleMatrix>& matrices, int numFrames, int verbosity = 1);
-    static bool exportGBuffer(const std::string& positionFormat, const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers, const DoubleMatrices& matrices, int verbosity = 1);
+    static OfflineGBuffers importGBufferPosition(const std::string& positionFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, const std::vector<CameraMatrices>& matrices, int numFrames, int verbosity = 1);
+    static bool exportGBuffer(const std::string& positionFormat, const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers, const CameraMatricesVec& matrices, int verbosity = 1);
 private:
     static vsg::ref_ptr<vsg::Data> convertNormalToSpherical(vsg::ref_ptr<vsg::vec4Array2D> normals);
     static vsg::ref_ptr<vsg::Data> compressAlbedo(vsg::ref_ptr<vsg::Data> in);
     static vsg::ref_ptr<vsg::Data> sphericalToCartesian(vsg::ref_ptr<vsg::vec2Array2D> normals);
     static vsg::ref_ptr<vsg::Data> unormToFloat(vsg::ref_ptr<vsg::ubvec4Array2D> array);
-    static vsg::ref_ptr<vsg::Data> depthToPosition(vsg::ref_ptr<vsg::floatArray2D> depths, const DoubleMatrix& matrix);
+    static vsg::ref_ptr<vsg::Data> depthToPosition(vsg::ref_ptr<vsg::floatArray2D> depths, const CameraMatrices& matrix);
 };
 
 // IlluminationBuffer ---------------------------------------------------------------

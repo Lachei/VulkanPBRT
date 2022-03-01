@@ -1,5 +1,7 @@
 #version 450
 
+#pragma import_defines(SEPARATE_MATRICES)
+
 layout(binding = 0) uniform sampler2D srcImage;
 layout(binding = 1, r32f) uniform image2D depthImage;
 layout(binding = 2, rg32f) uniform image2D normalImage;
@@ -17,7 +19,7 @@ layout(binding = 13, rgba16f) uniform image2D illuminationSquared;
 
 layout(push_constant) uniform PushConstants 
 {
-	mat4 view;
+	mat4 view;			//for separate matrices view is the inverse projection matrix
 	mat4 inverseView;
 	mat4 prevView;
     vec4 prevOrigin;
@@ -39,18 +41,29 @@ void main(){
 	float truePrevDepth;
 	bool reprojected = false;
 	float pixelSpp = 1.0 / 256.0; //has to be normalized as only floating point 8 bit interp is supported
+    float depth = imageLoad(depthImage, ivec2(gl_GlobalInvocationID.xy)).x;
+#ifdef SEPARATE_MATRICES
+	mat4 proj = inverse(camParams.view);
+	vec4 pos = camParams.inverseView[3];
+	pos.w = 1;
+	vec2 pixelCenter = vec2(gl_GlobalInvocationID.xy) + vec2(.5);
+	vec2 clipSpaceCoord = pixelCenter/vec2(textureSize(srcImage, 0).xy) * 2.0 - 1.0;
+	vec4 dir = camParams.view * vec4(clipSpaceCoord, 1, 1);
+	dir = camParams.inverseView * vec4(normalize(dir.xyz), 0);
+	vec4 p = pos + depth * dir;
+	vec4 prevPos = proj * camParams.prevView * p;
+#else
     vec4 curOrigin = camParams.inverseView[2];
     curOrigin /= curOrigin.w;
-    vec4 prevOrigin = camParams.prevOrigin;
     vec2 clipSpaceCoord = ((vec2(gl_GlobalInvocationID.xy) + vec2(.5)) / vec2(imageSize)) * 2 - 1;
     vec4 curDir = camParams.inverseView * vec4(clipSpaceCoord.x, clipSpaceCoord.y, 1, 1);
 	curDir /= curDir.w + 1e-9;
 
     curDir = -normalize(curDir - curOrigin);
-    float depth = imageLoad(depthImage, ivec2(gl_GlobalInvocationID.xy)).x;
 	vec4 p = curOrigin + depth * curDir;
-	float preDepth = length(p.xyz - prevOrigin.xyz);
 	vec4 prevPos = camParams.prevView * p;
+#endif
+	float preDepth = length(p.xyz - camParams.prevOrigin.xyz);
 	prevPos /= prevPos.w; // xy now holds the prev image position
 	prevPos.xy += 1;
 	prevPos.xy *= .5;
@@ -65,7 +78,10 @@ void main(){
 			vec3 prevNor;
 			prevNor.xy = texture(prevNormal, prevPos.xy).xy;
 			prevNor = vec3(sin(prevNor.x) * cos(prevNor.y), sin(prevNor.x) * sin(prevNor.y), cos(prevNor.x));
-			if(dot(normal, prevNor) > .7f){	//we do have a point which can be reprojected
+			
+			// TODO: enable this check once normal decompression has been fixed
+			// if(dot(normal, prevNor) > .7f) //we do have a point which can be reprojected
+			{	
 				reprojected = true;
 				prevColor = texture(prevOutput, prevPos.xy).xyz;
 				pixelSpp += texture(prevSampleCounts, prevPos.xy).x;
