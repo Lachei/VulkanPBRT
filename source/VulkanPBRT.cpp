@@ -1,5 +1,9 @@
+
+
 #include "scene/CountTrianglesVisitor.hpp"
+
 #include "renderModules/PipelineStructs.hpp"
+
 #include "renderModules/PBRTPipeline.hpp"
 #include "renderModules/Accumulator.hpp"
 #include "renderModules/FormatConverter.hpp"
@@ -23,8 +27,7 @@
 
 #define _DEBUG
 
-class RayTracingPushConstantsValue
-    : public vsg::Inherit<vsg::Value<RayTracingPushConstants>, RayTracingPushConstantsValue>
+class RayTracingPushConstantsValue : public vsg::Inherit<vsg::Value<RayTracingPushConstants>, RayTracingPushConstantsValue>
 {
 public:
     RayTracingPushConstantsValue() {}
@@ -32,44 +35,42 @@ public:
 
 enum class DenoisingType
 {
-    NONE,
+    None,
     BMFR,
     BFR,
     SVG
 };
-
-DenoisingType denoising_type = DenoisingType::NONE;
+DenoisingType denoisingType = DenoisingType::None;
 
 enum class DenoisingBlockSize
 {
-    X8,
-    X16,
-    X32,
-    X64,
-    X8X16X32
+    x8,
+    x16,
+    x32,
+    x64,
+    x8x16x32
 };
-
-DenoisingBlockSize denoising_block_size = DenoisingBlockSize::X32;
+DenoisingBlockSize denoisingBlockSize = DenoisingBlockSize::x32;
 
 class LoggingRedirectSentry
 {
 public:
-    LoggingRedirectSentry(std::ostream* out_stream, std::streambuf* original_buffer)
-        : _out_stream(out_stream), _original_buffer(original_buffer)
+    LoggingRedirectSentry(std::ostream *outStream, std::streambuf *originalBuffer)
+        : outStream(outStream), originalBuffer(originalBuffer)
     {
     }
     ~LoggingRedirectSentry()
     {
-        // reset to standard output
-        _out_stream->rdbuf(_original_buffer);
+        //reset to standard output
+        outStream->rdbuf(originalBuffer);
     }
 
 private:
-    std::ostream* _out_stream;
-    std::streambuf* _original_buffer;
+    std::ostream *outStream;
+    std::streambuf *originalBuffer;
 };
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
     try
     {
@@ -92,8 +93,8 @@ int main(int argc, char** argv)
         }
 
         // ensure that cout and cerr are reset to their standard output when main() is exited
-        LoggingRedirectSentry cout_sentry(&std::cout, std::cout.rdbuf());
-        LoggingRedirectSentry cerr_senry(&std::cerr, std::cerr.rdbuf());
+        LoggingRedirectSentry coutSentry(&std::cout, std::cout.rdbuf());
+        LoggingRedirectSentry cerrSenry(&std::cerr, std::cerr.rdbuf());
         std::ofstream out("out_log.txt");
         std::ofstream err_log("err_log.txt");
         if (arguments.read({"--log", "-l"}))
@@ -103,215 +104,177 @@ int main(int argc, char** argv)
             std::cerr.rdbuf(err_log.rdbuf());
         }
 
-        auto window_traits = vsg::WindowTraits::create();
-        window_traits->windowTitle = "VulkanPBRT";
-        window_traits->debugLayer = arguments.read({"--debug", "-d"});
-        window_traits->apiDumpLayer = arguments.read({"--api", "-a"});
-        window_traits->fullscreen = arguments.read({"--fullscreen", "-fs"});
-        if (arguments.read({"--window", "-w"}, window_traits->width, window_traits->height))
-        {
-            window_traits->fullscreen = false;
-        }
-        arguments.read("--screen", window_traits->screenNum);
+        auto windowTraits = vsg::WindowTraits::create();
+        windowTraits->windowTitle = "VulkanPBRT";
+        windowTraits->debugLayer = arguments.read({"--debug", "-d"});
+        windowTraits->apiDumpLayer = arguments.read({"--api", "-a"});
+        windowTraits->fullscreen = arguments.read({"--fullscreen", "-fs"});
+        if (arguments.read({"--window", "-w"}, windowTraits->width, windowTraits->height))
+            windowTraits->fullscreen = false;
+        arguments.read("--screen", windowTraits->screenNum);
 
-        auto num_frames = arguments.value(-1, "-f");
-        auto samples_per_pixel = arguments.value(1, "--spp");
-        auto depth_path = arguments.value(std::string(), "--depths");
-        auto export_depth_path = arguments.value(std::string(), "--exportDepth");
-        auto position_path = arguments.value(std::string(), "--positions");
-        auto export_position_path = arguments.value(std::string(), "--exportPosition");
-        auto normal_path = arguments.value(std::string(), "--normals");
-        auto export_normal_path = arguments.value(std::string(), "--exportNormal");
-        auto albedo_path = arguments.value(std::string(), "--albedos");
-        auto export_albedo_path = arguments.value(std::string(), "--exportAlbedo");
-        auto material_path = arguments.value(std::string(), "--materials");
-        auto export_material_path = arguments.value(std::string(), "--exportMaterial");
-        auto illumination_path = arguments.value(std::string(), "--illuminations");
-        auto export_illumination_path = arguments.value(std::string(), "--exportIllumination");
-        auto matrices_path = arguments.value(std::string(), "--matrices");
-        auto export_matrices_path = arguments.value(std::string(), "--exportMatrices");
-        auto scene_filename = arguments.value(std::string(), "-i");
-        bool use_external_buffers = normal_path.size();
-        bool export_illumination = export_illumination_path.size();
-        bool export_g_buffer = export_normal_path.size() || export_depth_path.size() || export_position_path.size()
-                               || export_albedo_path.size() || export_material_path.size();
-        bool store_matrices = export_g_buffer || export_matrices_path.size();
-        if (scene_filename.empty() && !use_external_buffers)
+        auto numFrames = arguments.value(-1, "-f");
+        auto samplesPerPixel = arguments.value(1, "--spp");
+        auto depthPath = arguments.value(std::string(), "--depths");
+        auto exportDepthPath = arguments.value(std::string(), "--exportDepth");
+        auto positionPath = arguments.value(std::string(), "--positions");
+        auto exportPositionPath = arguments.value(std::string(), "--exportPosition");
+        auto normalPath = arguments.value(std::string(), "--normals");
+        auto exportNormalPath = arguments.value(std::string(), "--exportNormal");
+        auto albedoPath = arguments.value(std::string(), "--albedos");
+        auto exportAlbedoPath = arguments.value(std::string(), "--exportAlbedo");
+        auto materialPath = arguments.value(std::string(), "--materials");
+        auto exportMaterialPath = arguments.value(std::string(), "--exportMaterial");
+        auto illuminationPath = arguments.value(std::string(), "--illuminations");
+        auto exportIlluminationPath = arguments.value(std::string(), "--exportIllumination");
+        auto matricesPath = arguments.value(std::string(), "--matrices");
+        auto exportMatricesPath = arguments.value(std::string(), "--exportMatrices");
+        auto sceneFilename = arguments.value(std::string(), "-i");
+        bool use_external_buffers = normalPath.size();
+        bool exportIllumination = exportIlluminationPath.size();
+        bool exportGBuffer = exportNormalPath.size() || exportDepthPath.size() || exportPositionPath.size() || exportAlbedoPath.size() || exportMaterialPath.size();
+        bool storeMatrices = exportGBuffer || exportMatricesPath.size();
+        if (sceneFilename.empty() && !use_external_buffers)
         {
             std::cout << "Missing input parameter \"-i <path_to_model>\"." << std::endl;
         }
         if (arguments.read("m"))
-        {
-            scene_filename = "models/raytracing_scene.vsgt";
-        }
+            sceneFilename = "models/raytracing_scene.vsgt";
         if (arguments.errors())
-        {
             return arguments.writeErrorMessages(std::cerr);
-        }
 
-        std::string denoising_type_str;
-        if (arguments.read("--denoiser", denoising_type_str))
+        std::string denoisingTypeStr;
+        if (arguments.read("--denoiser", denoisingTypeStr))
         {
-            if (denoising_type_str == "bmfr")
-            {
-                denoising_type = DenoisingType::BMFR;
-            }
-            else if (denoising_type_str == "bfr")
-            {
-                denoising_type = DenoisingType::BFR;
-            }
-            else if (denoising_type_str == "svgf")
-            {
-                denoising_type = DenoisingType::SVG;
-            }
-            else if (denoising_type_str == "none")
+            if (denoisingTypeStr == "bmfr")
+                denoisingType = DenoisingType::BMFR;
+            else if (denoisingTypeStr == "bfr")
+                denoisingType = DenoisingType::BFR;
+            else if (denoisingTypeStr == "svgf")
+                denoisingType = DenoisingType::SVG;
+            else if (denoisingTypeStr == "none")
             {
             }
             else
-            {
-                std::cout << "Unknown denoising type: " << denoising_type_str << std::endl;
-            }
+                std::cout << "Unknown denoising type: " << denoisingTypeStr << std::endl;
         }
-        bool use_taa = arguments.read("--taa");
-        bool use_fly_navigation = arguments.read("--fly");
+        bool useTaa = arguments.read("--taa");
+        bool useFlyNavigation = arguments.read("--fly");
 #ifdef _DEBUG
         // overwriting command line options for debug
-        window_traits->debugLayer = true;
-        window_traits->width = 1800;
-        window_traits->height = 990;
+        windowTraits->debugLayer = true;
+        windowTraits->width = 1800;
+        windowTraits->height = 990;
 #endif
-        window_traits->queueFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
-        window_traits->imageAvailableSemaphoreWaitFlag = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-        window_traits->swapchainPreferences.imageUsage
-            = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-        window_traits->deviceExtensionNames
-            = {VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-                VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
-                VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
-                VK_KHR_SPIRV_1_4_EXTENSION_NAME, VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME};
-        window_traits->vulkanVersion = VK_API_VERSION_1_2;
-        auto& enabled_acceleration_structure_features
-            = window_traits->deviceFeatures->get<VkPhysicalDeviceAccelerationStructureFeaturesKHR,
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR>();
-        auto& enabled_ray_tracing_pipeline_features
-            = window_traits->deviceFeatures->get<VkPhysicalDeviceRayTracingPipelineFeaturesKHR,
-                VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR>();
-        enabled_acceleration_structure_features.accelerationStructure = VK_TRUE;
-        enabled_ray_tracing_pipeline_features.rayTracingPipeline = VK_TRUE;
-        auto& enabled_physical_device_vk12_feature
-            = window_traits->deviceFeatures
-                  ->get<VkPhysicalDeviceVulkan12Features, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES>();
-        enabled_physical_device_vk12_feature.runtimeDescriptorArray = VK_TRUE;
-        enabled_physical_device_vk12_feature.bufferDeviceAddress = VK_TRUE;
-        enabled_physical_device_vk12_feature.descriptorIndexing = VK_TRUE;
-        enabled_physical_device_vk12_feature.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
-        enabled_physical_device_vk12_feature.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+        windowTraits->queueFlags = VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT;
+        windowTraits->imageAvailableSemaphoreWaitFlag = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+        windowTraits->swapchainPreferences.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        windowTraits->deviceExtensionNames = {VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME, VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME, VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME, VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME, VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME, VK_KHR_SPIRV_1_4_EXTENSION_NAME, VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME};
+        windowTraits->vulkanVersion = VK_API_VERSION_1_2;
+        auto &enabledAccelerationStructureFeatures = windowTraits->deviceFeatures->get<VkPhysicalDeviceAccelerationStructureFeaturesKHR, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR>();
+        auto &enabledRayTracingPipelineFeatures = windowTraits->deviceFeatures->get<VkPhysicalDeviceRayTracingPipelineFeaturesKHR, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR>();
+        enabledAccelerationStructureFeatures.accelerationStructure = VK_TRUE;
+        enabledRayTracingPipelineFeatures.rayTracingPipeline = VK_TRUE;
+        auto &enabledPhysicalDeviceVk12Feature = windowTraits->deviceFeatures->get<VkPhysicalDeviceVulkan12Features, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES>();
+        enabledPhysicalDeviceVk12Feature.runtimeDescriptorArray = VK_TRUE;
+        enabledPhysicalDeviceVk12Feature.bufferDeviceAddress = VK_TRUE;
+        enabledPhysicalDeviceVk12Feature.descriptorIndexing = VK_TRUE;
+        enabledPhysicalDeviceVk12Feature.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
+        enabledPhysicalDeviceVk12Feature.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
 
         // load scene or images
         vsg::ref_ptr<vsg::Node> loaded_scene;
-        std::vector<vsg::ref_ptr<OfflineGBuffer>> offline_g_buffers;
-        std::vector<vsg::ref_ptr<OfflineIllumination>> offline_illuminations;
-        std::vector<DoubleMatrix> camera_matrices;
-        if (!use_external_buffers)
-        {
+        std::vector<vsg::ref_ptr<OfflineGBuffer>> offlineGBuffers;
+        std::vector<vsg::ref_ptr<OfflineIllumination>> offlineIlluminations;
+        std::vector<CameraMatrices> cameraMatrices;
+        if(!use_external_buffers){
             AI3DFrontImporter::ReadConfig(config_json);
-            auto options = vsg::Options::create(vsgXchange::assimp::create(), vsgXchange::dds::create(),
-                vsgXchange::stbi::create());  // using the assimp loader
-            loaded_scene = vsg::read_cast<vsg::Node>(scene_filename, options);
+            auto options = vsg::Options::create(vsgXchange::assimp::create(), vsgXchange::dds::create(), vsgXchange::stbi::create()); //using the assimp loader
+            loaded_scene = vsg::read_cast<vsg::Node>(sceneFilename, options);
             if (!loaded_scene)
             {
-                std::cout << "Scene not found: " << scene_filename << std::endl;
+                std::cout << "Scene not found: " << sceneFilename << std::endl;
                 return 1;
             }
         }
         else
         {
-            if (num_frames <= 0)
+            if (numFrames <= 0)
             {
-                std::cout << "No number of frames given. For usage of external GBuffer and Illumination information "
-                             "use \"-f\" to inform about the number of frames."
-                          << std::endl;
+                std::cout << "No number of frames given. For usage of external GBuffer and Illumination information use \"-f\" to inform about the number of frames." << std::endl;
                 return 1;
             }
-            if (matrices_path.empty())
+            if (matricesPath.empty())
             {
-                std::cout << "Camera matrices are missing. Insert location of file with camera information via "
-                             "\"--matrices\"."
-                          << std::endl;
+                std::cout << "Camera matrices are missing. Insert location of file with camera information via \"--matrices\"." << std::endl;
                 return 1;
             }
-            camera_matrices = MatrixIO::importMatrices(matrices_path);
-            if (camera_matrices.empty())
+            cameraMatrices = MatrixIO::importMatrices(matricesPath);
+            if (cameraMatrices.empty())
             {
                 std::cout << "Camera matrices could not be loaded" << std::endl;
                 return 1;
             }
-            if (position_path.size())
+            if (positionPath.size())
             {
-                offline_g_buffers = GBufferIO::importGBufferPosition(
-                    position_path, normal_path, material_path, albedo_path, camera_matrices, num_frames);
+                offlineGBuffers = GBufferIO::importGBufferPosition(positionPath, normalPath, materialPath, albedoPath, cameraMatrices, numFrames);
             }
             else
             {
-                offline_g_buffers
-                    = GBufferIO::importGBufferDepth(depth_path, normal_path, material_path, albedo_path, num_frames);
+                offlineGBuffers = GBufferIO::importGBufferDepth(depthPath, normalPath, materialPath, albedoPath, numFrames);
             }
-            offline_illuminations = IlluminationBufferIO::importIllumination(illumination_path, num_frames);
-            window_traits->width = offline_g_buffers[0]->depth->width();
-            window_traits->height = offline_g_buffers[0]->depth->height();
+            offlineIlluminations = IlluminationBufferIO::importIllumination(illuminationPath, numFrames);
+            windowTraits->width = offlineGBuffers[0]->depth->width();
+            windowTraits->height = offlineGBuffers[0]->depth->height();
         }
-        if (export_illumination)
+        if (exportIllumination)
         {
-            if (num_frames <= 0)
+            if (numFrames <= 0)
             {
-                std::cout << "No number of frames given. For usage of Illumination export use \"-f\" to inform about "
-                             "the number of frames."
-                          << std::endl;
+                std::cout << "No number of frames given. For usage of Illumination export use \"-f\" to inform about the number of frames." << std::endl;
                 return 1;
             }
-            if (offline_illuminations.empty())
+            if (offlineIlluminations.empty())
             {
-                offline_illuminations.resize(num_frames);
-                for (auto& i : offline_illuminations)
+                offlineIlluminations.resize(numFrames);
+                for (auto &i : offlineIlluminations)
                 {
                     i = OfflineIllumination::create();
-                    i->noisy = vsg::vec4Array2D::create(window_traits->width, window_traits->height);
+                    i->noisy = vsg::vec4Array2D::create(windowTraits->width, windowTraits->height);
                 }
             }
         }
-        if (export_g_buffer)
+        if (exportGBuffer)
         {
-            if (num_frames <= 0)
+            if (numFrames <= 0)
             {
-                std::cout << "No number of frames given. For usage of GBuffer export use \"-f\" to inform about the "
-                             "number of frames."
-                          << std::endl;
+                std::cout << "No number of frames given. For usage of GBuffer export use \"-f\" to inform about the number of frames." << std::endl;
                 return 1;
             }
-            if (offline_g_buffers.empty())
+            if (offlineGBuffers.empty())
             {
-                offline_g_buffers.resize(num_frames);
-                for (auto& i : offline_g_buffers)
+                offlineGBuffers.resize(numFrames);
+                for (auto &i : offlineGBuffers)
                 {
                     i = OfflineGBuffer::create();
-                    i->depth = vsg::floatArray2D::create(window_traits->width, window_traits->height);
-                    i->normal = vsg::vec2Array2D::create(window_traits->width, window_traits->height);
-                    i->albedo = vsg::ubvec4Array2D::create(window_traits->width, window_traits->height);
-                    i->material = vsg::ubvec4Array2D::create(window_traits->width, window_traits->height);
+                    i->depth = vsg::floatArray2D::create(windowTraits->width, windowTraits->height);
+                    i->normal = vsg::vec2Array2D::create(windowTraits->width, windowTraits->height);
+                    i->albedo = vsg::ubvec4Array2D::create(windowTraits->width, windowTraits->height);
+                    i->material = vsg::ubvec4Array2D::create(windowTraits->width, windowTraits->height);
                 }
             }
         }
-        if (store_matrices)
+        if (storeMatrices)
         {
-            camera_matrices.resize(num_frames);
-            for (auto& matrix : camera_matrices)
+            cameraMatrices.resize(numFrames);
+            for (auto &matrix : cameraMatrices)
             {
                 matrix.proj = vsg::mat4();
                 matrix.invProj = vsg::mat4();
             }
         }
 
-        auto window = vsg::Window::create(window_traits);
+        auto window = vsg::Window::create(windowTraits);
         if (!window)
         {
             std::cout << "Could not create windows." << std::endl;
@@ -322,132 +285,122 @@ int main(int argc, char** argv)
 
         vsg::ref_ptr<vsg::Device> device(window->getOrCreateDevice());
 
-        // setting a custom render pass for imgui non clear rendering
+        //setting a custom render pass for imgui non clear rendering
         {
-            vsg::AttachmentDescription color_attachment = vsg::defaultColorAttachment(window->surfaceFormat().format);
-            color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-            color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-            color_attachment.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-            vsg::AttachmentDescription depth_attachment = vsg::defaultDepthAttachment(window->depthFormat());
-            depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-            depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-            vsg::RenderPass::Attachments attachments{color_attachment, depth_attachment};
+            vsg::AttachmentDescription colorAttachment = vsg::defaultColorAttachment(window->surfaceFormat().format);
+            colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+            colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+            colorAttachment.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+            vsg::AttachmentDescription depthAttachment = vsg::defaultDepthAttachment(window->depthFormat());
+            depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+            depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+            vsg::RenderPass::Attachments attachments{
+                colorAttachment,
+                depthAttachment};
 
-            VkAttachmentReference color_attachment_ref = {};
-            color_attachment_ref.attachment = 0;
-            color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            VkAttachmentReference colorAttachmentRef = {};
+            colorAttachmentRef.attachment = 0;
+            colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-            VkAttachmentReference depth_attachment_ref = {};
-            depth_attachment_ref.attachment = 1;
-            depth_attachment_ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+            VkAttachmentReference depthAttachmentRef = {};
+            depthAttachmentRef.attachment = 1;
+            depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
             vsg::SubpassDescription subpass = {};
             subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-            subpass.colorAttachments.emplace_back(color_attachment_ref);
-            subpass.depthStencilAttachments.emplace_back(depth_attachment_ref);
+            subpass.colorAttachments.emplace_back(colorAttachmentRef);
+            subpass.depthStencilAttachments.emplace_back(depthAttachmentRef);
 
             vsg::RenderPass::Subpasses subpasses{subpass};
 
             // image layout transition
-            VkSubpassDependency color_dependency = {};
-            color_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-            color_dependency.dstSubpass = 0;
-            color_dependency.srcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
-            color_dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-            color_dependency.srcAccessMask = 0;
-            color_dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-            color_dependency.dependencyFlags = 0;
+            VkSubpassDependency colorDependency = {};
+            colorDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+            colorDependency.dstSubpass = 0;
+            colorDependency.srcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
+            colorDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+            colorDependency.srcAccessMask = 0;
+            colorDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            colorDependency.dependencyFlags = 0;
 
             // depth buffer is shared between swap chain images
-            VkSubpassDependency depth_dependency = {};
-            depth_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-            depth_dependency.dstSubpass = 0;
-            depth_dependency.srcStageMask
-                = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-            depth_dependency.dstStageMask
-                = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-            depth_dependency.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-            depth_dependency.dstAccessMask
-                = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-            depth_dependency.dependencyFlags = 0;
+            VkSubpassDependency depthDependency = {};
+            depthDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+            depthDependency.dstSubpass = 0;
+            depthDependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+            depthDependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+            depthDependency.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            depthDependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            depthDependency.dependencyFlags = 0;
 
-            vsg::RenderPass::Dependencies dependencies{color_dependency, depth_dependency};
+            vsg::RenderPass::Dependencies dependencies{colorDependency, depthDependency};
 
-            auto render_pass = vsg::RenderPass::create(device, attachments, subpasses, dependencies);
-            window->setRenderPass(render_pass);
+            auto renderPass = vsg::RenderPass::create(device, attachments, subpasses, dependencies);
+            window->setRenderPass(renderPass);
         }
 
-        // create camera matrices
-        auto perspective = vsg::Perspective::create(
-            60, static_cast<double>(window_traits->width) / static_cast<double>(window_traits->height), .1, 1000);
-        auto look_at = vsg::LookAt::create(vsg::dvec3(0.0, -3, 1), vsg::dvec3(0.0, 0.0, 1), vsg::dvec3(0.0, 0.0, 1.0));
+        //create camera matrices
+        auto perspective = vsg::Perspective::create(60, static_cast<double>(windowTraits->width) / static_cast<double>(windowTraits->height), .1, 1000);
+        auto lookAt = vsg::LookAt::create(vsg::dvec3(0.0, -3, 1), vsg::dvec3(0.0, 0.0, 1), vsg::dvec3(0.0, 0.0, 1.0));
 
         // set push constants
-        auto ray_tracing_push_constants_value = RayTracingPushConstantsValue::create();
-        ray_tracing_push_constants_value->value().proj_inverse = perspective->inverse();
-        ray_tracing_push_constants_value->value().view_inverse = look_at->inverse();
-        ray_tracing_push_constants_value->value().prev_view = look_at->transform();
-        ray_tracing_push_constants_value->value().frame_number = 0;
-        ray_tracing_push_constants_value->value().sample_number = 0;
-        auto push_constants
-            = vsg::PushConstants::create(VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, ray_tracing_push_constants_value);
-        auto compute_constants
-            = vsg::PushConstants::create(VK_SHADER_STAGE_COMPUTE_BIT, 0, ray_tracing_push_constants_value);
+        auto rayTracingPushConstantsValue = RayTracingPushConstantsValue::create();
+        rayTracingPushConstantsValue->value().projInverse = perspective->inverse();
+        rayTracingPushConstantsValue->value().viewInverse = lookAt->inverse();
+        rayTracingPushConstantsValue->value().prevView = lookAt->transform();
+        rayTracingPushConstantsValue->value().frameNumber = 0;
+        rayTracingPushConstantsValue->value().sampleNumber = 0;
+        auto pushConstants = vsg::PushConstants::create(VK_SHADER_STAGE_RAYGEN_BIT_KHR, 0, rayTracingPushConstantsValue);
+        auto computeConstants = vsg::PushConstants::create(VK_SHADER_STAGE_COMPUTE_BIT, 0, rayTracingPushConstantsValue);
 
-        vsg::ref_ptr<GBuffer> g_buffer;
-        vsg::ref_ptr<IlluminationBuffer> illumination_buffer;
-        vsg::ref_ptr<AccumulationBuffer> accumulation_buffer;
-        bool write_g_buffer;
-        if (denoising_type != DenoisingType::NONE)
+        vsg::ref_ptr<GBuffer> gBuffer;
+        vsg::ref_ptr<IlluminationBuffer> illuminationBuffer;
+        vsg::ref_ptr<AccumulationBuffer> accumulationBuffer;
+        bool writeGBuffer;
+        if (denoisingType != DenoisingType::None)
         {
-            g_buffer = GBuffer::create(window_traits->width, window_traits->height);
-            accumulation_buffer = AccumulationBuffer::create(window_traits->width, window_traits->height);
-            write_g_buffer = true;
-            illumination_buffer = IlluminationBufferDemodulated::create(window_traits->width, window_traits->height);
+            writeGBuffer = true;
+            gBuffer = GBuffer::create(windowTraits->width, windowTraits->height);
+            illuminationBuffer = IlluminationBufferDemodulatedFloat::create(windowTraits->width, windowTraits->height);
         }
         else
         {
-            write_g_buffer = false;
-            illumination_buffer = IlluminatonBufferFinalFloat::create(window_traits->width, window_traits->height);
+            writeGBuffer = false;
+            illuminationBuffer = IlluminationBufferFinalFloat::create(windowTraits->width, windowTraits->height);
         }
-        if (export_illumination && !g_buffer)
+        if (exportIllumination && !gBuffer)
         {
-            write_g_buffer = true;
-            g_buffer = GBuffer::create(window_traits->width, window_traits->height);
+            writeGBuffer = true;
+            gBuffer = GBuffer::create(windowTraits->width, windowTraits->height);
         }
-        if (use_taa && !accumulation_buffer)
+        if (useTaa && !accumulationBuffer)
         {
             // TODO: need the velocity buffer
         }
 
         // raytracing pipeline setup
-        uint32_t max_recursion_depth = 2;
-        vsg::ref_ptr<PBRTPipeline> pbrt_pipeline;
-        if (!use_external_buffers)
+        uint32_t maxRecursionDepth = 2;
+        vsg::ref_ptr<PBRTPipeline> pbrtPipeline;
+        if(!use_external_buffers)
         {
-            pbrt_pipeline = PBRTPipeline::create(loaded_scene, g_buffer, accumulation_buffer, illumination_buffer,
-                write_g_buffer, RayTracingRayOrigin::CAMERA);
+            pbrtPipeline = PBRTPipeline::create(loaded_scene, gBuffer, illuminationBuffer, writeGBuffer, RayTracingRayOrigin::CAMERA);
 
             // setup tlas
-            vsg::BuildAccelerationStructureTraversal build_accel_struct(device);
-            loaded_scene->accept(build_accel_struct);
-            pbrt_pipeline->set_tlas(build_accel_struct.tlas);
+            vsg::BuildAccelerationStructureTraversal buildAccelStruct(device);
+            loaded_scene->accept(buildAccelStruct);
+            pbrtPipeline->setTlas(buildAccelStruct.tlas);
         }
         else
         {
-            if (!g_buffer)
-            {
-                g_buffer = GBuffer::create(offline_g_buffers[0]->depth->width(), offline_g_buffers[0]->depth->height());
-            }
-            switch (offline_illuminations[0]->noisy->getLayout().format)
+            if (!gBuffer)
+                gBuffer = GBuffer::create(offlineGBuffers[0]->depth->width(), offlineGBuffers[0]->depth->height());
+            switch (offlineIlluminations[0]->noisy->getLayout().format)
             {
             case VK_FORMAT_R16G16B16A16_SFLOAT:
-                illumination_buffer = IlluminationBufferDemodulated::create(
-                    offline_illuminations[0]->noisy->width(), offline_illuminations[0]->noisy->height());
+                illuminationBuffer = IlluminationBufferDemodulated::create(offlineIlluminations[0]->noisy->width(), offlineIlluminations[0]->noisy->height());
                 break;
             case VK_FORMAT_R32G32B32A32_SFLOAT:
-                illumination_buffer = IlluminationBufferDemodulatedFloat::create(
-                    offline_illuminations[0]->noisy->width(), offline_illuminations[0]->noisy->height());
+                illuminationBuffer = IlluminationBufferDemodulatedFloat::create(offlineIlluminations[0]->noisy->width(), offlineIlluminations[0]->noisy->height());
                 break;
             default:
                 std::cout << "Offline illumination buffer image format not compatible" << std::endl;
@@ -457,165 +410,156 @@ int main(int argc, char** argv)
         // -------------------------------------------------------------------------------------
         // image layout conversions and correct binding of different denoising tequniques
         // -------------------------------------------------------------------------------------
-        vsg::CompileTraversal image_layout_compile(window);
+        vsg::CompileTraversal imageLayoutCompile(window);
         auto commands = vsg::Commands::create();
-        auto offline_g_buffer_stager = OfflineGBuffer::create();
-        auto offline_illumination_buffer_stager = OfflineIllumination::create();
-        if (pbrt_pipeline)
+        auto offlineGBufferStager = OfflineGBuffer::create();
+        auto offlineIlluminationBufferStager = OfflineIllumination::create();
+        vsg::ref_ptr<vsg::QueryPool> queryPool;
+        if (pbrtPipeline)
         {
-            pbrt_pipeline->add_trace_rays_to_command_graph(commands, push_constants);
-            illumination_buffer = pbrt_pipeline->get_illumination_buffer();
+            queryPool = vsg::QueryPool::create(); //standard init has 1 timestamp place
+            queryPool->queryCount = 2;
+            auto resetQuery = vsg::ResetQueryPool::create(queryPool);
+            auto write1 = vsg::WriteTimestamp::create(queryPool, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+            auto write2 = vsg::WriteTimestamp::create(queryPool, 1, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+            commands->addChild(resetQuery);
+            commands->addChild(write1);
+            pbrtPipeline->addTraceRaysToCommandGraph(commands, pushConstants);
+            commands->addChild(write2);
+            illuminationBuffer = pbrtPipeline->getIlluminationBuffer();
         }
         else
         {
-            if (offline_g_buffers.size() < num_frames || offline_illuminations.size() < num_frames)
+            if (offlineGBuffers.size() < numFrames || offlineIlluminations.size() < numFrames)
             {
                 std::cout << "Missing offline GBuffer or offline Illumination Buffer info" << std::endl;
                 return 1;
             }
-            offline_g_buffer_stager->uploadToGBufferCommand(g_buffer, commands, image_layout_compile.context);
-            offline_illumination_buffer_stager->uploadToIlluminationBufferCommand(
-                illumination_buffer, commands, image_layout_compile.context);
+            offlineGBufferStager->uploadToGBufferCommand(gBuffer, commands, imageLayoutCompile.context);
+            offlineIlluminationBufferStager->uploadToIlluminationBufferCommand(illuminationBuffer, commands, imageLayoutCompile.context);
         }
 
         vsg::ref_ptr<Accumulator> accumulator;
-        if (use_external_buffers && denoising_type != DenoisingType::NONE)
-        {
-            accumulator = Accumulator::create(g_buffer, illumination_buffer, camera_matrices);
-            accumulator->add_dispatch_to_command_graph(commands);
-            accumulation_buffer = accumulator->accumulation_buffer;
-            illumination_buffer->compile(image_layout_compile.context);
-            illumination_buffer->update_image_layouts(image_layout_compile.context);
-            illumination_buffer
-                = accumulator->accumulated_illumination;  // swap illumination buffer to accumulated illumination for
-                                                          // correct use in the following pipelines
+        if(denoisingType != DenoisingType::None){
+            accumulator = Accumulator::create(gBuffer, illuminationBuffer, !use_external_buffers);
+            accumulator->addDispatchToCommandGraph(commands);
+            accumulationBuffer = accumulator->accumulationBuffer;
+            illuminationBuffer->compile(imageLayoutCompile.context);
+            illuminationBuffer->updateImageLayouts(imageLayoutCompile.context);
+            illuminationBuffer = accumulator->accumulatedIllumination; //swap illumination buffer to accumulated illumination for correct use in the following pipelines
         }
 
-        vsg::ref_ptr<vsg::DescriptorImage> final_descriptor_image;
-        switch (denoising_type)
+        vsg::ref_ptr<vsg::DescriptorImage> finalDescriptorImage;
+        switch (denoisingType)
         {
-        case DenoisingType::NONE:
-            final_descriptor_image = illumination_buffer->illumination_images[0];
+        case DenoisingType::None:
+            finalDescriptorImage = illuminationBuffer->illuminationImages[0];
             break;
         case DenoisingType::BFR:
-            switch (denoising_block_size)
+            switch (denoisingBlockSize)
             {
-            case DenoisingBlockSize::X8:
-                {
-                    auto bfr8 = BFR::create(window_traits->width, window_traits->height, 8, 8, g_buffer,
-                        illumination_buffer, accumulation_buffer);
-                    bfr8->compile(image_layout_compile.context);
-                    bfr8->updateImageLayouts(image_layout_compile.context);
-                    bfr8->addDispatchToCommandGraph(commands, compute_constants);
-                    final_descriptor_image = bfr8->getFinalDescriptorImage();
-                    break;
-                }
-            case DenoisingBlockSize::X16:
-                {
-                    auto bfr16 = BFR::create(window_traits->width, window_traits->height, 16, 16, g_buffer,
-                        illumination_buffer, accumulation_buffer);
-                    bfr16->compile(image_layout_compile.context);
-                    bfr16->updateImageLayouts(image_layout_compile.context);
-                    bfr16->addDispatchToCommandGraph(commands, compute_constants);
-                    final_descriptor_image = bfr16->getFinalDescriptorImage();
-                    break;
-                }
-            case DenoisingBlockSize::X32:
-                {
-                    auto bfr32 = BFR::create(window_traits->width, window_traits->height, 32, 32, g_buffer,
-                        illumination_buffer, accumulation_buffer);
-                    bfr32->compile(image_layout_compile.context);
-                    bfr32->updateImageLayouts(image_layout_compile.context);
-                    bfr32->addDispatchToCommandGraph(commands, compute_constants);
-                    final_descriptor_image = bfr32->getFinalDescriptorImage();
-                    break;
-                }
-            case DenoisingBlockSize::X8X16X32:
-                {
-                    auto bfr8 = BFR::create(window_traits->width, window_traits->height, 8, 8, g_buffer,
-                        illumination_buffer, accumulation_buffer);
-                    auto bfr16 = BFR::create(window_traits->width, window_traits->height, 16, 16, g_buffer,
-                        illumination_buffer, accumulation_buffer);
-                    auto bfr32 = BFR::create(window_traits->width, window_traits->height, 32, 32, g_buffer,
-                        illumination_buffer, accumulation_buffer);
-                    auto blender = BFRBlender::create(window_traits->width, window_traits->height,
-                        illumination_buffer->illumination_images[0], illumination_buffer->illumination_images[1],
-                        bfr8->getFinalDescriptorImage(), bfr16->getFinalDescriptorImage(),
-                        bfr32->getFinalDescriptorImage());
-                    bfr8->compile(image_layout_compile.context);
-                    bfr8->updateImageLayouts(image_layout_compile.context);
-                    bfr16->compile(image_layout_compile.context);
-                    bfr16->updateImageLayouts(image_layout_compile.context);
-                    bfr32->compile(image_layout_compile.context);
-                    bfr32->updateImageLayouts(image_layout_compile.context);
-                    blender->compile(image_layout_compile.context);
-                    blender->update_image_layouts(image_layout_compile.context);
-                    bfr8->addDispatchToCommandGraph(commands, compute_constants);
-                    bfr16->addDispatchToCommandGraph(commands, compute_constants);
-                    bfr32->addDispatchToCommandGraph(commands, compute_constants);
-                    blender->add_dispatch_to_command_graph(commands);
-                    final_descriptor_image = blender->get_final_descriptor_image();
-                    break;
-                }
+            case DenoisingBlockSize::x8:
+            {
+                auto bfr8 = BFR::create(windowTraits->width, windowTraits->height, 8, 8, gBuffer, illuminationBuffer, accumulationBuffer);
+                bfr8->compile(imageLayoutCompile.context);
+                bfr8->updateImageLayouts(imageLayoutCompile.context);
+                bfr8->addDispatchToCommandGraph(commands, computeConstants);
+                finalDescriptorImage = bfr8->getFinalDescriptorImage();
+                break;
+            }
+            case DenoisingBlockSize::x16:
+            {
+                auto bfr16 = BFR::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer, illuminationBuffer, accumulationBuffer);
+                bfr16->compile(imageLayoutCompile.context);
+                bfr16->updateImageLayouts(imageLayoutCompile.context);
+                bfr16->addDispatchToCommandGraph(commands, computeConstants);
+                finalDescriptorImage = bfr16->getFinalDescriptorImage();
+                break;
+            }
+            case DenoisingBlockSize::x32:
+            {
+                auto bfr32 = BFR::create(windowTraits->width, windowTraits->height, 32, 32, gBuffer, illuminationBuffer, accumulationBuffer);
+                bfr32->compile(imageLayoutCompile.context);
+                bfr32->updateImageLayouts(imageLayoutCompile.context);
+                bfr32->addDispatchToCommandGraph(commands, computeConstants);
+                finalDescriptorImage = bfr32->getFinalDescriptorImage();
+                break;
+            }
+            case DenoisingBlockSize::x8x16x32:
+            {
+                auto bfr8 = BFR::create(windowTraits->width, windowTraits->height, 8, 8, gBuffer, illuminationBuffer, accumulationBuffer);
+                auto bfr16 = BFR::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer, illuminationBuffer, accumulationBuffer);
+                auto bfr32 = BFR::create(windowTraits->width, windowTraits->height, 32, 32, gBuffer, illuminationBuffer, accumulationBuffer);
+                auto blender = BFRBlender::create(windowTraits->width, windowTraits->height,
+                                                  illuminationBuffer->illuminationImages[0], illuminationBuffer->illuminationImages[1],
+                                                  bfr8->getFinalDescriptorImage(), bfr16->getFinalDescriptorImage(), bfr32->getFinalDescriptorImage());
+                bfr8->compile(imageLayoutCompile.context);
+                bfr8->updateImageLayouts(imageLayoutCompile.context);
+                bfr16->compile(imageLayoutCompile.context);
+                bfr16->updateImageLayouts(imageLayoutCompile.context);
+                bfr32->compile(imageLayoutCompile.context);
+                bfr32->updateImageLayouts(imageLayoutCompile.context);
+                blender->compile(imageLayoutCompile.context);
+                blender->updateImageLayouts(imageLayoutCompile.context);
+                bfr8->addDispatchToCommandGraph(commands, computeConstants);
+                bfr16->addDispatchToCommandGraph(commands, computeConstants);
+                bfr32->addDispatchToCommandGraph(commands, computeConstants);
+                blender->addDispatchToCommandGraph(commands);
+                finalDescriptorImage = blender->getFinalDescriptorImage();
+                break;
+            }
             }
             break;
         case DenoisingType::BMFR:
-            switch (denoising_block_size)
+            switch (denoisingBlockSize)
             {
-            case DenoisingBlockSize::X8:
-                {
-                    auto bmfr8 = BMFR::create(window_traits->width, window_traits->height, 8, 8, g_buffer,
-                        illumination_buffer, accumulation_buffer, 64);
-                    bmfr8->compile(image_layout_compile.context);
-                    bmfr8->update_image_layouts(image_layout_compile.context);
-                    bmfr8->add_dispatch_to_command_graph(commands, compute_constants);
-                    final_descriptor_image = bmfr8->get_final_descriptor_image();
-                    break;
-                }
-            case DenoisingBlockSize::X16:
-                {
-                    auto bmfr16 = BMFR::create(window_traits->width, window_traits->height, 16, 16, g_buffer,
-                        illumination_buffer, accumulation_buffer);
-                    bmfr16->compile(image_layout_compile.context);
-                    bmfr16->update_image_layouts(image_layout_compile.context);
-                    bmfr16->add_dispatch_to_command_graph(commands, compute_constants);
-                    final_descriptor_image = bmfr16->get_final_descriptor_image();
-                    break;
-                }
-            case DenoisingBlockSize::X32:
-                {
-                    auto bmfr32 = BMFR::create(window_traits->width, window_traits->height, 32, 32, g_buffer,
-                        illumination_buffer, accumulation_buffer);
-                    bmfr32->compile(image_layout_compile.context);
-                    bmfr32->update_image_layouts(image_layout_compile.context);
-                    bmfr32->add_dispatch_to_command_graph(commands, compute_constants);
-                    final_descriptor_image = bmfr32->get_final_descriptor_image();
-                    break;
-                }
-            case DenoisingBlockSize::X8X16X32:
-                auto bmfr8 = BMFR::create(window_traits->width, window_traits->height, 8, 8, g_buffer,
-                    illumination_buffer, accumulation_buffer, 64);
-                auto bmfr16 = BMFR::create(window_traits->width, window_traits->height, 16, 16, g_buffer,
-                    illumination_buffer, accumulation_buffer);
-                auto bmfr32 = BMFR::create(window_traits->width, window_traits->height, 32, 32, g_buffer,
-                    illumination_buffer, accumulation_buffer);
-                auto blender = BFRBlender::create(window_traits->width, window_traits->height,
-                    illumination_buffer->illumination_images[1], illumination_buffer->illumination_images[2],
-                    bmfr8->get_final_descriptor_image(), bmfr16->get_final_descriptor_image(),
-                    bmfr32->get_final_descriptor_image());
-                bmfr8->compile(image_layout_compile.context);
-                bmfr8->update_image_layouts(image_layout_compile.context);
-                bmfr16->compile(image_layout_compile.context);
-                bmfr16->update_image_layouts(image_layout_compile.context);
-                bmfr32->compile(image_layout_compile.context);
-                bmfr32->update_image_layouts(image_layout_compile.context);
-                blender->compile(image_layout_compile.context);
-                blender->update_image_layouts(image_layout_compile.context);
-                bmfr8->add_dispatch_to_command_graph(commands, compute_constants);
-                bmfr16->add_dispatch_to_command_graph(commands, compute_constants);
-                bmfr32->add_dispatch_to_command_graph(commands, compute_constants);
-                blender->add_dispatch_to_command_graph(commands);
-                final_descriptor_image = blender->get_final_descriptor_image();
+            case DenoisingBlockSize::x8:
+            {
+                auto bmfr8 = BMFR::create(windowTraits->width, windowTraits->height, 8, 8, gBuffer, illuminationBuffer, accumulationBuffer, 64);
+                bmfr8->compile(imageLayoutCompile.context);
+                bmfr8->updateImageLayouts(imageLayoutCompile.context);
+                bmfr8->addDispatchToCommandGraph(commands, computeConstants);
+                finalDescriptorImage = bmfr8->getFinalDescriptorImage();
+                break;
+            }
+            case DenoisingBlockSize::x16:
+            {
+                auto bmfr16 = BMFR::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer, illuminationBuffer, accumulationBuffer);
+                bmfr16->compile(imageLayoutCompile.context);
+                bmfr16->updateImageLayouts(imageLayoutCompile.context);
+                bmfr16->addDispatchToCommandGraph(commands, computeConstants);
+                finalDescriptorImage = bmfr16->getFinalDescriptorImage();
+                break;
+            }
+            case DenoisingBlockSize::x32:
+            {
+                auto bmfr32 = BMFR::create(windowTraits->width, windowTraits->height, 32, 32, gBuffer, illuminationBuffer, accumulationBuffer);
+                bmfr32->compile(imageLayoutCompile.context);
+                bmfr32->updateImageLayouts(imageLayoutCompile.context);
+                bmfr32->addDispatchToCommandGraph(commands, computeConstants);
+                finalDescriptorImage = bmfr32->getFinalDescriptorImage();
+                break;
+            }
+            case DenoisingBlockSize::x8x16x32:
+                auto bmfr8 = BMFR::create(windowTraits->width, windowTraits->height, 8, 8, gBuffer, illuminationBuffer, accumulationBuffer, 64);
+                auto bmfr16 = BMFR::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer, illuminationBuffer, accumulationBuffer);
+                auto bmfr32 = BMFR::create(windowTraits->width, windowTraits->height, 32, 32, gBuffer, illuminationBuffer, accumulationBuffer);
+                auto blender = BFRBlender::create(windowTraits->width, windowTraits->height,
+                                                  illuminationBuffer->illuminationImages[1], illuminationBuffer->illuminationImages[2],
+                                                  bmfr8->getFinalDescriptorImage(), bmfr16->getFinalDescriptorImage(), bmfr32->getFinalDescriptorImage());
+                bmfr8->compile(imageLayoutCompile.context);
+                bmfr8->updateImageLayouts(imageLayoutCompile.context);
+                bmfr16->compile(imageLayoutCompile.context);
+                bmfr16->updateImageLayouts(imageLayoutCompile.context);
+                bmfr32->compile(imageLayoutCompile.context);
+                bmfr32->updateImageLayouts(imageLayoutCompile.context);
+                blender->compile(imageLayoutCompile.context);
+                blender->updateImageLayouts(imageLayoutCompile.context);
+                bmfr8->addDispatchToCommandGraph(commands, computeConstants);
+                bmfr16->addDispatchToCommandGraph(commands, computeConstants);
+                bmfr32->addDispatchToCommandGraph(commands, computeConstants);
+                blender->addDispatchToCommandGraph(commands);
+                finalDescriptorImage = blender->getFinalDescriptorImage();
                 break;
             }
             break;
@@ -624,159 +568,149 @@ int main(int argc, char** argv)
             break;
         }
 
-        if (use_taa && accumulation_buffer)
+        if (useTaa && accumulationBuffer)
         {
-            auto taa = Taa::create(window_traits->width, window_traits->height, 16, 16, g_buffer, accumulation_buffer,
-                final_descriptor_image);
-            taa->compile(image_layout_compile.context);
-            taa->update_image_layouts(image_layout_compile.context);
-            taa->add_dispatch_to_command_graph(commands);
-            final_descriptor_image = taa->get_final_descriptor_image();
+            auto taa = Taa::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer, accumulationBuffer, finalDescriptorImage);
+            taa->compile(imageLayoutCompile.context);
+            taa->updateImageLayouts(imageLayoutCompile.context);
+            taa->addDispatchToCommandGraph(commands);
+            finalDescriptorImage = taa->getFinalDescriptorImage();
         }
-        if (export_g_buffer)
+        if (exportGBuffer)
         {
-            if (!g_buffer)
+            if (!gBuffer)
             {
                 std::cout << "GBuffer information not available, export not possible" << std::endl;
                 return 1;
             }
-            offline_g_buffer_stager->downloadFromGBufferCommand(g_buffer, commands, image_layout_compile.context);
+            offlineGBufferStager->downloadFromGBufferCommand(gBuffer, commands, imageLayoutCompile.context);
         }
-        if (export_illumination)
+        if (exportIllumination)
         {
-            if (final_descriptor_image->imageInfoList[0]->imageView->image->format != VK_FORMAT_R32G32B32A32_SFLOAT)
+            if (finalDescriptorImage->imageInfoList[0]->imageView->image->format != VK_FORMAT_R32G32B32A32_SFLOAT)
             {
                 std::cout << "Final image layout is not compatible illumination buffer export" << std::endl;
                 return 1;
             }
-            offline_illumination_buffer_stager->downloadFromIlluminationBufferCommand(
-                illumination_buffer, commands, image_layout_compile.context);
+            offlineIlluminationBufferStager->downloadFromIlluminationBufferCommand(illuminationBuffer, commands, imageLayoutCompile.context);
         }
-        if (final_descriptor_image->imageInfoList[0]->imageView->image->format != VK_FORMAT_B8G8R8A8_UNORM)
+        if (finalDescriptorImage->imageInfoList[0]->imageView->image->format != VK_FORMAT_B8G8R8A8_UNORM)
         {
-            auto converter = FormatConverter::create(
-                final_descriptor_image->imageInfoList[0]->imageView, VK_FORMAT_B8G8R8A8_UNORM);
-            converter->compile_images(image_layout_compile.context);
-            converter->update_image_layouts(image_layout_compile.context);
-            converter->add_dispatch_to_command_graph(commands);
-            final_descriptor_image = converter->final_image;
+            auto converter = FormatConverter::create(finalDescriptorImage->imageInfoList[0]->imageView, VK_FORMAT_B8G8R8A8_UNORM);
+            converter->compileImages(imageLayoutCompile.context);
+            converter->updateImageLayouts(imageLayoutCompile.context);
+            converter->addDispatchToCommandGraph(commands);
+            finalDescriptorImage = converter->finalImage;
         }
-        if (g_buffer)
+        if (gBuffer)
         {
-            g_buffer->compile(image_layout_compile.context);
-            g_buffer->update_image_layouts(image_layout_compile.context);
+            gBuffer->compile(imageLayoutCompile.context);
+            gBuffer->updateImageLayouts(imageLayoutCompile.context);
         }
-        if (accumulation_buffer)
+        if (accumulationBuffer)
         {
-            accumulation_buffer->compile(image_layout_compile.context);
-            accumulation_buffer->update_image_layouts(image_layout_compile.context);
+            accumulationBuffer->compile(imageLayoutCompile.context);
+            accumulationBuffer->updateImageLayouts(imageLayoutCompile.context);
         }
-        if (illumination_buffer)
+        if (illuminationBuffer)
         {
-            illumination_buffer->compile(image_layout_compile.context);
-            illumination_buffer->update_image_layouts(image_layout_compile.context);
+            illuminationBuffer->compile(imageLayoutCompile.context);
+            illuminationBuffer->updateImageLayouts(imageLayoutCompile.context);
         }
-        image_layout_compile.context.record();
+        imageLayoutCompile.context.record();
 
-        if (accumulation_buffer)
+        if (accumulationBuffer)
         {
-            accumulation_buffer->copy_to_back_images(commands, g_buffer, illumination_buffer);
+            accumulationBuffer->copyToBackImages(commands, gBuffer, illuminationBuffer);
         }
 
         // set GUI values
-        auto gui_values = Gui::Values::create();
-        gui_values->width = window_traits->width;
-        gui_values->height = window_traits->height;
+        auto guiValues = Gui::Values::create();
+        guiValues->width = windowTraits->width;
+        guiValues->height = windowTraits->height;
         CountTrianglesVisitor counter;
         if (loaded_scene)
-        {
             loaded_scene->accept(counter);
-        }
-        gui_values->triangle_count = counter.triangle_count;
-        gui_values->rays_per_pixel
-            = max_recursion_depth * 2;  // for each depth recursion one next event estimate is done
+        guiValues->triangleCount = counter.triangleCount;
+        guiValues->raysPerPixel = maxRecursionDepth * 2; //for each depth recursion one next event estimate is done
 
-        auto viewport = vsg::ViewportState::create(0, 0, window_traits->width, window_traits->height);
-        auto camera = vsg::Camera::create(perspective, look_at, viewport);
-        auto render_graph = createRenderGraphForView(
-            window, camera, vsgImGui::RenderImGui::create(window, Gui(gui_values)));  // render graph for gui rendering
-        render_graph->clearValues.clear();  // removing clear values to avoid clearing the raytraced image
+        auto viewport = vsg::ViewportState::create(0, 0, windowTraits->width, windowTraits->height);
+        auto camera = vsg::Camera::create(perspective, lookAt, viewport);
+        auto renderGraph = vsg::createRenderGraphForView(window, camera, vsgImGui::RenderImGui::create(window, Gui(guiValues))); // render graph for gui rendering
+        renderGraph->clearValues.clear();                                                                                        //removing clear values to avoid clearing the raytraced image
 
-        auto command_graph = vsg::CommandGraph::create(window);
-        command_graph->addChild(commands);
-        command_graph->addChild(
-            vsg::CopyImageViewToWindow::create(final_descriptor_image->imageInfoList[0]->imageView, window));
-        command_graph->addChild(render_graph);
+        auto commandGraph = vsg::CommandGraph::create(window);
+        commandGraph->addChild(commands);
+        commandGraph->addChild(vsg::CopyImageViewToWindow::create(finalDescriptorImage->imageInfoList[0]->imageView, window));
+        commandGraph->addChild(renderGraph);
 
-        // close handler to close and imgui handler to forward to imgui
+        //close handler to close and imgui handler to forward to imgui
         viewer->addEventHandler(vsgImGui::SendEventsToImGui::create());
         viewer->addEventHandler(vsg::CloseHandler::create(viewer));
-        if (use_fly_navigation)
-        {
+        if (useFlyNavigation)
             viewer->addEventHandler(vsg::FlyNavigation::create(camera));
-        }
         else
-        {
             viewer->addEventHandler(vsg::Trackball::create(camera));
-        }
-        viewer->assignRecordAndSubmitTaskAndPresentation({command_graph});
+        viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph});
         viewer->compile();
 
         // waiting for image layout transitions
-        image_layout_compile.context.waitForCompletion();
+        imageLayoutCompile.context.waitForCompletion();
 
         int frame_index = 0;
         int sample_index = 0;
-        while (viewer->advanceToNextFrame() && (num_frames < 0 || frame_index < num_frames))
+        while(viewer->advanceToNextFrame() && (numFrames < 0 || frame_index < numFrames))
         {
             viewer->handleEvents();
-            if (static_cast<vsg::mat4>(vsg::lookAt(look_at->eye, look_at->center, look_at->up))
-                != ray_tracing_push_constants_value->value().prev_view)
+            if ((vsg::mat4)vsg::lookAt(lookAt->eye, lookAt->center, lookAt->up) != rayTracingPushConstantsValue->value().prevView)
             {
                 // clear samples when the camera has moved
                 sample_index = 0;
             }
-            ray_tracing_push_constants_value->value().view_inverse = look_at->inverse();
-            ray_tracing_push_constants_value->value().frame_number = frame_index;
-            ray_tracing_push_constants_value->value().sample_number = sample_index;
-            gui_values->sample_number = sample_index;
 
+            rayTracingPushConstantsValue->value().viewInverse = lookAt->inverse();
+            rayTracingPushConstantsValue->value().frameNumber = frame_index;
+            rayTracingPushConstantsValue->value().sampleNumber = sample_index;
+            guiValues->sampleNumber = sample_index;
+            
             if (use_external_buffers)
             {
-                offline_g_buffer_stager->transferStagingDataFrom(offline_g_buffers[frame_index]);
-                offline_illumination_buffer_stager->transferStagingDataFrom(offline_illuminations[frame_index]);
+                offlineGBufferStager->transferStagingDataFrom(offlineGBuffers[frame_index]);
+                offlineIlluminationBufferStager->transferStagingDataFrom(offlineIlluminations[frame_index]);
                 if (accumulator)
-                {
-                    accumulator->set_frame_index(frame_index);
-                }
+                   accumulator->setCameraMatrices(frame_index, cameraMatrices[frame_index], cameraMatrices[frame_index ? frame_index - 1 : frame_index]);
+            }
+            else if (accumulator)
+            {
+                CameraMatrices a{}, b{};
+                a.invView = lookAt->inverse();
+                a.invProj = perspective->inverse();
+                a.proj = perspective->transform();
+                b.view = rayTracingPushConstantsValue->value().prevView;
+                accumulator->setCameraMatrices(rayTracingPushConstantsValue->value().frameNumber, a, b);
             }
 
             viewer->update();
             viewer->recordAndSubmit();
             viewer->present();
 
-            ray_tracing_push_constants_value->value().prev_view = look_at->transform();
+            rayTracingPushConstantsValue->value().prevView = lookAt->transform();
 
-            if (sample_index >= samples_per_pixel)
-            {
-                if (export_g_buffer || export_illumination)
-                {
+            if (sample_index + 1 >= samplesPerPixel) {
+                if (exportGBuffer || exportIllumination) {
                     viewer->deviceWaitIdle();
-                    if (export_illumination)
-                    {
-                        offline_illumination_buffer_stager->transferStagingDataTo(offline_illuminations[frame_index]);
+                    if (exportIllumination) {
+                        offlineIlluminationBufferStager->transferStagingDataTo(offlineIlluminations[frame_index]);
                     }
-                    if (export_g_buffer)
-                    {
-                        offline_g_buffer_stager->transferStagingDataTo(offline_g_buffers[frame_index]);
+                    if (exportGBuffer) {
+                        offlineGBufferStager->transferStagingDataTo(offlineGBuffers[frame_index]);
                     }
                 }
-                if (store_matrices)
-                {
-                    camera_matrices[frame_index].view = look_at->transform();
-                    camera_matrices[frame_index].invView = look_at->inverse();
-                    camera_matrices[frame_index].proj.value() = perspective->transform();
-                    camera_matrices[frame_index].invProj.value() = perspective->inverse();
+                if (storeMatrices) {
+                    cameraMatrices[frame_index].view = lookAt->transform();
+                    cameraMatrices[frame_index].invView = lookAt->inverse();
+                    cameraMatrices[frame_index].proj.value() = perspective->transform();
+                    cameraMatrices[frame_index].invProj.value() = perspective->inverse();
                 }
                 frame_index++;
             }
@@ -784,21 +718,14 @@ int main(int argc, char** argv)
         }
 
         // exporting all images
-        if (export_g_buffer)
-        {
-            GBufferIO::exportGBuffer(export_position_path, export_depth_path, export_normal_path, export_material_path,
-                export_albedo_path, num_frames, offline_g_buffers, camera_matrices);
-        }
-        if (export_illumination)
-        {
-            IlluminationBufferIO::exportIllumination(export_illumination_path, num_frames, offline_illuminations);
-        }
-        if (export_matrices_path.size())
-        {
-            MatrixIO::exportMatrices(export_matrices_path, camera_matrices);
-        }
+        if (exportGBuffer)
+            GBufferIO::exportGBuffer(exportPositionPath, exportDepthPath, exportNormalPath, exportMaterialPath, exportAlbedoPath, numFrames, offlineGBuffers, cameraMatrices);
+        if (exportIllumination)
+            IlluminationBufferIO::exportIllumination(exportIlluminationPath, numFrames, offlineIlluminations);
+        if (exportMatricesPath.size())
+            MatrixIO::exportMatrices(exportMatricesPath, cameraMatrices);
     }
-    catch (const vsg::Exception& e)
+    catch (const vsg::Exception &e)
     {
         std::cout << e.message << " VkResult = " << e.result << std::endl;
         return 0;

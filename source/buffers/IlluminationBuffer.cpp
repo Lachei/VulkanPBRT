@@ -4,78 +4,78 @@
 
 void IlluminationBuffer::compile(vsg::Context& context)
 {
-    for (auto& image : illumination_images)
-        image->compile(context);
+    for (auto& image : illuminationImages) image->compile(context);
 }
-void IlluminationBuffer::update_descriptor(vsg::BindDescriptorSet* desc_set, const vsg::BindingMap& binding_map)
+void IlluminationBuffer::updateDescriptor(vsg::BindDescriptorSet* descSet, const vsg::BindingMap& bindingMap)
 {
-    for (int i = 0; i < illumination_bindings.size(); ++i)
+    for (int i = 0; i < illuminationBindings.size(); ++i)
     {
-        int index = vsg::ShaderStage::getSetBindingIndex(binding_map, illumination_bindings[i]).second;
-        illumination_images[i]->dstBinding = index;
-        desc_set->descriptorSet->descriptors.push_back(illumination_images[i]);
+        int index = vsg::ShaderStage::getSetBindingIndex(bindingMap, illuminationBindings[i]).second;
+        illuminationImages[i]->dstBinding = index;
+        descSet->descriptorSet->descriptors.push_back(illuminationImages[i]);
     }
 }
-void IlluminationBuffer::update_image_layouts(vsg::Context& context)
+void IlluminationBuffer::updateImageLayouts(vsg::Context& context)
 {
-    VkImageSubresourceRange resource_range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    auto pipeline_barrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-        VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_DEPENDENCY_BY_REGION_BIT);
-    for (auto& image : illumination_images)
+    VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+                                                        VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_DEPENDENCY_BY_REGION_BIT);
+    for (auto& image : illuminationImages)
     {
-        auto image_barrier
-            = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-                VK_IMAGE_LAYOUT_GENERAL, 0, 0, image->imageInfoList[0]->imageView->image, resource_range);
-        pipeline_barrier->imageMemoryBarriers.push_back(image_barrier);
+        auto imageBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+                                                            VK_IMAGE_LAYOUT_GENERAL, 0, 0, image->imageInfoList[0]->imageView->image,
+                                                            resourceRange);
+        pipelineBarrier->imageMemoryBarriers.push_back(imageBarrier);
     }
-    context.commands.push_back(pipeline_barrier);
+    context.commands.push_back(pipelineBarrier);
 }
-void IlluminationBuffer::copy_image(
-    vsg::ref_ptr<vsg::Commands> commands, uint32_t image_index, vsg::ref_ptr<vsg::Image> dst_image)
+void IlluminationBuffer::copyImage(vsg::ref_ptr<vsg::Commands> commands, uint32_t imageIndex, vsg::ref_ptr<vsg::Image> dstImage)
 {
     assert(imageIndex < illuminationImages.size());
-    auto src_image = illumination_images[image_index]->imageInfoList[0]->imageView->image;
+    auto srcImage = illuminationImages[imageIndex]->imageInfoList[0]->imageView->image;
 
-    VkImageSubresourceRange resource_range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    auto src_barrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT,
-        VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0, src_image, resource_range);
-    auto dst_barrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT,
-        VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, 0, dst_image, resource_range);
-    auto pipeline_barrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-        VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_DEPENDENCY_BY_REGION_BIT, src_barrier, dst_barrier);
-    commands->addChild(pipeline_barrier);
+    VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    auto srcBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL,
+                                                      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0, srcImage, resourceRange);
+    auto dstBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL,
+                                                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, 0, dstImage, resourceRange);
+    auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+                                                        VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_DEPENDENCY_BY_REGION_BIT,
+                                                        srcBarrier, dstBarrier);
+    commands->addChild(pipelineBarrier);
 
-    VkImageCopy copy_region{};
-    copy_region.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    copy_region.srcOffset = {0, 0, 0};
-    copy_region.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    copy_region.dstOffset = {0, 0, 0};
-    copy_region.extent = {width, height, 1};
+    VkImageCopy copyRegion{};
+    copyRegion.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    copyRegion.srcOffset = {0, 0, 0};
+    copyRegion.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    copyRegion.dstOffset = {0, 0, 0};
+    copyRegion.extent = {width, height, 1};
 
-    auto copy_image = vsg::CopyImage::create();
-    copy_image->srcImage = src_image;
-    copy_image->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-    copy_image->dstImage = dst_image;
-    copy_image->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-    copy_image->regions.emplace_back(copy_region);
-    commands->addChild(copy_image);
+    auto copyImage = vsg::CopyImage::create();
+    copyImage->srcImage = srcImage;
+    copyImage->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    copyImage->dstImage = dstImage;
+    copyImage->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    copyImage->regions.emplace_back(copyRegion);
+    commands->addChild(copyImage);
 
-    src_barrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT,
-        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, 0, 0, src_image, resource_range);
-    dst_barrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, 0, 0, dst_image, resource_range);
-    pipeline_barrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-        VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_DEPENDENCY_BY_REGION_BIT, src_barrier, dst_barrier);
-    commands->addChild(pipeline_barrier);
+    srcBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                                 VK_IMAGE_LAYOUT_GENERAL, 0, 0, srcImage, resourceRange);
+    dstBarrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                                 VK_IMAGE_LAYOUT_GENERAL, 0, 0, dstImage, resourceRange);
+    pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+                                                   VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_DEPENDENCY_BY_REGION_BIT,
+                                                   srcBarrier, dstBarrier);
+    commands->addChild(pipelineBarrier);
 }
 IlluminationBufferFinal::IlluminationBufferFinal(uint32_t width, uint32_t height)
 {
     this->width = width;
     this->height = height;
-    illumination_bindings.push_back("outputImage");
-    fill_images();
+    illuminationBindings.push_back("outputImage");
+    fillImages();
 }
-void IlluminationBufferFinal::fill_images()
+void IlluminationBufferFinal::fillImages()
 {
     auto image = vsg::Image::create();
     image->imageType = VK_IMAGE_TYPE_2D;
@@ -90,20 +90,20 @@ void IlluminationBufferFinal::fill_images()
     image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
     image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    auto image_view = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    auto image_info = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, image_view, VK_IMAGE_LAYOUT_GENERAL);
-    illumination_images.push_back(vsg::DescriptorImage::create(image_info, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
+    auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+    auto imageInfo = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL);
+    illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
 }
 IlluminationBufferFinalDirIndir::IlluminationBufferFinalDirIndir(uint32_t width, uint32_t height)
 {
     this->width = width;
     this->height = height;
-    illumination_bindings.push_back("outputImage");  // TODO change to appropriate value
-    illumination_bindings.push_back("outputImage");
-    illumination_bindings.push_back("outputImage");
-    fill_images();
+    illuminationBindings.push_back("outputImage"); //TODO change to appropriate value
+    illuminationBindings.push_back("outputImage");
+    illuminationBindings.push_back("outputImage");
+    fillImages();
 }
-void IlluminationBufferFinalDirIndir::fill_images()
+void IlluminationBufferFinalDirIndir::fillImages()
 {
     auto image = vsg::Image::create();
     image->imageType = VK_IMAGE_TYPE_2D;
@@ -118,9 +118,9 @@ void IlluminationBufferFinalDirIndir::fill_images()
     image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
     image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    auto image_view = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    auto image_info = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, image_view, VK_IMAGE_LAYOUT_GENERAL);
-    illumination_images.push_back(vsg::DescriptorImage::create(image_info, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
+    auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+    auto imageInfo = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL);
+    illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
 
     image = vsg::Image::create();
     image->imageType = VK_IMAGE_TYPE_2D;
@@ -135,9 +135,9 @@ void IlluminationBufferFinalDirIndir::fill_images()
     image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
     image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    image_view = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    image_info = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, image_view, VK_IMAGE_LAYOUT_GENERAL);
-    illumination_images.push_back(vsg::DescriptorImage::create(image_info, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
+    imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+    imageInfo = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL);
+    illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
 
     image = vsg::Image::create();
     image->imageType = VK_IMAGE_TYPE_2D;
@@ -152,20 +152,20 @@ void IlluminationBufferFinalDirIndir::fill_images()
     image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
     image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    image_view = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    image_info = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, image_view, VK_IMAGE_LAYOUT_GENERAL);
-    illumination_images.push_back(vsg::DescriptorImage::create(image_info, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
+    imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+    imageInfo = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL);
+    illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
 }
 IlluminationBufferFinalDemodulated::IlluminationBufferFinalDemodulated(uint32_t width, uint32_t height)
 {
     this->width = width;
     this->height = height;
-    illumination_bindings.push_back("outputImage");
-    illumination_bindings.push_back("illumination");
-    illumination_bindings.push_back("illuminationSquared");
-    fill_images();
+    illuminationBindings.push_back("outputImage");
+    illuminationBindings.push_back("illumination");
+    illuminationBindings.push_back("illuminationSquared");
+    fillImages();
 }
-void IlluminationBufferFinalDemodulated::fill_images()
+void IlluminationBufferFinalDemodulated::fillImages()
 {
     auto image = vsg::Image::create();
     image->imageType = VK_IMAGE_TYPE_2D;
@@ -180,9 +180,9 @@ void IlluminationBufferFinalDemodulated::fill_images()
     image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
     image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    auto image_view = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    auto image_info = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, image_view, VK_IMAGE_LAYOUT_GENERAL);
-    illumination_images.push_back(vsg::DescriptorImage::create(image_info, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
+    auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+    auto imageInfo = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL);
+    illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
 
     image = vsg::Image::create();
     image->imageType = VK_IMAGE_TYPE_2D;
@@ -197,9 +197,9 @@ void IlluminationBufferFinalDemodulated::fill_images()
     image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
     image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    image_view = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    image_info = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, image_view, VK_IMAGE_LAYOUT_GENERAL);
-    illumination_images.push_back(vsg::DescriptorImage::create(image_info, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
+    imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+    imageInfo = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL);
+    illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
 
     image = vsg::Image::create();
     image->imageType = VK_IMAGE_TYPE_2D;
@@ -214,19 +214,19 @@ void IlluminationBufferFinalDemodulated::fill_images()
     image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
     image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    image_view = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    image_info = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, image_view, VK_IMAGE_LAYOUT_GENERAL);
-    illumination_images.push_back(vsg::DescriptorImage::create(image_info, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
+    imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+    imageInfo = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL);
+    illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
 }
 IlluminationBufferDemodulated::IlluminationBufferDemodulated(uint32_t width, uint32_t height)
 {
     this->width = width;
     this->height = height;
-    illumination_bindings.push_back("illumination");
-    illumination_bindings.push_back("illuminationSquared");
-    fill_images();
+    illuminationBindings.push_back("illumination");
+    illuminationBindings.push_back("illuminationSquared");
+    fillImages();
 }
-void IlluminationBufferDemodulated::fill_images()
+void IlluminationBufferDemodulated::fillImages()
 {
     auto image = vsg::Image::create();
     image->imageType = VK_IMAGE_TYPE_2D;
@@ -237,9 +237,9 @@ void IlluminationBufferDemodulated::fill_images()
     image->mipLevels = 1;
     image->arrayLayers = 1;
     image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
-    auto image_view = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    auto image_info = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, image_view, VK_IMAGE_LAYOUT_GENERAL);
-    illumination_images.push_back(vsg::DescriptorImage::create(image_info, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
+    auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+    auto imageInfo = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL);
+    illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
 
     image = vsg::Image::create();
     image->imageType = VK_IMAGE_TYPE_2D;
@@ -250,21 +250,20 @@ void IlluminationBufferDemodulated::fill_images()
     image->mipLevels = 1;
     image->arrayLayers = 1;
     image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
-    image_view = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    image_info = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, image_view, VK_IMAGE_LAYOUT_GENERAL);
-    illumination_images.push_back(vsg::DescriptorImage::create(image_info, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
+    imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+    imageInfo = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL);
+    illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
 }
 
-IlluminationBufferDemodulatedFloat::IlluminationBufferDemodulatedFloat(uint32_t width, uint32_t height)
+IlluminationBufferDemodulatedFloat::IlluminationBufferDemodulatedFloat(uint32_t width, uint32_t height) 
 {
     this->width = width;
     this->height = height;
-    illumination_bindings.push_back("illumination");
-    illumination_bindings.push_back("illuminationSquared");
-    fill_images();
+    illuminationBindings.push_back("illumination");
+    fillImages();
 }
 
-void IlluminationBufferDemodulatedFloat::fill_images()
+void IlluminationBufferDemodulatedFloat::fillImages()
 {
     auto image = vsg::Image::create();
     image->imageType = VK_IMAGE_TYPE_2D;
@@ -275,34 +274,20 @@ void IlluminationBufferDemodulatedFloat::fill_images()
     image->mipLevels = 1;
     image->arrayLayers = 1;
     image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
-    auto image_view = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    auto image_info = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, image_view, VK_IMAGE_LAYOUT_GENERAL);
-    illumination_images.push_back(vsg::DescriptorImage::create(image_info, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
-
-    image = vsg::Image::create();
-    image->imageType = VK_IMAGE_TYPE_2D;
-    image->format = VK_FORMAT_R32G32B32A32_SFLOAT;
-    image->extent.width = width;
-    image->extent.height = height;
-    image->extent.depth = 1;
-    image->mipLevels = 1;
-    image->arrayLayers = 1;
-    image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
-    image_view = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    image_info = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, image_view, VK_IMAGE_LAYOUT_GENERAL);
-    illumination_images.push_back(vsg::DescriptorImage::create(image_info, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
+    auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+    auto imageInfo = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL);
+    illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
 }
 
-IlluminatonBufferFinalFloat::IlluminatonBufferFinalFloat(uint32_t width, uint32_t height)
+IlluminationBufferFinalFloat::IlluminationBufferFinalFloat(uint32_t width, uint32_t height) 
 {
     this->width = width;
     this->height = height;
-    illumination_bindings.push_back("outputImage");
-    fill_images();
+    illuminationBindings.push_back("outputImage");
+    fillImages();
 }
 
-void IlluminatonBufferFinalFloat::fill_images()
-{
+void IlluminationBufferFinalFloat::fillImages(){
     auto image = vsg::Image::create();
     image->imageType = VK_IMAGE_TYPE_2D;
     image->format = VK_FORMAT_R32G32B32A32_SFLOAT;
@@ -316,7 +301,7 @@ void IlluminatonBufferFinalFloat::fill_images()
     image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
     image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    auto image_view = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    auto image_info = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, image_view, VK_IMAGE_LAYOUT_GENERAL);
-    illumination_images.push_back(vsg::DescriptorImage::create(image_info, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
+    auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+    auto imageInfo = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL);
+    illuminationImages.push_back(vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
 }
