@@ -4,7 +4,7 @@ AccumulationBuffer::AccumulationBuffer(uint32_t width, uint32_t height) : _width
 {
     setup_images();
 }
-void AccumulationBuffer::update_descriptor(vsg::BindDescriptorSet* desc_set, const vsg::BindingMap& binding_map)
+void AccumulationBuffer::update_descriptor(vsg::BindDescriptorSet* desc_set, const vsg::BindingMap& binding_map) const
 {
     int prev_illu_index = vsg::ShaderStage::getSetBindingIndex(binding_map, "prevOutput").second;
     prev_illu->dstBinding = prev_illu_index;
@@ -29,7 +29,7 @@ void AccumulationBuffer::update_descriptor(vsg::BindDescriptorSet* desc_set, con
     desc_set->descriptorSet->descriptors.push_back(prev_spp);
     desc_set->descriptorSet->descriptors.push_back(motion);
 }
-void AccumulationBuffer::update_image_layouts(vsg::Context& context)
+void AccumulationBuffer::update_image_layouts(vsg::Context& context) const
 {
     VkImageSubresourceRange resource_range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     auto prev_illu_layout
@@ -57,9 +57,9 @@ void AccumulationBuffer::update_image_layouts(vsg::Context& context)
     auto pipeline_barrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
         VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_DEPENDENCY_BY_REGION_BIT, prev_illu_layout,
         prev_illu_squared_layout, prev_depth_layout, prev_normal_layout, spp_layout, prev_spp_layout, motion_layout);
-    context.commands.push_back(pipeline_barrier);
+    context.commands.emplace_back(pipeline_barrier);
 }
-void AccumulationBuffer::compile(vsg::Context& context)
+void AccumulationBuffer::compile(vsg::Context& context) const
 {
     prev_illu->compile(context);
     prev_illu_squared->compile(context);

@@ -2,56 +2,56 @@
 
 GBuffer::GBuffer(uint32_t width, uint32_t height) : width(width), height(height)
 {
-    setupImages();
+    setup_images();
 }
-void GBuffer::updateDescriptor(vsg::BindDescriptorSet* descSet, const vsg::BindingMap& bindingMap)
+void GBuffer::update_descriptor(vsg::BindDescriptorSet* desc_set, const vsg::BindingMap& binding_map) const
 {
-    vsg::DescriptorSetLayoutBindings& bindings = descSet->descriptorSet->setLayout->bindings;
-    int depthInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "depthImage").second;
-    auto depthBind = vsg::DescriptorImage::create(depth->imageInfoList, depthInd, 0, depth->descriptorType);
-    int normalInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "normalImage").second;
-    auto normalBind = vsg::DescriptorImage::create(normal->imageInfoList, normalInd, 0, normal->descriptorType);
-    int materialInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "materialImage").second;
-    auto materialBind = vsg::DescriptorImage::create(material->imageInfoList, materialInd, 0, material->descriptorType);
-    int albedoInd = vsg::ShaderStage::getSetBindingIndex(bindingMap, "albedoImage").second;
-    auto albedoBind = vsg::DescriptorImage::create(albedo->imageInfoList, albedoInd, 0, albedo->descriptorType);
+    vsg::DescriptorSetLayoutBindings& bindings = desc_set->descriptorSet->setLayout->bindings;
+    int depth_ind = vsg::ShaderStage::getSetBindingIndex(binding_map, "depthImage").second;
+    auto depth_bind = vsg::DescriptorImage::create(depth->imageInfoList, depth_ind, 0, depth->descriptorType);
+    int normal_ind = vsg::ShaderStage::getSetBindingIndex(binding_map, "normalImage").second;
+    auto normal_bind = vsg::DescriptorImage::create(normal->imageInfoList, normal_ind, 0, normal->descriptorType);
+    int material_ind = vsg::ShaderStage::getSetBindingIndex(binding_map, "materialImage").second;
+    auto material_bind = vsg::DescriptorImage::create(material->imageInfoList, material_ind, 0, material->descriptorType);
+    int albedo_ind = vsg::ShaderStage::getSetBindingIndex(binding_map, "albedoImage").second;
+    auto albedo_bind = vsg::DescriptorImage::create(albedo->imageInfoList, albedo_ind, 0, albedo->descriptorType);
 
-    descSet->descriptorSet->descriptors.push_back(depthBind);
-    descSet->descriptorSet->descriptors.push_back(normalBind);
-    descSet->descriptorSet->descriptors.push_back(materialBind);
-    descSet->descriptorSet->descriptors.push_back(albedoBind);
+    desc_set->descriptorSet->descriptors.push_back(depth_bind);
+    desc_set->descriptorSet->descriptors.push_back(normal_bind);
+    desc_set->descriptorSet->descriptors.push_back(material_bind);
+    desc_set->descriptorSet->descriptors.push_back(albedo_bind);
 }
-void GBuffer::updateImageLayouts(vsg::Context& context)
+void GBuffer::update_image_layouts(vsg::Context& context) const
 {
-    VkImageSubresourceRange resourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    auto depthLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+    VkImageSubresourceRange resource_range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    auto depth_layout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
                                                        VK_IMAGE_LAYOUT_GENERAL, 0, 0, depth->imageInfoList[0]->imageView->image,
-                                                       resourceRange);
-    auto normalLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+                                                       resource_range);
+    auto normal_layout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
                                                         VK_IMAGE_LAYOUT_GENERAL, 0, 0, normal->imageInfoList[0]->imageView->image,
-                                                        resourceRange);
-    auto materialLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+                                                        resource_range);
+    auto material_layout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
                                                           VK_IMAGE_LAYOUT_GENERAL, 0, 0, material->imageInfoList[0]->imageView->image,
-                                                          resourceRange);
-    auto albedoLayout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+                                                          resource_range);
+    auto albedo_layout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
                                                         VK_IMAGE_LAYOUT_GENERAL, 0, 0, albedo->imageInfoList[0]->imageView->image,
-                                                        resourceRange);
+                                                        resource_range);
 
-    auto pipelineBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+    auto pipeline_barrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
                                                         VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_DEPENDENCY_BY_REGION_BIT,
-                                                        depthLayout, normalLayout, materialLayout, albedoLayout);
-    context.commands.push_back(pipelineBarrier);
+                                                        depth_layout, normal_layout, material_layout, albedo_layout);
+    context.commands.emplace_back(pipeline_barrier);
 }
-void GBuffer::compile(vsg::Context& context)
+void GBuffer::compile(vsg::Context& context) const
 {
     depth->compile(context);
     normal->compile(context);
     material->compile(context);
     albedo->compile(context);
 }
-void GBuffer::setupImages()
+void GBuffer::setup_images()
 {
-    sampler = vsg::Sampler::create();
+    _sampler = vsg::Sampler::create();
 
     //all images are bound initially to set 0 binding 0. Correct binding number is set in updateDescriptor()
     auto image = vsg::Image::create();
@@ -67,9 +67,9 @@ void GBuffer::setupImages()
     image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
     image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    auto imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    auto imageInfo = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL);
-    depth = vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+    auto image_view = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+    auto image_info = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, image_view, VK_IMAGE_LAYOUT_GENERAL);
+    depth = vsg::DescriptorImage::create(image_info, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
     image = vsg::Image::create();
     image->imageType = VK_IMAGE_TYPE_2D;
@@ -84,9 +84,9 @@ void GBuffer::setupImages()
     image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
     image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    imageInfo = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL);
-    normal = vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+    image_view = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+    image_info = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, image_view, VK_IMAGE_LAYOUT_GENERAL);
+    normal = vsg::DescriptorImage::create(image_info, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
     image = vsg::Image::create();
     image->imageType = VK_IMAGE_TYPE_2D;
@@ -101,9 +101,9 @@ void GBuffer::setupImages()
     image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
     image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    imageInfo = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL);
-    material = vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+    image_view = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+    image_info = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, image_view, VK_IMAGE_LAYOUT_GENERAL);
+    material = vsg::DescriptorImage::create(image_info, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
     image = vsg::Image::create();
     image->imageType = VK_IMAGE_TYPE_2D;
@@ -118,7 +118,7 @@ void GBuffer::setupImages()
     image->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_STORAGE_BIT;
     image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageView = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    imageInfo = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, imageView, VK_IMAGE_LAYOUT_GENERAL);
-    albedo = vsg::DescriptorImage::create(imageInfo, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+    image_view = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
+    image_info = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, image_view, VK_IMAGE_LAYOUT_GENERAL);
+    albedo = vsg::DescriptorImage::create(image_info, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 }

@@ -13,13 +13,13 @@ public:
     uint32_t width, height;
     vsg::ref_ptr<vsg::DescriptorImage> depth, normal, material, albedo;
 
-    void updateDescriptor(vsg::BindDescriptorSet* descSet, const vsg::BindingMap& bindingMap);
+    void update_descriptor(vsg::BindDescriptorSet* desc_set, const vsg::BindingMap& binding_map) const;
 
-    void updateImageLayouts(vsg::Context& context);
+    void update_image_layouts(vsg::Context& context) const;
 
-    void compile(vsg::Context& context);
+    void compile(vsg::Context& context) const;
 
 protected:
-    vsg::ref_ptr<vsg::Sampler> sampler;
-    void setupImages();
+    vsg::ref_ptr<vsg::Sampler> _sampler;
+    void setup_images();
 };

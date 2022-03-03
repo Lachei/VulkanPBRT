@@ -14,11 +14,11 @@ public:
 
     vsg::ref_ptr<vsg::DescriptorImage> prev_illu, prev_illu_squared, prev_depth, prev_normal, spp, prev_spp, motion;
 
-    void update_descriptor(vsg::BindDescriptorSet* desc_set, const vsg::BindingMap& binding_map);
+    void update_descriptor(vsg::BindDescriptorSet* desc_set, const vsg::BindingMap& binding_map) const;
 
-    void update_image_layouts(vsg::Context& context);
+    void update_image_layouts(vsg::Context& context) const;
 
-    void compile(vsg::Context& context);
+    void compile(vsg::Context& context) const;
 
     void copy_to_back_images(vsg::ref_ptr<vsg::Commands> commands, vsg::ref_ptr<GBuffer> g_buffer,
         vsg::ref_ptr<IlluminationBuffer> illumination_buffer);
