@@ -9,12 +9,14 @@ class Accumulator : public vsg::Inherit<vsg::Object, Accumulator>
 {
 private:
     int _width, _height;
+
 public:
     // Always takes the first image in the illumination buffer and accumulates it
-    Accumulator(vsg::ref_ptr<GBuffer> g_buffer, vsg::ref_ptr<IlluminationBuffer> illumination_buffer, bool separate_matrices, int work_width = 16, int work_height = 16);
+    Accumulator(vsg::ref_ptr<GBuffer> g_buffer, vsg::ref_ptr<IlluminationBuffer> illumination_buffer,
+        bool separate_matrices, int work_width = 16, int work_height = 16);
 
-    void compile_images(vsg::Context &context) const;
-    void update_image_layouts(vsg::Context &context) const;
+    void compile_images(vsg::Context& context) const;
+    void update_image_layouts(vsg::Context& context) const;
     void add_dispatch_to_command_graph(vsg::ref_ptr<vsg::Commands> command_graph);
     // Frameindex is needed to upload the correct matrix
     void set_camera_matrices(int frame_index, const CameraMatrices& cur, const CameraMatrices& prev);
@@ -32,9 +34,10 @@ private:
     class PCValue : public Inherit<vsg::Value<PushConstants>, PCValue>
     {
     public:
-        PCValue()= default;
+        PCValue() = default;
     };
-    std::string _shader_path = "shaders/accumulator.comp";    //normal glsl file has to be loaded as the shader has to be adopted to separateMatrices style
+    std::string _shader_path = "shaders/accumulator.comp";  // normal glsl file has to be loaded as the shader has to be
+                                                            // adopted to separateMatrices style
     int _work_width, _work_height;
     vsg::ref_ptr<GBuffer> _g_buffer;
     vsg::ref_ptr<IlluminationBuffer> _original_illumination;

@@ -6,7 +6,8 @@
 // class holding all references for the gbuffer
 // supports automatically updating the ray tracing descriptor set
 // care to update also the RayTracingVisitor.hpp descriptor layout if you add things to the gbuffer
-class GBuffer: public vsg::Inherit<vsg::Object, GBuffer>{
+class GBuffer : public vsg::Inherit<vsg::Object, GBuffer>
+{
 public:
     GBuffer(uint32_t width, uint32_t height);
 

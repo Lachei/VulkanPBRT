@@ -12,12 +12,13 @@ BFR::BFR(uint32_t width, uint32_t height, uint32_t work_width, uint32_t work_hei
     _g_buffer(g_buffer),
     _sampler(vsg::Sampler::create())
 {
-    if (!illu_buffer.cast<IlluminationBufferDemodulated>() && !illu_buffer.cast<IlluminationBufferDemodulatedFloat>()){
+    if (!illu_buffer.cast<IlluminationBufferDemodulated>() && !illu_buffer.cast<IlluminationBufferDemodulatedFloat>())
+    {
         std::cout << "Illumination Buffer type is required to be IlluminationBufferDemodulated/Float for BMFR" << std::endl;
         return; //demodulated illumination needed
     }
     auto illumination = illu_buffer;
-        //adding usage bits to illumination buffer
+    //adding usage bits to illumination buffer
     illumination->illumination_images[0]->imageInfoList[0]->imageView->image->usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
     std::string shader_path = "shaders/bfr.comp.spv";
     auto compute_stage = vsg::ShaderStage::read(VK_SHADER_STAGE_COMPUTE_BIT, "main", shader_path);
@@ -44,7 +45,7 @@ BFR::BFR(uint32_t width, uint32_t height, uint32_t work_width, uint32_t work_hei
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     auto image_view = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
     image_view->viewType = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
-    auto image_info = vsg::ImageInfo::create( vsg::ref_ptr<vsg::Sampler>{}, image_view, VK_IMAGE_LAYOUT_GENERAL );
+    auto image_info = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, image_view, VK_IMAGE_LAYOUT_GENERAL);
     _accumulated_illumination = vsg::DescriptorImage::create(image_info, _denoised_illu_binding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
     image_info->sampler = _sampler;
     _sampled_acc_illu = vsg::DescriptorImage::create(image_info, _sampled_den_illu_binding, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
@@ -63,7 +64,7 @@ BFR::BFR(uint32_t width, uint32_t height, uint32_t work_width, uint32_t work_hei
     image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     image_view = vsg::ImageView::create(image, VK_IMAGE_ASPECT_COLOR_BIT);
-    image_info = vsg::ImageInfo::create( vsg::ref_ptr<vsg::Sampler>{}, image_view, VK_IMAGE_LAYOUT_GENERAL );
+    image_info = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, image_view, VK_IMAGE_LAYOUT_GENERAL);
     _final_illumination = vsg::DescriptorImage::create(image_info, _final_binding, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
     // descriptor set layout
@@ -87,10 +88,10 @@ BFR::BFR(uint32_t width, uint32_t height, uint32_t work_width, uint32_t work_hei
     };
     auto descriptor_set = vsg::DescriptorSet::create(descriptor_set_layout, descriptors);
 
-    auto pipeline_layout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{ descriptor_set_layout },
-        vsg::PushConstantRanges{
-            {VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(RayTracingPushConstants)}
-        });
+    auto pipeline_layout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptor_set_layout},
+                                                       vsg::PushConstantRanges{
+                                                           {VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(RayTracingPushConstants)}
+                                                       });
     _bind_descriptor_set = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipeline_layout, descriptor_set);
 
     _bfr_pipeline = vsg::ComputePipeline::create(pipeline_layout, compute_stage);
@@ -106,16 +107,16 @@ void BFR::update_image_layouts(vsg::Context& context)
 {
     VkImageSubresourceRange resource_range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 2};
     auto acc_illu_layout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-                                                         VK_IMAGE_LAYOUT_GENERAL, 0, 0,
-                                                         _accumulated_illumination->imageInfoList[0]->imageView->image, resource_range);
+                                                           VK_IMAGE_LAYOUT_GENERAL, 0, 0,
+                                                           _accumulated_illumination->imageInfoList[0]->imageView->image, resource_range);
     resource_range = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     auto final_ilu_layout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-                                                          VK_IMAGE_LAYOUT_GENERAL, 0, 0,
-                                                          _final_illumination->imageInfoList[0]->imageView->image, resource_range);
+                                                            VK_IMAGE_LAYOUT_GENERAL, 0, 0,
+                                                            _final_illumination->imageInfoList[0]->imageView->image, resource_range);
 
     auto pipeline_barrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                                                        VK_DEPENDENCY_BY_REGION_BIT,
-                                                        acc_illu_layout, final_ilu_layout);
+                                                         VK_DEPENDENCY_BY_REGION_BIT,
+                                                         acc_illu_layout, final_ilu_layout);
     context.commands.emplace_back(pipeline_barrier);
 }
 void BFR::add_dispatch_to_command_graph(vsg::ref_ptr<vsg::Commands> command_graph, vsg::ref_ptr<vsg::PushConstants> push_constants)
@@ -125,7 +126,7 @@ void BFR::add_dispatch_to_command_graph(vsg::ref_ptr<vsg::Commands> command_grap
     command_graph->addChild(push_constants);
     command_graph->addChild(vsg::Dispatch::create((_width / _work_width + 2), (_height / _work_height + 2), 1));
     auto pipeline_barrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        VK_DEPENDENCY_BY_REGION_BIT);
+                                                         VK_DEPENDENCY_BY_REGION_BIT);
     command_graph->addChild(pipeline_barrier); //barrier to wait for completion of denoising before taa is applied
 }
 vsg::ref_ptr<vsg::DescriptorImage> BFR::get_final_descriptor_image() const

@@ -1,6 +1,7 @@
 #include <renderModules/GBufferRasterizer.hpp>
 
-GBufferRasterizer::GBufferRasterizer(vsg::Device* device, uint32_t width, uint32_t height, bool double_sided, bool blend)
+GBufferRasterizer::GBufferRasterizer(
+    vsg::Device* device, uint32_t width, uint32_t height, bool double_sided, bool blend)
     : _g_buffer(GBuffer::create(width, height)),
       _width(width),
       _height(height),

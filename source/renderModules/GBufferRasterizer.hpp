@@ -14,6 +14,7 @@ public:
     void compile(vsg::Context& context) const;
 
     void update_image_layouts(vsg::Context& context) const;
+
 protected:
     void setup_graphics_pipeline();
 

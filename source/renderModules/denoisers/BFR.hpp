@@ -5,15 +5,18 @@
 
 #include <vsg/all.h>
 
-class BFR: public vsg::Inherit<vsg::Object, BFR>{
+class BFR : public vsg::Inherit<vsg::Object, BFR>
+{
 public:
     BFR(uint32_t width, uint32_t height, uint32_t work_width, uint32_t work_height, vsg::ref_ptr<GBuffer> g_buffer,
         vsg::ref_ptr<IlluminationBuffer> illu_buffer, vsg::ref_ptr<AccumulationBuffer> acc_buffer);
 
     void compile(vsg::Context& context);
     void update_image_layouts(vsg::Context& context);
-    void add_dispatch_to_command_graph(vsg::ref_ptr<vsg::Commands> command_graph, vsg::ref_ptr<vsg::PushConstants> push_constants);
+    void add_dispatch_to_command_graph(
+        vsg::ref_ptr<vsg::Commands> command_graph, vsg::ref_ptr<vsg::PushConstants> push_constants);
     vsg::ref_ptr<vsg::DescriptorImage> get_final_descriptor_image() const;
+
 private:
     uint32_t _width, _height, _work_width, _work_height;
     vsg::ref_ptr<GBuffer> _g_buffer;

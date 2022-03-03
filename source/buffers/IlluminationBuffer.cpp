@@ -4,8 +4,10 @@
 
 void IlluminationBuffer::compile(vsg::Context& context)
 {
-    for (auto& image : illumination_images) { image->compile(context);
-}
+    for (auto& image : illumination_images)
+    {
+        image->compile(context);
+    }
 }
 void IlluminationBuffer::update_descriptor(vsg::BindDescriptorSet* desc_set, const vsg::BindingMap& binding_map)
 {
@@ -20,29 +22,29 @@ void IlluminationBuffer::update_image_layouts(vsg::Context& context)
 {
     VkImageSubresourceRange resource_range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     auto pipeline_barrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-                                                        VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_DEPENDENCY_BY_REGION_BIT);
+        VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_DEPENDENCY_BY_REGION_BIT);
     for (auto& image : illumination_images)
     {
-        auto image_barrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
-                                                            VK_IMAGE_LAYOUT_GENERAL, 0, 0, image->imageInfoList[0]->imageView->image,
-                                                            resource_range);
+        auto image_barrier
+            = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+                VK_IMAGE_LAYOUT_GENERAL, 0, 0, image->imageInfoList[0]->imageView->image, resource_range);
         pipeline_barrier->imageMemoryBarriers.push_back(image_barrier);
     }
     context.commands.emplace_back(pipeline_barrier);
 }
-void IlluminationBuffer::copy_image(vsg::ref_ptr<vsg::Commands> commands, uint32_t image_index, vsg::ref_ptr<vsg::Image> dst_image)
+void IlluminationBuffer::copy_image(
+    vsg::ref_ptr<vsg::Commands> commands, uint32_t image_index, vsg::ref_ptr<vsg::Image> dst_image)
 {
     assert(imageIndex < illuminationImages.size());
     auto src_image = illumination_images[image_index]->imageInfoList[0]->imageView->image;
 
     VkImageSubresourceRange resource_range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-    auto src_barrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL,
-                                                      VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0, src_image, resource_range);
-    auto dst_barrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_GENERAL,
-                                                      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, 0, dst_image, resource_range);
+    auto src_barrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT,
+        VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, 0, 0, src_image, resource_range);
+    auto dst_barrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT,
+        VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 0, 0, dst_image, resource_range);
     auto pipeline_barrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-                                                        VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_DEPENDENCY_BY_REGION_BIT,
-                                                        src_barrier, dst_barrier);
+        VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_DEPENDENCY_BY_REGION_BIT, src_barrier, dst_barrier);
     commands->addChild(pipeline_barrier);
 
     VkImageCopy copy_region{};
@@ -60,13 +62,12 @@ void IlluminationBuffer::copy_image(vsg::ref_ptr<vsg::Commands> commands, uint32
     copy_image->regions.emplace_back(copy_region);
     commands->addChild(copy_image);
 
-    src_barrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                                                 VK_IMAGE_LAYOUT_GENERAL, 0, 0, src_image, resource_range);
-    dst_barrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                                 VK_IMAGE_LAYOUT_GENERAL, 0, 0, dst_image, resource_range);
+    src_barrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, 0, 0, src_image, resource_range);
+    dst_barrier = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, 0, 0, dst_image, resource_range);
     pipeline_barrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
-                                                   VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_DEPENDENCY_BY_REGION_BIT,
-                                                   src_barrier, dst_barrier);
+        VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, VK_DEPENDENCY_BY_REGION_BIT, src_barrier, dst_barrier);
     commands->addChild(pipeline_barrier);
 }
 IlluminationBufferFinal::IlluminationBufferFinal(uint32_t width, uint32_t height)
@@ -99,7 +100,7 @@ IlluminationBufferFinalDirIndir::IlluminationBufferFinalDirIndir(uint32_t width,
 {
     this->width = width;
     this->height = height;
-    illumination_bindings.emplace_back("outputImage"); //TODO change to appropriate value
+    illumination_bindings.emplace_back("outputImage");  // TODO change to appropriate value
     illumination_bindings.emplace_back("outputImage");
     illumination_bindings.emplace_back("outputImage");
     fill_images();
@@ -256,7 +257,7 @@ void IlluminationBufferDemodulated::fill_images()
     illumination_images.push_back(vsg::DescriptorImage::create(image_info, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
 }
 
-IlluminationBufferDemodulatedFloat::IlluminationBufferDemodulatedFloat(uint32_t width, uint32_t height) 
+IlluminationBufferDemodulatedFloat::IlluminationBufferDemodulatedFloat(uint32_t width, uint32_t height)
 {
     this->width = width;
     this->height = height;
@@ -280,7 +281,7 @@ void IlluminationBufferDemodulatedFloat::fill_images()
     illumination_images.push_back(vsg::DescriptorImage::create(image_info, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE));
 }
 
-IlluminationBufferFinalFloat::IlluminationBufferFinalFloat(uint32_t width, uint32_t height) 
+IlluminationBufferFinalFloat::IlluminationBufferFinalFloat(uint32_t width, uint32_t height)
 {
     this->width = width;
     this->height = height;
@@ -288,7 +289,8 @@ IlluminationBufferFinalFloat::IlluminationBufferFinalFloat(uint32_t width, uint3
     fill_images();
 }
 
-void IlluminationBufferFinalFloat::fill_images(){
+void IlluminationBufferFinalFloat::fill_images()
+{
     auto image = vsg::Image::create();
     image->imageType = VK_IMAGE_TYPE_2D;
     image->format = VK_FORMAT_R32G32B32A32_SFLOAT;
