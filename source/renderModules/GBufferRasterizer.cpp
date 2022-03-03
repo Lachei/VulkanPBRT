@@ -1,22 +1,22 @@
 #include <renderModules/GBufferRasterizer.hpp>
 
-GBufferRasterizer::GBufferRasterizer(vsg::Device* device, uint32_t width, uint32_t height, bool doubleSided, bool blend)
-    : g_buffer(GBuffer::create(width, height)),
+GBufferRasterizer::GBufferRasterizer(vsg::Device* device, uint32_t width, uint32_t height, bool double_sided, bool blend)
+    : _g_buffer(GBuffer::create(width, height)),
       _width(width),
       _height(height),
-      _double_sided(doubleSided),
+      _double_sided(double_sided),
       _blend(blend),
       _device(device)
 {
     setup_graphics_pipeline();
 }
-void GBufferRasterizer::compile(vsg::Context& context)
+void GBufferRasterizer::compile(vsg::Context& context) const
 {
-    g_buffer->compile(context);
+    _g_buffer->compile(context);
 }
-void GBufferRasterizer::update_image_layouts(vsg::Context& context)
+void GBufferRasterizer::update_image_layouts(vsg::Context& context) const
 {
-    g_buffer->update_image_layouts(context);
+    _g_buffer->update_image_layouts(context);
 }
 void GBufferRasterizer::setup_graphics_pipeline()
 {
@@ -55,7 +55,7 @@ void GBufferRasterizer::setup_graphics_pipeline()
 
     auto color_blend_state = vsg::ColorBlendState::create();
     color_blend_state->attachments = vsg::ColorBlendState::ColorBlendAttachments{
-        {_blend, VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_OP_ADD,
+        {static_cast<VkBool32>(_blend), VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_OP_ADD,
          VK_BLEND_FACTOR_SRC_ALPHA, VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA, VK_BLEND_OP_SUBTRACT,
          VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT}
     };
@@ -69,7 +69,7 @@ void GBufferRasterizer::setup_graphics_pipeline()
         = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptor_set_layout}, push_constant_ranges);
     auto pipeline = vsg::GraphicsPipeline::create(
         pipeline_layout, vsg::ShaderStages{vertex_shader, fragment_shader}, pipeline_states);
-    bind_graphics_pipeline = vsg::BindGraphicsPipeline::create(pipeline);
+    _bind_graphics_pipeline = vsg::BindGraphicsPipeline::create(pipeline);
 
     // creating framebuffers and attachments
     vsg::AttachmentDescription albedo = vsg::defaultColorAttachment(VK_FORMAT_R8G8B8A8_UNORM);
@@ -126,11 +126,11 @@ void GBufferRasterizer::setup_graphics_pipeline()
     depth_image->arrayLayers = 1;
     depth_image->usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 
-    vsg::ImageViews attachment_views{g_buffer->albedo->imageInfoList[0]->imageView,
-        g_buffer->depth->imageInfoList[0]->imageView, g_buffer->normal->imageInfoList[0]->imageView,
-        g_buffer->material->imageInfoList[0]->imageView, vsg::ImageView::create(depth_image)};
+    vsg::ImageViews attachment_views{_g_buffer->albedo->imageInfoList[0]->imageView,
+        _g_buffer->depth->imageInfoList[0]->imageView, _g_buffer->normal->imageInfoList[0]->imageView,
+        _g_buffer->material->imageInfoList[0]->imageView, vsg::ImageView::create(depth_image)};
 
-    frame_buffer = vsg::Framebuffer::create(render_pass, attachment_views, _width, _height, 1);
+    _frame_buffer = vsg::Framebuffer::create(render_pass, attachment_views, _width, _height, 1);
 
     // we are using a rendergraph to set the framebuffer and renderpass
     // see https://github.com/vsg-dev/vsgExamples/blob/master/examples/viewer/vsgrendertotexture/vsgrendertotexture.cpp
@@ -138,7 +138,7 @@ void GBufferRasterizer::setup_graphics_pipeline()
     auto render_graph = vsg::RenderGraph::create();
     render_graph->renderArea.offset = {0, 0};
     render_graph->renderArea.extent = {_width, _height};
-    render_graph->framebuffer = frame_buffer;
+    render_graph->framebuffer = _frame_buffer;
 
     render_graph->clearValues.resize(dependencies.size(), {});
     render_graph->clearValues.back().depthStencil = {1, 0};

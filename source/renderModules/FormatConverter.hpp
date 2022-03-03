@@ -7,8 +7,8 @@ public:
     FormatConverter(
         vsg::ref_ptr<vsg::ImageView> src_image, VkFormat dst_format, int work_width = 16, int work_height = 16);
 
-    void compile_images(vsg::Context& context);
-    void update_image_layouts(vsg::Context& context);
+    void compile_images(vsg::Context& context) const;
+    void update_image_layouts(vsg::Context& context) const;
     void add_dispatch_to_command_graph(vsg::ref_ptr<vsg::Commands> command_graph);
     vsg::ref_ptr<vsg::DescriptorImage> final_image;
 

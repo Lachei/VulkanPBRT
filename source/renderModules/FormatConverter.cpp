@@ -12,7 +12,7 @@ FormatConverter::FormatConverter(
     switch (dst_format)
     {
     case VK_FORMAT_B8G8R8A8_UNORM:
-        defines.push_back("FORMAT rgba8");
+        defines.emplace_back("FORMAT rgba8");
         break;
     default:
         throw vsg::Exception{"FormatConverter::Unknown format"};
@@ -58,11 +58,11 @@ FormatConverter::FormatConverter(
 
     _bind_pipeline = vsg::BindComputePipeline::create(pipeline);
 }
-void FormatConverter::compile_images(vsg::Context& context)
+void FormatConverter::compile_images(vsg::Context& context) const
 {
     final_image->compile(context);
 }
-void FormatConverter::update_image_layouts(vsg::Context& context)
+void FormatConverter::update_image_layouts(vsg::Context& context) const
 {
     VkImageSubresourceRange resource_range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
     auto final_layout
@@ -70,7 +70,7 @@ void FormatConverter::update_image_layouts(vsg::Context& context)
             VK_IMAGE_LAYOUT_GENERAL, 0, 0, final_image->imageInfoList[0]->imageView->image, resource_range);
     auto pipeline_barrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_DEPENDENCY_BY_REGION_BIT, final_layout);
-    context.commands.push_back(pipeline_barrier);
+    context.commands.emplace_back(pipeline_barrier);
 }
 void FormatConverter::add_dispatch_to_command_graph(vsg::ref_ptr<vsg::Commands> command_graph)
 {
