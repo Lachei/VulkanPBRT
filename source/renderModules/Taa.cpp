@@ -101,7 +101,7 @@ void Taa::update_image_layouts(vsg::Context& context)
     auto pipeline_barrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                                                          VK_DEPENDENCY_BY_REGION_BIT,
                                                          accumulation_layout, final_layout);
-    context.commands.push_back(pipeline_barrier);
+    context.commands.emplace_back(pipeline_barrier);
 }
 void Taa::add_dispatch_to_command_graph(vsg::ref_ptr<vsg::Commands> command_graph)
 {

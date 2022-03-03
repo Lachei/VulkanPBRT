@@ -7,36 +7,36 @@
 
 class BFR: public vsg::Inherit<vsg::Object, BFR>{
 public:
-    BFR(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeight, vsg::ref_ptr<GBuffer> gBuffer,
-        vsg::ref_ptr<IlluminationBuffer> illuBuffer, vsg::ref_ptr<AccumulationBuffer> accBuffer);
+    BFR(uint32_t width, uint32_t height, uint32_t work_width, uint32_t work_height, vsg::ref_ptr<GBuffer> g_buffer,
+        vsg::ref_ptr<IlluminationBuffer> illu_buffer, vsg::ref_ptr<AccumulationBuffer> acc_buffer);
 
     void compile(vsg::Context& context);
-    void updateImageLayouts(vsg::Context& context);
-    void addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph, vsg::ref_ptr<vsg::PushConstants> pushConstants);
-    vsg::ref_ptr<vsg::DescriptorImage> getFinalDescriptorImage() const;
+    void update_image_layouts(vsg::Context& context);
+    void add_dispatch_to_command_graph(vsg::ref_ptr<vsg::Commands> command_graph, vsg::ref_ptr<vsg::PushConstants> push_constants);
+    vsg::ref_ptr<vsg::DescriptorImage> get_final_descriptor_image() const;
 private:
-    uint32_t width, height, workWidth, workHeight;
-    vsg::ref_ptr<GBuffer> gBuffer;
+    uint32_t _width, _height, _work_width, _work_height;
+    vsg::ref_ptr<GBuffer> _g_buffer;
 
-    uint32_t depthBinding = 0;
-    uint32_t normalBinding = 1;
-    uint32_t materialBinding = 2;
-    uint32_t albedoBinding = 3;
-    uint32_t prevDepthBinding = -1;
-    uint32_t prevNormalBinding = -1;
-    uint32_t motionBinding = 4;
-    uint32_t sampleBinding = 5;
-    uint32_t sampledDenIlluBinding = 6;
-    uint32_t denoisedIlluBinding = 9;
-    uint32_t finalBinding = 7;
-    uint32_t noisyBinding = 8;
-    uint32_t denoisedBinding = 9;
+    uint32_t _depth_binding = 0;
+    uint32_t _normal_binding = 1;
+    uint32_t _material_binding = 2;
+    uint32_t _albedo_binding = 3;
+    uint32_t _prev_depth_binding = -1;
+    uint32_t _prev_normal_binding = -1;
+    uint32_t _motion_binding = 4;
+    uint32_t _sample_binding = 5;
+    uint32_t _sampled_den_illu_binding = 6;
+    uint32_t _denoised_illu_binding = 9;
+    uint32_t _final_binding = 7;
+    uint32_t _noisy_binding = 8;
+    uint32_t _denoised_binding = 9;
 
-    vsg::ref_ptr<vsg::ComputePipeline> bfrPipeline;
-    vsg::ref_ptr<vsg::BindComputePipeline> bindBfrPipeline;
-    vsg::ref_ptr<vsg::BindDescriptorSet> bindDescriptorSet;
+    vsg::ref_ptr<vsg::ComputePipeline> _bfr_pipeline;
+    vsg::ref_ptr<vsg::BindComputePipeline> _bind_bfr_pipeline;
+    vsg::ref_ptr<vsg::BindDescriptorSet> _bind_descriptor_set;
 
-    vsg::ref_ptr<vsg::DescriptorImage> accumulatedIllumination, sampledAccIllu, finalIllumination;
+    vsg::ref_ptr<vsg::DescriptorImage> _accumulated_illumination, _sampled_acc_illu, _final_illumination;
 
-    vsg::ref_ptr<vsg::Sampler> sampler;
+    vsg::ref_ptr<vsg::Sampler> _sampler;
 };
