@@ -23,7 +23,7 @@ public:
         uint32_t sample_number;
     };
 
-    Gui(vsg::ref_ptr<Values> values) : _values(values), _state({true}) {}
+    explicit Gui(vsg::ref_ptr<Values> values) : _values(values), _state({true}) {}
 
     // this is called for rendering.
     bool operator()()
@@ -36,7 +36,7 @@ public:
         ImGui::SliderFloat3("testFloatSlider", _values->test_float_slider, 0, 100);
         ImGui::ColorEdit4("testColor", _values->test_color);
         ImGui::InputText("testTextInput", _values->test_text_input, 200);
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS) for %d triangles", 1000.0f / ImGui::GetIO().Framerate,
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS) for %d triangles", 1000.0F / ImGui::GetIO().Framerate,
             ImGui::GetIO().Framerate, _values->triangle_count);
         ImGui::Text("Render size is %d by %d with %d rays/pixel resulting in %.3f mRays/second", _values->width,
             _values->height, _values->rays_per_pixel,
