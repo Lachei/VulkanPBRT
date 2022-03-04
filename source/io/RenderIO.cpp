@@ -55,7 +55,7 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::importGBufferDepth(const st
     return gBuffers;
 }
 
-std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::importGBufferPosition(const std::string &positionFormat, const std::string &normalFormat, const std::string &materialFormat, const std::string &albedoFormat, const std::vector<DoubleMatrix> &matrices, int numFrames, int verbosity)
+std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::importGBufferPosition(const std::string &positionFormat, const std::string &normalFormat, const std::string &materialFormat, const std::string &albedoFormat, const std::vector<CameraMatrices> &matrices, int numFrames, int verbosity)
 {
     if(verbosity > 0)
         std::cout << "Start loading GBuffer" << std::endl;
@@ -155,7 +155,7 @@ vsg::ref_ptr<vsg::Data> GBufferIO::compressAlbedo(vsg::ref_ptr<vsg::Data> in){
     return vsg::ubvec4Array2D::create(in->width(), in->height(), albedo, vsg::Data::Layout{VK_FORMAT_R8G8B8A8_UNORM});
 }
 
-bool GBufferIO::exportGBuffer(const std::string& positionFormat, const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers, const DoubleMatrices& matrices, int verbosity) 
+bool GBufferIO::exportGBuffer(const std::string& positionFormat, const std::string& depthFormat, const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int numFrames, const OfflineGBuffers& gBuffers, const CameraMatricesVec& matrices, int verbosity) 
 {
     if(verbosity > 0)
         std::cout << "Start exporting GBuffer" << std::endl;
@@ -254,7 +254,7 @@ vsg::ref_ptr<vsg::Data> GBufferIO::unormToFloat(vsg::ref_ptr<vsg::ubvec4Array2D>
     return vsg::vec4Array2D::create(array->width(), array->height(), res, vsg::Data::Layout{VK_FORMAT_R32G32B32A32_SFLOAT});
 }
 
-vsg::ref_ptr<vsg::Data> GBufferIO::depthToPosition(vsg::ref_ptr<vsg::floatArray2D> depths, const DoubleMatrix& matrix)
+vsg::ref_ptr<vsg::Data> GBufferIO::depthToPosition(vsg::ref_ptr<vsg::floatArray2D> depths, const CameraMatrices& matrix)
 {
     if(!depths) return {};
     if(!matrix.proj){
@@ -434,7 +434,7 @@ bool IlluminationBufferIO::exportIllumination(const std::string& illuminationFor
     return fine;
 }
 
-DoubleMatrices MatrixIO::importMatrices(const std::string &matrixPath)
+CameraMatricesVec MatrixIO::importMatrices(const std::string &matrixPath)
 {
     //TODO: temporary implementation to parse matrices from BMFRs dataset
     std::ifstream f(matrixPath);
@@ -443,7 +443,7 @@ DoubleMatrices MatrixIO::importMatrices(const std::string &matrixPath)
         return {};
     }
 
-    DoubleMatrices matrices;
+    CameraMatricesVec matrices;
 
     auto toMat4 = [](const nlohmann::json& json){
         vsg::mat4 ret;
@@ -492,7 +492,7 @@ DoubleMatrices MatrixIO::importMatrices(const std::string &matrixPath)
     return matrices;
 }
 
-bool MatrixIO::exportMatrices(const std::string &matrixPath, const DoubleMatrices& matrices)
+bool MatrixIO::exportMatrices(const std::string &matrixPath, const CameraMatricesVec& matrices)
 {
     std::ofstream f(matrixPath, std::ofstream::out);
     if (!f) {

@@ -97,8 +97,7 @@ int main(int argc, char **argv)
         arguments.read("--screen", windowTraits->screenNum);
 
         auto numFrames = arguments.value(-1, "-f");
-        auto numExportFrames = arguments.value(-1, "-ef");
-        auto samplesPerPixel = arguments.value(1, "-spp");
+        auto samplesPerPixel = arguments.value(1, "--spp");
         auto depthPath = arguments.value(std::string(), "--depths");
         auto exportDepthPath = arguments.value(std::string(), "--exportDepth");
         auto positionPath = arguments.value(std::string(), "--positions");
@@ -114,11 +113,11 @@ int main(int argc, char **argv)
         auto matricesPath = arguments.value(std::string(), "--matrices");
         auto exportMatricesPath = arguments.value(std::string(), "--exportMatrices");
         auto sceneFilename = arguments.value(std::string(), "-i");
-        bool externalRenderings = normalPath.size();
+        bool use_external_buffers = normalPath.size();
         bool exportIllumination = exportIlluminationPath.size();
         bool exportGBuffer = exportNormalPath.size() || exportDepthPath.size() || exportPositionPath.size() || exportAlbedoPath.size() || exportMaterialPath.size();
         bool storeMatrices = exportGBuffer || exportMatricesPath.size();
-        if (sceneFilename.empty() && !externalRenderings)
+        if (sceneFilename.empty() && !use_external_buffers)
         {
             std::cout << "Missing input parameter \"-i <path_to_model>\"." << std::endl;
         }
@@ -172,9 +171,8 @@ int main(int argc, char **argv)
         vsg::ref_ptr<vsg::Node> loaded_scene;
         std::vector<vsg::ref_ptr<OfflineGBuffer>> offlineGBuffers;
         std::vector<vsg::ref_ptr<OfflineIllumination>> offlineIlluminations;
-        std::vector<DoubleMatrix> cameraMatrices;
-        if (!externalRenderings)
-        {
+        std::vector<CameraMatrices> cameraMatrices;
+        if(!use_external_buffers){
             AI3DFrontImporter::ReadConfig(config_json);
             auto options = vsg::Options::create(vsgXchange::assimp::create(), vsgXchange::dds::create(), vsgXchange::stbi::create()); //using the assimp loader
             loaded_scene = vsg::read_cast<vsg::Node>(sceneFilename, options);
@@ -317,7 +315,7 @@ int main(int argc, char **argv)
         // raytracing pipeline setup
         uint32_t maxRecursionDepth = 2;
         vsg::ref_ptr<PBRTPipeline> pbrtPipeline;
-        if (!externalRenderings)
+        if(!use_external_buffers)
         {
             pbrtPipeline = PBRTPipeline::create(loaded_scene, gBuffer, illuminationBuffer, writeGBuffer, RayTracingRayOrigin::CAMERA);
 
@@ -376,18 +374,9 @@ int main(int argc, char **argv)
         }
 
         vsg::ref_ptr<Accumulator> accumulator;
-        if (denoisingType != DenoisingType::None)
-        {
-            queryPool = vsg::QueryPool::create(); //standard init has 1 timestamp place
-            queryPool->queryCount = 2;
-            auto resetQuery = vsg::ResetQueryPool::create(queryPool);
-            auto write1 = vsg::WriteTimestamp::create(queryPool, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-            auto write2 = vsg::WriteTimestamp::create(queryPool, 1, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-            accumulator = Accumulator::create(gBuffer, illuminationBuffer, !externalRenderings);
-            commands->addChild(resetQuery);
-            commands->addChild(write1);
+        if(denoisingType != DenoisingType::None){
+            accumulator = Accumulator::create(gBuffer, illuminationBuffer, !use_external_buffers);
             accumulator->addDispatchToCommandGraph(commands);
-            commands->addChild(write2);
             accumulationBuffer = accumulator->accumulationBuffer;
             illuminationBuffer->compile(imageLayoutCompile.context);
             illuminationBuffer->updateImageLayouts(imageLayoutCompile.context);
@@ -489,82 +478,65 @@ int main(int argc, char **argv)
         // waiting for image layout transitions
         imageLayoutCompile.context.waitForCompletion();
 
-        int numFramesC = numFrames;
-        int exportCount = -1;
-        while (viewer->advanceToNextFrame() && (numFrames < 0 || (numFrames--) > 0))
+        int frame_index = 0;
+        int sample_index = 0;
+        while(viewer->advanceToNextFrame() && (numFrames < 0 || frame_index < numFrames))
         {
             viewer->handleEvents();
-
-            if (externalRenderings)
+            if ((vsg::mat4)vsg::lookAt(lookAt->eye, lookAt->center, lookAt->up) != rayTracingPushConstantsValue->value().prevView)
             {
-                int frame = offlineGBuffers.size() - 1 - numFrames; //invert numFrames as it is counting down
-                offlineGBufferStager->transferStagingDataFrom(offlineGBuffers[frame]);
-                offlineIlluminationBufferStager->transferStagingDataFrom(offlineIlluminations[frame]);
+                // clear samples when the camera has moved
+                sample_index = 0;
+            }
+
+            rayTracingPushConstantsValue->value().viewInverse = lookAt->inverse();
+            rayTracingPushConstantsValue->value().frameNumber = frame_index;
+            rayTracingPushConstantsValue->value().sampleNumber = sample_index;
+            guiValues->sampleNumber = sample_index;
+            
+            if (use_external_buffers)
+            {
+                offlineGBufferStager->transferStagingDataFrom(offlineGBuffers[frame_index]);
+                offlineIlluminationBufferStager->transferStagingDataFrom(offlineIlluminations[frame_index]);
                 if (accumulator)
-                    accumulator->setDoubleMatrix(frame, cameraMatrices[frame], cameraMatrices[frame ? frame - 1 : frame]);
+                   accumulator->setCameraMatrices(frame_index, cameraMatrices[frame_index], cameraMatrices[frame_index ? frame_index - 1 : frame_index]);
             }
             else if (accumulator)
             {
-                DoubleMatrix a{}, b{};
+                CameraMatrices a{}, b{};
                 a.invView = lookAt->inverse();
                 a.invProj = perspective->inverse();
                 a.proj = perspective->transform();
                 b.view = rayTracingPushConstantsValue->value().prevView;
-                accumulator->setDoubleMatrix(rayTracingPushConstantsValue->value().frameNumber, a, b);
+                accumulator->setCameraMatrices(rayTracingPushConstantsValue->value().frameNumber, a, b);
             }
-
-            //update push constants
-            rayTracingPushConstantsValue->value().viewInverse = lookAt->inverse();
-
-            rayTracingPushConstantsValue->value().frameNumber++;
-            rayTracingPushConstantsValue->value().sampleNumber++;
-            if ((vsg::mat4)vsg::lookAt(lookAt->eye, lookAt->center, lookAt->up) != rayTracingPushConstantsValue->value().prevView)
-                rayTracingPushConstantsValue->value().sampleNumber = 0;
-            guiValues->sampleNumber = rayTracingPushConstantsValue->value().sampleNumber;
 
             viewer->update();
             viewer->recordAndSubmit();
             viewer->present();
-            if (queryPool)
-            {
-                auto results = queryPool->getResults();
-                static double running = 0;
-                static int count = 0;
-                double a = count / double(++count);
-                running = a * running + (1 - a) * (results[1] - results[0]) / 1e6;
-                if(count > 1) std::cout << "\r";
-                std::cout << running;
-                std::cout.flush();
-            }
 
             rayTracingPushConstantsValue->value().prevView = lookAt->transform();
 
-            if ((exportGBuffer || exportIllumination) && rayTracingPushConstantsValue->value().sampleNumber >= samplesPerPixel)
-            {
-                ++exportCount;
-                viewer->deviceWaitIdle();
+            if (sample_index + 1 >= samplesPerPixel) {
+                if (exportGBuffer || exportIllumination) {
+                    viewer->deviceWaitIdle();
+                    if (exportIllumination) {
+                        offlineIlluminationBufferStager->transferStagingDataTo(offlineIlluminations[frame_index]);
+                    }
+                    if (exportGBuffer) {
+                        offlineGBufferStager->transferStagingDataTo(offlineGBuffers[frame_index]);
+                    }
+                }
+                if (storeMatrices) {
+                    cameraMatrices[frame_index].view = lookAt->transform();
+                    cameraMatrices[frame_index].invView = lookAt->inverse();
+                    cameraMatrices[frame_index].proj.value() = perspective->transform();
+                    cameraMatrices[frame_index].invProj.value() = perspective->inverse();
+                }
+                frame_index++;
             }
-            if (exportIllumination)
-            {
-                int frame = exportCount;
-                offlineIlluminationBufferStager->transferStagingDataTo(offlineIlluminations[frame]);
-            }
-            if (exportGBuffer)
-            {
-                int frame = exportCount;
-                offlineGBufferStager->transferStagingDataTo(offlineGBuffers[frame]);
-            }
-            if (storeMatrices)
-            {
-                int frame = exportCount;
-                cameraMatrices[frame].view = lookAt->transform();
-                cameraMatrices[frame].invView = lookAt->inverse();
-                cameraMatrices[frame].proj.value() = perspective->transform();
-                cameraMatrices[frame].invProj.value() = perspective->inverse();
-            }
+            sample_index++;
         }
-        std::cout << std::endl;
-        numFrames = numFramesC;
 
         // exporting all images
         if (exportGBuffer)

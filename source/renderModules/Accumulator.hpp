@@ -17,7 +17,7 @@ public:
     void updateImageLayouts(vsg::Context &context);
     void addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph);
     // Frameindex is needed to upload the correct matrix
-    void setDoubleMatrix(int frameIndex, const DoubleMatrix& cur, const DoubleMatrix& prev);
+    void setCameraMatrices(int frameIndex, const CameraMatrices& cur, const CameraMatrices& prev);
 
     vsg::ref_ptr<IlluminationBuffer> accumulatedIllumination;
     vsg::ref_ptr<AccumulationBuffer> accumulationBuffer;
