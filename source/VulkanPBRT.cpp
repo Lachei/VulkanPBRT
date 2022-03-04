@@ -273,7 +273,7 @@ int main(int argc, char **argv)
         vsg::ref_ptr<vsg::Device> device(window->getOrCreateDevice());
 
         //setting a custom render pass for imgui non clear rendering 
-        window->setRenderPass(VsgUtils::createNonClearRenderPass(window->surfaceFormat().format, window->depthFormat(), device));
+        window->setRenderPass(vkpbrt::createNonClearRenderPass(window->surfaceFormat().format, window->depthFormat(), device));
 
         //create camera matrices
         auto perspective = vsg::Perspective::create(60, static_cast<double>(windowTraits->width) / static_cast<double>(windowTraits->height), .1, 1000);
@@ -398,7 +398,7 @@ int main(int argc, char **argv)
         if(denoisingType == DenoisingType::None) 
             finalDescriptorImage = illuminationBuffer->illuminationImages[0];
         else
-            DenoiserUtils::addDenoiserToCommands(denoisingType, denoisingBlockSize, commands, imageLayoutCompile, windowTraits->width, windowTraits->height, computeConstants, gBuffer, illuminationBuffer, accumulationBuffer, finalDescriptorImage);
+            vkpbrt::addDenoiserToCommands(denoisingType, denoisingBlockSize, commands, imageLayoutCompile, windowTraits->width, windowTraits->height, computeConstants, gBuffer, illuminationBuffer, accumulationBuffer, finalDescriptorImage);
 
         if (useTaa && accumulationBuffer)
         {
