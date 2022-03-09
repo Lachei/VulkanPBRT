@@ -50,12 +50,21 @@ vec3 sampleBRDF(SurfaceInfo s, RandomEngine re, vec3 v,out vec3 l,out float pdf)
     vec3 brdf = BRDF(v, l, h, s);
     //decide if material should refract
     if(s.illuminationType == 7){
-        float f = specularReflection(vec3(1), vec3(0), dot(v, h)).x;
+        float f = specularReflection(vec3(1), vec3(0), dot(v, h)).x;    //fresnel term
         if(randomFloat(re) < f || !entering){    //refracting
-            float t = entering ? s.indexOfRefraction : 1 / s.indexOfRefraction; // it is assumed that only air is anohter medium that is participating
-            vec3 diff = (dot(basis[2], l)) * basis[2];
-            l -= diff + diff  * t;
-            l = normalize(l);
+            float t = !entering ? s.indexOfRefraction : 1 / s.indexOfRefraction; // it is assumed that only air is anohter medium that is participating
+            //refraction calculation adopted from https://graphics.stanford.edu/courses/cs148-10-summer/docs/2006--degreve--reflection_refraction.pdf
+            //in particular we use the light vector instead of the incident vector and have to adjust it in order to get a corret vector for the formula
+            float cosI = dot(basis[2], l);
+            float sinT2 = t * t * (1.0 - cosI * cosI);
+            if(sinT2 <= 1){
+                l -= 2 * cosI * basis[2];
+                float cosT = sqrt(1.0 - sinT2);
+                l = t * l + (t * cosI - cosT) * basis[2];
+            }
+            //vec3 diff = (dot(basis[2], l)) * basis[2];
+            //l -= diff + diff  * t;
+            //l = normalize(l);
             
             brdf = s.transmissiveColor;
             pdf = 1;
