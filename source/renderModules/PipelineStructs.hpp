@@ -3,7 +3,8 @@
 
 #include <cstdint>
 
-struct RayTracingPushConstants{
+struct RayTracingPushConstants
+{
     vsg::mat4 view_inverse;
     vsg::mat4 proj_inverse;
     vsg::mat4 prev_view;
@@ -13,7 +14,7 @@ struct RayTracingPushConstants{
 
 enum class DenoisingType
 {
-    None,
+    NONE,
     BMFR,
     BFR,
     SVG
@@ -21,9 +22,9 @@ enum class DenoisingType
 
 enum class DenoisingBlockSize
 {
-    x8,
-    x16,
-    x32,
-    x64,
-    x8x16x32
+    X8,
+    X16,
+    X32,
+    X64,
+    X8X16X32
 };
