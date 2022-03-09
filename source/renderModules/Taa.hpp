@@ -6,27 +6,28 @@
 
 #include <cstdint>
 
-
-class Taa: public vsg::Inherit<vsg::Object, Taa>{
+class Taa : public vsg::Inherit<vsg::Object, Taa>
+{
 public:
-    uint32_t denoisedBinding = 1, motionBinding = 0, finalImageBinding = 2, accumulationBinding = 3;
+    uint32_t denoised_binding = 1, motion_binding = 0, final_image_binding = 2, accumulation_binding = 3;
 
-    Taa(uint32_t width, uint32_t height, uint32_t workWidth, uint32_t workHeight, vsg::ref_ptr<GBuffer> gBuffer, vsg::ref_ptr<AccumulationBuffer> accBuffer,
-        vsg::ref_ptr<vsg::DescriptorImage> denoised);
+    Taa(uint32_t width, uint32_t height, uint32_t work_width, uint32_t work_height, vsg::ref_ptr<GBuffer> g_buffer,
+        vsg::ref_ptr<AccumulationBuffer> acc_buffer, vsg::ref_ptr<vsg::DescriptorImage> denoised);
 
     void compile(vsg::Context& context);
-    void updateImageLayouts(vsg::Context& context);
-    void addDispatchToCommandGraph(vsg::ref_ptr<vsg::Commands> commandGraph);
-    vsg::ref_ptr<vsg::DescriptorImage> getFinalDescriptorImage() const;
+    void update_image_layouts(vsg::Context& context);
+    void add_dispatch_to_command_graph(vsg::ref_ptr<vsg::Commands> command_graph);
+    vsg::ref_ptr<vsg::DescriptorImage> get_final_descriptor_image() const;
+
 private:
-    void copyFinalImage(vsg::ref_ptr<vsg::Commands> commands, vsg::ref_ptr<vsg::Image> dstImage);
+    void copy_final_image(vsg::ref_ptr<vsg::Commands> commands, vsg::ref_ptr<vsg::Image> dst_image);
 
-    uint32_t width, height, workWidth, workHeight;
+    uint32_t _width, _height, _work_width, _work_height;
 
-    vsg::ref_ptr<vsg::ComputePipeline> pipeline;
-    vsg::ref_ptr<vsg::BindComputePipeline> bindPipeline;
-    vsg::ref_ptr<vsg::BindDescriptorSet> bindDescriptorSet;
-    vsg::ref_ptr<vsg::DescriptorImage> finalImage, accumulationImage;
+    vsg::ref_ptr<vsg::ComputePipeline> _pipeline;
+    vsg::ref_ptr<vsg::BindComputePipeline> _bind_pipeline;
+    vsg::ref_ptr<vsg::BindDescriptorSet> _bind_descriptor_set;
+    vsg::ref_ptr<vsg::DescriptorImage> _final_image, _accumulation_image;
 
-    vsg::ref_ptr<vsg::Sampler> sampler;
+    vsg::ref_ptr<vsg::Sampler> _sampler;
 };
