@@ -1,6 +1,8 @@
 #include "Animation.h"
 #include "../Components.h"
 
+using namespace vkpbrt;
+
 void AnimationBehavior::Initialize()
 {
     // TODO: load animation here

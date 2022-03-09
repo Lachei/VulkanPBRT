@@ -3,6 +3,8 @@
 
 #include <cstdint>
 
+namespace vkpbrt
+{
 class Entity
 {
 public:
@@ -41,4 +43,5 @@ template <typename T>
 void Entity::AddComponent()
 {
     _entity_manager.AddComponents<T>(_id);
+}
 }

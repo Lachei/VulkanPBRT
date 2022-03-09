@@ -2,6 +2,8 @@
 #include "SimpleMath.h"
 #include "behaviors/Base.h"
 
+namespace vkpbrt
+{
 struct Transform
 {
     DirectX::SimpleMath::Quaternion orientation;
@@ -26,10 +28,11 @@ struct Material
 
 struct Mesh
 {
-    
+    uint64_t mesh_id;
 };
 
 struct Behavior
 {
     EntityBehaviorBase* entity_behavior;
 };
+}

@@ -1,6 +1,8 @@
 #pragma once
 #include "Base.h"
 
+namespace vkpbrt
+{
 class AnimationBehavior : public EntityBehaviorBase
 {
 public:
@@ -8,3 +10,4 @@ public:
     void Update(float frame_time) override;
     void Terminate() override;
 };
+}

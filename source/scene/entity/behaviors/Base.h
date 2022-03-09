@@ -1,9 +1,11 @@
 #pragma once
 #include "../Entity.h"
 
+namespace vkpbrt
+{
 /**
- * \brief Base class for entity behavior logic.
- */
+* \brief Base class for entity behavior logic.
+*/
 class EntityBehaviorBase
 {
 public:
@@ -47,4 +49,5 @@ inline void EntityBehaviorBase::Update(float frame_time)
 }
 inline void EntityBehaviorBase::Terminate()
 {
+}
 }
