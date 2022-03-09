@@ -7,14 +7,10 @@
 #include "renderModules/PBRTPipeline.hpp"
 #include "renderModules/Accumulator.hpp"
 #include "renderModules/FormatConverter.hpp"
-#include "renderModules/denoisers/BFR.hpp"
-#include "renderModules/denoisers/BFRBlender.hpp"
-#include "renderModules/denoisers/BMFR.hpp"
 #include "renderModules/Taa.hpp"
 #include "io/RenderIO.hpp"
 #include <util/VsgUtils.hpp>
 #include <util/DenoiserUtils.hpp>
-
 #include "Gui.hpp"
 
 #include <vsg/all.h>
@@ -102,26 +98,26 @@ int main(int argc, char** argv)
         auto num_frames = arguments.value(-1, "-f");
         auto samples_per_pixel = arguments.value(1, "--spp");
         auto depth_path = arguments.value(std::string(), "--depths");
-        auto exportDepthPath = arguments.value(std::string(), "--exportDepth");
-        auto positionPath = arguments.value(std::string(), "--positions");
-        auto exportPositionPath = arguments.value(std::string(), "--exportPosition");
-        auto normalPath = arguments.value(std::string(), "--normals");
-        auto exportNormalPath = arguments.value(std::string(), "--exportNormal");
+        auto export_depth_path = arguments.value(std::string(), "--exportDepth");
+        auto position_path = arguments.value(std::string(), "--positions");
+        auto export_position_path = arguments.value(std::string(), "--exportPosition");
+        auto normal_path = arguments.value(std::string(), "--normals");
+        auto export_normal_path = arguments.value(std::string(), "--exportNormal");
         auto albedo_path = arguments.value(std::string(), "--albedos");
-        auto exportAlbedoPath = arguments.value(std::string(), "--exportAlbedo");
+        auto export_albedo_path = arguments.value(std::string(), "--exportAlbedo");
         auto material_path = arguments.value(std::string(), "--materials");
-        auto exportMaterialPath = arguments.value(std::string(), "--exportMaterial");
+        auto export_material_path = arguments.value(std::string(), "--exportMaterial");
         auto illumination_path = arguments.value(std::string(), "--illuminations");
-        auto exportIlluminationPath = arguments.value(std::string(), "--exportIllumination");
+        auto export_illumination_path = arguments.value(std::string(), "--exportIllumination");
         auto matrices_path = arguments.value(std::string(), "--matrices");
-        auto exportMatricesPath = arguments.value(std::string(), "--exportMatrices");
+        auto export_matrices_path = arguments.value(std::string(), "--exportMatrices");
         auto scene_filename = arguments.value(std::string(), "-i");
-        bool use_external_buffers = !normalPath.empty() != 0u;
-        bool export_illumination = !exportIlluminationPath.empty() != 0u;
-        bool export_g_buffer = (!exportNormalPath.empty() != 0u) || (!exportDepthPath.empty() != 0u)
-                               || (!exportPositionPath.empty() != 0u) || (!exportAlbedoPath.empty() != 0u)
-                               || (!exportMaterialPath.empty() != 0u);
-        bool store_matrices = export_g_buffer || (!exportMatricesPath.empty() != 0u);
+        bool use_external_buffers = !normal_path.empty();
+        bool export_illumination = !export_illumination_path.empty();
+        bool export_g_buffer = !export_normal_path.empty() || !export_depth_path.empty()
+                               || !export_position_path.empty() || !export_albedo_path.empty()
+                               || !export_material_path.empty();
+        bool store_matrices = export_g_buffer || (!export_matrices_path.empty());
         if (scene_filename.empty() && !use_external_buffers)
         {
             std::cout << "Missing input parameter \"-i <path_to_model>\"." << std::endl;
@@ -234,15 +230,15 @@ int main(int argc, char** argv)
                 std::cout << "Camera matrices could not be loaded" << std::endl;
                 return 1;
             }
-            if (!positionPath.empty() != 0u)
+            if (static_cast<unsigned int>(!position_path.empty()) != 0U)
             {
                 offline_g_buffers = GBufferIO::import_g_buffer_position(
-                    positionPath, normalPath, material_path, albedo_path, camera_matrices, num_frames);
+                    position_path, normal_path, material_path, albedo_path, camera_matrices, num_frames);
             }
             else
             {
                 offline_g_buffers
-                    = GBufferIO::import_g_buffer_depth(depth_path, normalPath, material_path, albedo_path, num_frames);
+                    = GBufferIO::import_g_buffer_depth(depth_path, normal_path, material_path, albedo_path, num_frames);
             }
             offline_illuminations = IlluminationBufferIO::import_illumination(illumination_path, num_frames);
             window_traits->width = offline_g_buffers[0]->depth->width();
@@ -555,7 +551,7 @@ int main(int argc, char** argv)
         while (viewer->advanceToNextFrame() && (num_frames < 0 || frame_index < num_frames))
         {
             viewer->handleEvents();
-            if (static_cast<vsg::mat4>(vsg::lookAt(look_at->eye, look_at->center, look_at->up))
+            if (static_cast<vsg::mat4>(lookAt(look_at->eye, look_at->center, look_at->up))
                 != ray_tracing_push_constants_value->value().prev_view)
             {
                 // clear samples when the camera has moved
@@ -624,16 +620,16 @@ int main(int argc, char** argv)
         // exporting all images
         if (export_g_buffer)
         {
-            GBufferIO::export_g_buffer(exportPositionPath, exportDepthPath, exportNormalPath, exportMaterialPath,
-                exportAlbedoPath, num_frames, offline_g_buffers, camera_matrices);
+            GBufferIO::export_g_buffer(export_position_path, export_depth_path, export_normal_path,
+                export_material_path, export_albedo_path, num_frames, offline_g_buffers, camera_matrices);
         }
         if (export_illumination)
         {
-            IlluminationBufferIO::export_illumination(exportIlluminationPath, num_frames, offline_illuminations);
+            IlluminationBufferIO::export_illumination(export_illumination_path, num_frames, offline_illuminations);
         }
-        if (!exportMatricesPath.empty() != 0u)
+        if (!export_matrices_path.empty())
         {
-            MatrixIO::export_matrices(exportMatricesPath, camera_matrices);
+            MatrixIO::export_matrices(export_matrices_path, camera_matrices);
         }
     }
     catch (const vsg::Exception& e)
