@@ -3,17 +3,14 @@
 
 using namespace vkpbrt;
 
-void AnimationBehavior::Initialize()
+void AnimationBehavior::initialize()
 {
     // TODO: load animation here
 }
-void AnimationBehavior::Update(float frame_time)
+void AnimationBehavior::update(float frame_time)
 {
-    auto transform = _entity.GetComponent<Transform>();
+    auto* transform = _entity.get_component<Transform>();
 
     // TODO: modify transform based on the loaded animation
 }
-void AnimationBehavior::Terminate()
-{
-    
-}
+void AnimationBehavior::terminate() {}

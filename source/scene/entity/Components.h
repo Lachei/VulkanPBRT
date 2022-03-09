@@ -35,4 +35,4 @@ struct Behavior
 {
     EntityBehaviorBase* entity_behavior;
 };
-}
+}  // namespace vkpbrt
