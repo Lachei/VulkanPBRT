@@ -23,7 +23,7 @@ struct Material
     DirectX::SimpleMath::Vector3 albedo;
     float roughness;
     float metalness;
-    // TODO: figure out a better material model that includes textures
+    // TODO: add texture IDs
 };
 
 struct Mesh
