@@ -10,3 +10,20 @@ struct RayTracingPushConstants{
     uint32_t frameNumber;
     uint32_t sampleNumber;
 };
+
+enum class DenoisingType
+{
+    None,
+    BMFR,
+    BFR,
+    SVG
+};
+
+enum class DenoisingBlockSize
+{
+    x8,
+    x16,
+    x32,
+    x64,
+    x8x16x32
+};

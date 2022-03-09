@@ -12,6 +12,8 @@
 #include "renderModules/denoisers/BMFR.hpp"
 #include "renderModules/Taa.hpp"
 #include "io/RenderIO.hpp"
+#include <util/VsgUtils.hpp>
+#include <util/DenoiserUtils.hpp>
 
 #include "Gui.hpp"
 
@@ -32,25 +34,6 @@ class RayTracingPushConstantsValue : public vsg::Inherit<vsg::Value<RayTracingPu
 public:
     RayTracingPushConstantsValue() {}
 };
-
-enum class DenoisingType
-{
-    None,
-    BMFR,
-    BFR,
-    SVG
-};
-DenoisingType denoisingType = DenoisingType::None;
-
-enum class DenoisingBlockSize
-{
-    x8,
-    x16,
-    x32,
-    x64,
-    x8x16x32
-};
-DenoisingBlockSize denoisingBlockSize = DenoisingBlockSize::x32;
 
 class LoggingRedirectSentry
 {
@@ -143,6 +126,8 @@ int main(int argc, char **argv)
         if (arguments.errors())
             return arguments.writeErrorMessages(std::cerr);
 
+        DenoisingType denoisingType = DenoisingType::None;
+        DenoisingBlockSize denoisingBlockSize = DenoisingBlockSize::x32;
         std::string denoisingTypeStr;
         if (arguments.read("--denoiser", denoisingTypeStr))
         {
@@ -285,65 +270,14 @@ int main(int argc, char **argv)
 
         vsg::ref_ptr<vsg::Device> device(window->getOrCreateDevice());
 
-        //setting a custom render pass for imgui non clear rendering
-        {
-            vsg::AttachmentDescription colorAttachment = vsg::defaultColorAttachment(window->surfaceFormat().format);
-            colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-            colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-            colorAttachment.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-            vsg::AttachmentDescription depthAttachment = vsg::defaultDepthAttachment(window->depthFormat());
-            depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-            depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-            vsg::RenderPass::Attachments attachments{
-                colorAttachment,
-                depthAttachment};
-
-            VkAttachmentReference colorAttachmentRef = {};
-            colorAttachmentRef.attachment = 0;
-            colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-            VkAttachmentReference depthAttachmentRef = {};
-            depthAttachmentRef.attachment = 1;
-            depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-            vsg::SubpassDescription subpass = {};
-            subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-            subpass.colorAttachments.emplace_back(colorAttachmentRef);
-            subpass.depthStencilAttachments.emplace_back(depthAttachmentRef);
-
-            vsg::RenderPass::Subpasses subpasses{subpass};
-
-            // image layout transition
-            VkSubpassDependency colorDependency = {};
-            colorDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-            colorDependency.dstSubpass = 0;
-            colorDependency.srcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
-            colorDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-            colorDependency.srcAccessMask = 0;
-            colorDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-            colorDependency.dependencyFlags = 0;
-
-            // depth buffer is shared between swap chain images
-            VkSubpassDependency depthDependency = {};
-            depthDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-            depthDependency.dstSubpass = 0;
-            depthDependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-            depthDependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-            depthDependency.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-            depthDependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-            depthDependency.dependencyFlags = 0;
-
-            vsg::RenderPass::Dependencies dependencies{colorDependency, depthDependency};
-
-            auto renderPass = vsg::RenderPass::create(device, attachments, subpasses, dependencies);
-            window->setRenderPass(renderPass);
-        }
+        //setting a custom render pass for imgui non clear rendering 
+        window->setRenderPass(vkpbrt::createNonClearRenderPass(window->surfaceFormat().format, window->depthFormat(), device));
 
         //create camera matrices
         auto perspective = vsg::Perspective::create(60, static_cast<double>(windowTraits->width) / static_cast<double>(windowTraits->height), .1, 1000);
         auto lookAt = vsg::LookAt::create(vsg::dvec3(0.0, -3, 1), vsg::dvec3(0.0, 0.0, 1), vsg::dvec3(0.0, 0.0, 1.0));
 
-        // set push constants
+        // create push constants
         auto rayTracingPushConstantsValue = RayTracingPushConstantsValue::create();
         rayTracingPushConstantsValue->value().projInverse = perspective->inverse();
         rayTracingPushConstantsValue->value().viewInverse = lookAt->inverse();
@@ -450,123 +384,10 @@ int main(int argc, char **argv)
         }
 
         vsg::ref_ptr<vsg::DescriptorImage> finalDescriptorImage;
-        switch (denoisingType)
-        {
-        case DenoisingType::None:
+        if(denoisingType == DenoisingType::None) 
             finalDescriptorImage = illuminationBuffer->illuminationImages[0];
-            break;
-        case DenoisingType::BFR:
-            switch (denoisingBlockSize)
-            {
-            case DenoisingBlockSize::x8:
-            {
-                auto bfr8 = BFR::create(windowTraits->width, windowTraits->height, 8, 8, gBuffer, illuminationBuffer, accumulationBuffer);
-                bfr8->compile(imageLayoutCompile.context);
-                bfr8->updateImageLayouts(imageLayoutCompile.context);
-                bfr8->addDispatchToCommandGraph(commands, computeConstants);
-                finalDescriptorImage = bfr8->getFinalDescriptorImage();
-                break;
-            }
-            case DenoisingBlockSize::x16:
-            {
-                auto bfr16 = BFR::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer, illuminationBuffer, accumulationBuffer);
-                bfr16->compile(imageLayoutCompile.context);
-                bfr16->updateImageLayouts(imageLayoutCompile.context);
-                bfr16->addDispatchToCommandGraph(commands, computeConstants);
-                finalDescriptorImage = bfr16->getFinalDescriptorImage();
-                break;
-            }
-            case DenoisingBlockSize::x32:
-            {
-                auto bfr32 = BFR::create(windowTraits->width, windowTraits->height, 32, 32, gBuffer, illuminationBuffer, accumulationBuffer);
-                bfr32->compile(imageLayoutCompile.context);
-                bfr32->updateImageLayouts(imageLayoutCompile.context);
-                bfr32->addDispatchToCommandGraph(commands, computeConstants);
-                finalDescriptorImage = bfr32->getFinalDescriptorImage();
-                break;
-            }
-            case DenoisingBlockSize::x8x16x32:
-            {
-                auto bfr8 = BFR::create(windowTraits->width, windowTraits->height, 8, 8, gBuffer, illuminationBuffer, accumulationBuffer);
-                auto bfr16 = BFR::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer, illuminationBuffer, accumulationBuffer);
-                auto bfr32 = BFR::create(windowTraits->width, windowTraits->height, 32, 32, gBuffer, illuminationBuffer, accumulationBuffer);
-                auto blender = BFRBlender::create(windowTraits->width, windowTraits->height,
-                                                  illuminationBuffer->illuminationImages[0], illuminationBuffer->illuminationImages[1],
-                                                  bfr8->getFinalDescriptorImage(), bfr16->getFinalDescriptorImage(), bfr32->getFinalDescriptorImage());
-                bfr8->compile(imageLayoutCompile.context);
-                bfr8->updateImageLayouts(imageLayoutCompile.context);
-                bfr16->compile(imageLayoutCompile.context);
-                bfr16->updateImageLayouts(imageLayoutCompile.context);
-                bfr32->compile(imageLayoutCompile.context);
-                bfr32->updateImageLayouts(imageLayoutCompile.context);
-                blender->compile(imageLayoutCompile.context);
-                blender->updateImageLayouts(imageLayoutCompile.context);
-                bfr8->addDispatchToCommandGraph(commands, computeConstants);
-                bfr16->addDispatchToCommandGraph(commands, computeConstants);
-                bfr32->addDispatchToCommandGraph(commands, computeConstants);
-                blender->addDispatchToCommandGraph(commands);
-                finalDescriptorImage = blender->getFinalDescriptorImage();
-                break;
-            }
-            }
-            break;
-        case DenoisingType::BMFR:
-            switch (denoisingBlockSize)
-            {
-            case DenoisingBlockSize::x8:
-            {
-                auto bmfr8 = BMFR::create(windowTraits->width, windowTraits->height, 8, 8, gBuffer, illuminationBuffer, accumulationBuffer, 64);
-                bmfr8->compile(imageLayoutCompile.context);
-                bmfr8->updateImageLayouts(imageLayoutCompile.context);
-                bmfr8->addDispatchToCommandGraph(commands, computeConstants);
-                finalDescriptorImage = bmfr8->getFinalDescriptorImage();
-                break;
-            }
-            case DenoisingBlockSize::x16:
-            {
-                auto bmfr16 = BMFR::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer, illuminationBuffer, accumulationBuffer);
-                bmfr16->compile(imageLayoutCompile.context);
-                bmfr16->updateImageLayouts(imageLayoutCompile.context);
-                bmfr16->addDispatchToCommandGraph(commands, computeConstants);
-                finalDescriptorImage = bmfr16->getFinalDescriptorImage();
-                break;
-            }
-            case DenoisingBlockSize::x32:
-            {
-                auto bmfr32 = BMFR::create(windowTraits->width, windowTraits->height, 32, 32, gBuffer, illuminationBuffer, accumulationBuffer);
-                bmfr32->compile(imageLayoutCompile.context);
-                bmfr32->updateImageLayouts(imageLayoutCompile.context);
-                bmfr32->addDispatchToCommandGraph(commands, computeConstants);
-                finalDescriptorImage = bmfr32->getFinalDescriptorImage();
-                break;
-            }
-            case DenoisingBlockSize::x8x16x32:
-                auto bmfr8 = BMFR::create(windowTraits->width, windowTraits->height, 8, 8, gBuffer, illuminationBuffer, accumulationBuffer, 64);
-                auto bmfr16 = BMFR::create(windowTraits->width, windowTraits->height, 16, 16, gBuffer, illuminationBuffer, accumulationBuffer);
-                auto bmfr32 = BMFR::create(windowTraits->width, windowTraits->height, 32, 32, gBuffer, illuminationBuffer, accumulationBuffer);
-                auto blender = BFRBlender::create(windowTraits->width, windowTraits->height,
-                                                  illuminationBuffer->illuminationImages[1], illuminationBuffer->illuminationImages[2],
-                                                  bmfr8->getFinalDescriptorImage(), bmfr16->getFinalDescriptorImage(), bmfr32->getFinalDescriptorImage());
-                bmfr8->compile(imageLayoutCompile.context);
-                bmfr8->updateImageLayouts(imageLayoutCompile.context);
-                bmfr16->compile(imageLayoutCompile.context);
-                bmfr16->updateImageLayouts(imageLayoutCompile.context);
-                bmfr32->compile(imageLayoutCompile.context);
-                bmfr32->updateImageLayouts(imageLayoutCompile.context);
-                blender->compile(imageLayoutCompile.context);
-                blender->updateImageLayouts(imageLayoutCompile.context);
-                bmfr8->addDispatchToCommandGraph(commands, computeConstants);
-                bmfr16->addDispatchToCommandGraph(commands, computeConstants);
-                bmfr32->addDispatchToCommandGraph(commands, computeConstants);
-                blender->addDispatchToCommandGraph(commands);
-                finalDescriptorImage = blender->getFinalDescriptorImage();
-                break;
-            }
-            break;
-        case DenoisingType::SVG:
-            std::cout << "Not yet implemented" << std::endl;
-            break;
-        }
+        else
+            vkpbrt::addDenoiserToCommands(denoisingType, denoisingBlockSize, commands, imageLayoutCompile, windowTraits->width, windowTraits->height, computeConstants, gBuffer, illuminationBuffer, accumulationBuffer, finalDescriptorImage);
 
         if (useTaa && accumulationBuffer)
         {
