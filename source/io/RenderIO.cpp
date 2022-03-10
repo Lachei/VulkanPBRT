@@ -3,8 +3,8 @@
 #include <cctype>
 #include <nlohmann/json.hpp>
 
-std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::import_g_buffer_depth(const std::string& depthFormat,
-    const std::string& normalFormat, const std::string& material_format, const std::string& albedoFormat,
+std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::import_g_buffer_depth(const std::string& depth_format,
+    const std::string& normal_format, const std::string& material_format, const std::string& albedo_format,
     int num_frames, int verbosity)
 {
     if (verbosity > 0)
@@ -23,7 +23,7 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::import_g_buffer_depth(const
         char buff[200];
         std::string filename;
         // load depth image
-        snprintf(buff, sizeof(buff), depthFormat.c_str(), f);
+        snprintf(buff, sizeof(buff), depth_format.c_str(), f);
         filename = findFile(buff, options);
 
         if (g_buffers[f]->depth = vsg::read_cast<vsg::Data>(filename, options); !g_buffers[f]->depth.valid())
@@ -32,7 +32,7 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::import_g_buffer_depth(const
             return;
         }
         // load normal image
-        snprintf(buff, sizeof(buff), normalFormat.c_str(), f);
+        snprintf(buff, sizeof(buff), normal_format.c_str(), f);
         filename = findFile(buff, options);
 
         if (g_buffers[f]->normal = convert_normal_to_spherical(vsg::read_cast<vsg::vec4Array2D>(filename, options));
@@ -42,7 +42,7 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::import_g_buffer_depth(const
             return;
         }
         // load albedo image
-        snprintf(buff, sizeof(buff), albedoFormat.c_str(), f);
+        snprintf(buff, sizeof(buff), albedo_format.c_str(), f);
         filename = findFile(buff, options);
 
         if (g_buffers[f]->albedo = vsg::read_cast<vsg::Data>(filename, options); !g_buffers[f]->albedo.valid())
@@ -70,8 +70,8 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::import_g_buffer_depth(const
     return g_buffers;
 }
 
-std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::import_g_buffer_position(const std::string& positionFormat,
-    const std::string& normalFormat, const std::string& material_format, const std::string& albedoFormat,
+std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::import_g_buffer_position(const std::string& position_format,
+    const std::string& normal_format, const std::string& material_format, const std::string& albedo_format,
     const std::vector<CameraMatrices>& matrices, int num_frames, int verbosity)
 {
     if (verbosity > 0)
@@ -90,7 +90,7 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::import_g_buffer_position(co
         char buff[200];
         std::string filename;
         // position images
-        snprintf(buff, sizeof(buff), positionFormat.c_str(), f);
+        snprintf(buff, sizeof(buff), position_format.c_str(), f);
         filename = findFile(buff, options);
 
         vsg::ref_ptr<vsg::Data> pos;
@@ -119,7 +119,7 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::import_g_buffer_position(co
                 pos->width(), pos->height(), depth, vsg::Data::Layout{VK_FORMAT_R32_SFLOAT});
         }
         // load normal image
-        snprintf(buff, sizeof(buff), normalFormat.c_str(), f);
+        snprintf(buff, sizeof(buff), normal_format.c_str(), f);
         filename = findFile(buff, options);
 
         if (g_buffers[f]->normal = convert_normal_to_spherical(vsg::read_cast<vsg::vec4Array2D>(filename, options));
@@ -129,7 +129,7 @@ std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::import_g_buffer_position(co
             return;
         }
         // load albedo image
-        snprintf(buff, sizeof(buff), albedoFormat.c_str(), f);
+        snprintf(buff, sizeof(buff), albedo_format.c_str(), f);
         filename = findFile(buff, options);
 
         if (g_buffers[f]->albedo = vsg::read_cast<vsg::Data>(filename, options); !g_buffers[f]->albedo.valid())
@@ -210,9 +210,9 @@ vsg::ref_ptr<vsg::Data> GBufferIO::compress_albedo(vsg::ref_ptr<vsg::Data> in)
     return vsg::ubvec4Array2D::create(in->width(), in->height(), albedo, vsg::Data::Layout{VK_FORMAT_R8G8B8A8_UNORM});
 }
 
-bool GBufferIO::export_g_buffer(const std::string& positionFormat, const std::string& depthFormat,
-    const std::string& normalFormat, const std::string& materialFormat, const std::string& albedoFormat, int num_frames,
-    const OfflineGBuffers& g_buffers, const CameraMatricesVec& matrices, int verbosity)
+bool GBufferIO::export_g_buffer(const std::string& position_format, const std::string& depth_format,
+    const std::string& normal_format, const std::string& material_format, const std::string& albedo_format,
+    int num_frames, const OfflineGBuffers& g_buffers, const CameraMatricesVec& matrices, int verbosity)
 {
     if (verbosity > 0)
     {
@@ -229,9 +229,9 @@ bool GBufferIO::export_g_buffer(const std::string& positionFormat, const std::st
         char buff[200];
         std::string filename;
         // depth images
-        if (!depthFormat.empty() != 0u)
+        if (static_cast<unsigned int>(!depth_format.empty()) != 0U)
         {
-            snprintf(buff, sizeof(buff), depthFormat.c_str(), f);
+            snprintf(buff, sizeof(buff), depth_format.c_str(), f);
             filename = buff;
             if (!write(g_buffers[f]->depth, filename, options))
             {
@@ -241,9 +241,9 @@ bool GBufferIO::export_g_buffer(const std::string& positionFormat, const std::st
             }
         }
         // position images
-        if (!positionFormat.empty() != 0u)
+        if (static_cast<unsigned int>(!position_format.empty()) != 0U)
         {
-            snprintf(buff, sizeof(buff), positionFormat.c_str(), f);
+            snprintf(buff, sizeof(buff), position_format.c_str(), f);
             vsg::ref_ptr<vsg::Data> position
                 = depth_to_position(g_buffers[f]->depth.cast<vsg::floatArray2D>(), matrices[f]);
             filename = buff;
@@ -255,9 +255,9 @@ bool GBufferIO::export_g_buffer(const std::string& positionFormat, const std::st
             }
         }
         // normal images
-        if (!normalFormat.empty() != 0u)
+        if (static_cast<unsigned int>(!normal_format.empty()) != 0U)
         {
-            snprintf(buff, sizeof(buff), normalFormat.c_str(), f);
+            snprintf(buff, sizeof(buff), normal_format.c_str(), f);
             filename = buff;
             if (!write(spherical_to_cartesian(g_buffers[f]->normal.cast<vsg::vec2Array2D>()), filename, options))
             {
@@ -267,9 +267,9 @@ bool GBufferIO::export_g_buffer(const std::string& positionFormat, const std::st
             }
         }
         // material images
-        if (!materialFormat.empty() != 0u)
+        if (static_cast<unsigned int>(!material_format.empty()) != 0U)
         {
-            snprintf(buff, sizeof(buff), materialFormat.c_str(), f);
+            snprintf(buff, sizeof(buff), material_format.c_str(), f);
             filename = buff;
             if (!write(unorm_to_float(g_buffers[f]->material.cast<vsg::ubvec4Array2D>()), filename, options))
             {
@@ -279,9 +279,9 @@ bool GBufferIO::export_g_buffer(const std::string& positionFormat, const std::st
             }
         }
         // albedo images
-        if (!albedoFormat.empty() != 0u)
+        if (static_cast<unsigned int>(!albedo_format.empty()) != 0U)
         {
-            snprintf(buff, sizeof(buff), albedoFormat.c_str(), f);
+            snprintf(buff, sizeof(buff), albedo_format.c_str(), f);
             filename = buff;
             if (!write(unorm_to_float(g_buffers[f]->albedo.cast<vsg::ubvec4Array2D>()), filename, options))
             {
@@ -649,7 +649,7 @@ CameraMatricesVec MatrixIO::import_matrices(const std::string& matrix_path)
             {
                 cur = cur.substr(1, cur.size() - 1);
             }
-            if ((!cur.empty() != 0u) && ((isdigit(cur[0]) != 0) || cur[0] == '-'))
+            if ((static_cast<unsigned int>(!cur.empty()) != 0U) && ((isdigit(cur[0]) != 0) || cur[0] == '-'))
             {
                 tmp[count / 4][count % 4] = std::stof(cur);
                 ++count;

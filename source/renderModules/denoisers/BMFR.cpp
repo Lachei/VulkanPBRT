@@ -205,27 +205,27 @@ void BMFR::add_dispatch_to_command_graph(
 {
     auto pipeline_barrier
         = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0);
-    uint32_t dispatchX = _width_padded / _work_width;
-    uint32_t dispatchY = _height_padded / _work_height;
+    uint32_t dispatch_x = _width_padded / _work_width;
+    uint32_t dispatch_y = _height_padded / _work_height;
     // pre pipeline
     command_graph->addChild(_bind_pre_pipeline);
     command_graph->addChild(_bind_descriptor_set);
     command_graph->addChild(push_constants);
-    command_graph->addChild(vsg::Dispatch::create(dispatchX, dispatchY, 1));
+    command_graph->addChild(vsg::Dispatch::create(dispatch_x, dispatch_y, 1));
     command_graph->addChild(pipeline_barrier);
 
     // fit pipeline
     command_graph->addChild(_bind_fit_pipeline);
     command_graph->addChild(_bind_descriptor_set);
     command_graph->addChild(push_constants);
-    command_graph->addChild(vsg::Dispatch::create(dispatchX, dispatchY, 1));
+    command_graph->addChild(vsg::Dispatch::create(dispatch_x, dispatch_y, 1));
     command_graph->addChild(pipeline_barrier);
 
     // post pipeline
     command_graph->addChild(_bind_post_pipeline);
     command_graph->addChild(_bind_descriptor_set);
     command_graph->addChild(push_constants);
-    command_graph->addChild(vsg::Dispatch::create(dispatchX, dispatchY, 1));
+    command_graph->addChild(vsg::Dispatch::create(dispatch_x, dispatch_y, 1));
     command_graph->addChild(pipeline_barrier);
 }
 vsg::ref_ptr<vsg::DescriptorImage> BMFR::get_final_descriptor_image() const

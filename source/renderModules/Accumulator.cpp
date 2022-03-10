@@ -2,13 +2,13 @@
 #include <vsgXchange/glsl.h>
 
 Accumulator::Accumulator(vsg::ref_ptr<GBuffer> g_buffer, vsg::ref_ptr<IlluminationBuffer> illumination_buffer,
-    bool separate_matrices, int workWidth, int workHeight)
+    bool separate_matrices, int work_width, int work_height)
     : _width(g_buffer->depth->imageInfoList[0]->imageView->image->extent.width),
       _height(g_buffer->depth->imageInfoList[0]->imageView->image->extent.height),
       accumulated_illumination(IlluminationBufferDemodulated::create(_width, _height)),
       accumulation_buffer(AccumulationBuffer::create(_width, _height)),
-      _work_width(workWidth),
-      _work_height(workHeight),
+      _work_width(work_width),
+      _work_height(work_height),
       _original_illumination(illumination_buffer),
       _separate_matrices(separate_matrices)
 {
@@ -19,8 +19,8 @@ Accumulator::Accumulator(vsg::ref_ptr<GBuffer> g_buffer, vsg::ref_ptr<Illuminati
         throw vsg::Exception{"Accumulator::create() could not open compute shader stage"};
     }
     compute_stage->specializationConstants = vsg::ShaderStage::SpecializationConstants{
-        {0, vsg::intValue::create(workWidth) },
-        {1, vsg::intValue::create(workHeight)}
+        {0, vsg::intValue::create(work_width) },
+        {1, vsg::intValue::create(work_height)}
     };
     if (separate_matrices)
     {

@@ -19,14 +19,14 @@ public:
 };
 }  // namespace
 
-PBRTPipeline::PBRTPipeline(vsg::ref_ptr<vsg::Node> scene, vsg::ref_ptr<GBuffer> gBuffer,
-    vsg::ref_ptr<IlluminationBuffer> illuminationBuffer, bool write_g_buffer,
+PBRTPipeline::PBRTPipeline(vsg::ref_ptr<vsg::Node> scene, vsg::ref_ptr<GBuffer> g_buffer,
+    vsg::ref_ptr<IlluminationBuffer> illumination_buffer, bool write_g_buffer,
     RayTracingRayOrigin ray_tracing_ray_origin)
-    : _width(illuminationBuffer->illumination_images[0]->imageInfoList[0]->imageView->image->extent.width),
-      _height(illuminationBuffer->illumination_images[0]->imageInfoList[0]->imageView->image->extent.height),
+    : _width(illumination_buffer->illumination_images[0]->imageInfoList[0]->imageView->image->extent.width),
+      _height(illumination_buffer->illumination_images[0]->imageInfoList[0]->imageView->image->extent.height),
       _max_recursion_depth(2),
-      _g_buffer(gBuffer),
-      _illumination_buffer(illuminationBuffer)
+      _g_buffer(g_buffer),
+      _illumination_buffer(illumination_buffer)
 {
     if (write_g_buffer)
     {

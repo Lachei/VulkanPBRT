@@ -1,5 +1,5 @@
 files: '^source/'
-fail_fast: false
+fail_fast: true
 repos:
   - repo: https://github.com/pocc/pre-commit-hooks
     rev: master
@@ -7,4 +7,4 @@ repos:
       - id: clang-format
         args: ["--style=file", "-i"]
       - id: clang-tidy 
-        args: ["-p=./build"]
+        args: ["-p=./build", "-warnings-as-errors=*", "-fix"]
