@@ -176,7 +176,30 @@ void BMFR::compile(vsg::Context& context)
     _feature_buffer->compile(context);
     _weights->compile(context);
 }
+void BMFR::update_image_layouts(vsg::Context& context)
+{
+    VkImageSubresourceRange resource_range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 2};
+    auto acc_illu_layout = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT,
+        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, 0, 0,
+        _accumulated_illumination->imageInfoList[0]->imageView->image, resource_range);
+    resource_range = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+    auto final_ilu_layout
+        = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_GENERAL, 0, 0, _final_illumination->imageInfoList[0]->imageView->image, resource_range);
+    resource_range = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, _amt_of_features};
+    auto feature_buffer_layout
+        = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_GENERAL, 0, 0, _feature_buffer->imageInfoList[0]->imageView->image, resource_range);
+    resource_range = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, (_amt_of_features - 3) * 3};
+    auto weights_layout
+        = vsg::ImageMemoryBarrier::create(VK_ACCESS_NONE_KHR, VK_ACCESS_SHADER_WRITE_BIT, VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_GENERAL, 0, 0, _weights->imageInfoList[0]->imageView->image, resource_range);
 
+    auto pipeline_barrier
+        = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_DEPENDENCY_BY_REGION_BIT, acc_illu_layout, final_ilu_layout, feature_buffer_layout, weights_layout);
+    context.commands.emplace_back(pipeline_barrier);
+}
 void BMFR::add_dispatch_to_command_graph(
     vsg::ref_ptr<vsg::Commands> command_graph, vsg::ref_ptr<vsg::PushConstants> push_constants)
 {
