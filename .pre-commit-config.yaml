@@ -6,4 +6,5 @@ repos:
     hooks:
       - id: clang-format
         args: ["--style=file", "-i"]
-      - id: clang-tidy
+      - id: clang-tidy 
+        args: ["-p=./build"]
