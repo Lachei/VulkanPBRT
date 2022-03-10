@@ -1,0 +1,9 @@
+files: '^source/'
+fail_fast: false
+repos:
+  - repo: https://github.com/pocc/pre-commit-hooks
+    rev: master
+    hooks:
+      - id: clang-format
+        args: ["--style=file", "-i"]
+      - id: clang-tidy
