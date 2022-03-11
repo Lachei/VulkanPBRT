@@ -30,7 +30,7 @@ PBRTPipeline::PBRTPipeline(vsg::ref_ptr<vsg::Node> scene, vsg::ref_ptr<GBuffer> 
 {
     if (write_g_buffer)
     {
-        assert(gBuffer);
+        assert(g_buffer);
     }
     bool use_external_g_buffer = ray_tracing_ray_origin == RayTracingRayOrigin::GBUFFER;
     setup_pipeline(scene, use_external_g_buffer);
