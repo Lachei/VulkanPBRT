@@ -47,3 +47,6 @@ CMakeSettings.json
 
 # configs
 config.json
+
+# compilation database
+compile_commands.json

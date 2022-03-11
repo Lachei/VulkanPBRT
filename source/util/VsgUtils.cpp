@@ -2,56 +2,58 @@
 
 namespace vkpbrt
 {
-    vsg::ref_ptr<vsg::RenderPass> createNonClearRenderPass(VkFormat colorFormat, VkFormat depthFormat, vsg::Device* device) 
-    {
-        vsg::AttachmentDescription colorAttachment = vsg::defaultColorAttachment(colorFormat);
-        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        colorAttachment.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-        vsg::AttachmentDescription depthAttachment = vsg::defaultDepthAttachment(depthFormat);
-        depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        vsg::RenderPass::Attachments attachments{
-            colorAttachment,
-            depthAttachment};
+vsg::ref_ptr<vsg::RenderPass> create_non_clear_render_pass(
+    VkFormat color_format, VkFormat depth_format, vsg::Device* device)
+{
+    vsg::AttachmentDescription color_attachment = vsg::defaultColorAttachment(color_format);
+    color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    color_attachment.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    vsg::AttachmentDescription depth_attachment = vsg::defaultDepthAttachment(depth_format);
+    depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    depth_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    vsg::RenderPass::Attachments attachments{color_attachment, depth_attachment};
 
-        VkAttachmentReference colorAttachmentRef = {};
-        colorAttachmentRef.attachment = 0;
-        colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    VkAttachmentReference color_attachment_ref = {};
+    color_attachment_ref.attachment = 0;
+    color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-        VkAttachmentReference depthAttachmentRef = {};
-        depthAttachmentRef.attachment = 1;
-        depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+    VkAttachmentReference depth_attachment_ref = {};
+    depth_attachment_ref.attachment = 1;
+    depth_attachment_ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-        vsg::SubpassDescription subpass = {};
-        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        subpass.colorAttachments.emplace_back(colorAttachmentRef);
-        subpass.depthStencilAttachments.emplace_back(depthAttachmentRef);
+    vsg::SubpassDescription subpass = {};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachments.emplace_back(color_attachment_ref);
+    subpass.depthStencilAttachments.emplace_back(depth_attachment_ref);
 
-        vsg::RenderPass::Subpasses subpasses{subpass};
+    vsg::RenderPass::Subpasses subpasses{subpass};
 
-        // image layout transition
-        VkSubpassDependency colorDependency = {};
-        colorDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-        colorDependency.dstSubpass = 0;
-        colorDependency.srcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
-        colorDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        colorDependency.srcAccessMask = 0;
-        colorDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        colorDependency.dependencyFlags = 0;
+    // image layout transition
+    VkSubpassDependency color_dependency = {};
+    color_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    color_dependency.dstSubpass = 0;
+    color_dependency.srcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    color_dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    color_dependency.srcAccessMask = 0;
+    color_dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    color_dependency.dependencyFlags = 0;
 
-        // depth buffer is shared between swap chain images
-        VkSubpassDependency depthDependency = {};
-        depthDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-        depthDependency.dstSubpass = 0;
-        depthDependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-        depthDependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-        depthDependency.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-        depthDependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-        depthDependency.dependencyFlags = 0;
+    // depth buffer is shared between swap chain images
+    VkSubpassDependency depth_dependency = {};
+    depth_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    depth_dependency.dstSubpass = 0;
+    depth_dependency.srcStageMask
+        = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    depth_dependency.dstStageMask
+        = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    depth_dependency.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    depth_dependency.dstAccessMask
+        = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    depth_dependency.dependencyFlags = 0;
 
-        vsg::RenderPass::Dependencies dependencies{colorDependency, depthDependency};
+    vsg::RenderPass::Dependencies dependencies{color_dependency, depth_dependency};
 
-        return vsg::RenderPass::create(device, attachments, subpasses, dependencies);
-    }
+    return vsg::RenderPass::create(device, attachments, subpasses, dependencies);
 }
+}  // namespace vkpbrt
