@@ -6,14 +6,16 @@ namespace vkpbrt
 class EntityManager
 {
 public:
-    template<typename T, typename... Args>
-    void add_components(uint64_t entity_id);
+    uint64_t create_entity();
+
+    template<typename T>
+    void add_component(uint64_t entity_id);
     template<typename T>
     T* get_component(uint64_t entity_id);
 };
 
-template<typename T, typename... Args>
-void EntityManager::add_components(uint64_t entity_id)
+template<typename T>
+void EntityManager::add_component(uint64_t entity_id)
 {
     // TODO:
 }

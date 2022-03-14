@@ -36,6 +36,6 @@ T* Entity::get_component()
 template<typename T>
 void Entity::add_component()
 {
-    _entity_manager.add_components<T>(_id);
+    _entity_manager.add_component<T>(_id);
 }
 }  // namespace vkpbrt
