@@ -11,6 +11,9 @@
 #include <util/DenoiserUtils.hpp>
 #include "Gui.hpp"
 
+#include "scene/entity/Components.h"
+#include "scene/Scene.h"
+
 #include <vsg/all.h>
 #include <vsgXchange/images.h>
 #include <vsgXchange/models.h>
@@ -20,9 +23,6 @@
 #include <iostream>
 
 #include "../external/vsgXchange/src/assimp/3DFrontImporter.h"
-
-// TODO: remove this
-#include "scene/entity/Components.h"
 
 #define _DEBUG
 
@@ -53,6 +53,10 @@ private:
 
 int main(int argc, char** argv)
 {
+    vkpbrt::Scene test_scene = vkpbrt::Scene();
+    vkpbrt::Entity test_entity = test_scene.create_entity();
+    test_entity.add_component<vkpbrt::Transform>();
+
     try
     {
         vsg::CommandLine arguments(&argc, argv);

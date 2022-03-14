@@ -1,6 +1,7 @@
 #pragma once
 #include "SimpleMath.h"
 #include "behaviors/Base.h"
+#include "ComponentRegistry.h"
 
 namespace vkpbrt
 {
@@ -35,4 +36,5 @@ struct Behavior
 {
     EntityBehaviorBase* entity_behavior;
 };
+
 }  // namespace vkpbrt

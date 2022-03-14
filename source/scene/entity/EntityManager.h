@@ -6,7 +6,7 @@ namespace vkpbrt
 class EntityManager
 {
 public:
-    uint64_t create_entity();
+    static uint64_t create_entity();
 
     template<typename T>
     void add_component(uint64_t entity_id);

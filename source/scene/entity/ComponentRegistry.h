@@ -15,7 +15,7 @@ struct TypeInfo
 
     const char* name;
     size_t size_in_bytes;
-    size_t alignment;
+    size_t alignment_in_bytes;
     Constructor* constructor;
 };
 
@@ -40,7 +40,7 @@ inline int type_counter = 0;
 template<typename T>
 TypeMask type_mask()
 {
-    static const int type_id = Internal::type_counter++;
+    static const int type_id = internal::type_counter++;
     assert(type_id < 64);
     return 1ll << type_id;
 }
@@ -52,12 +52,11 @@ void ComponentRegistry::register_component_type(const char* type_name)
     if (type_info_map.find(mask) == type_info_map.end())
     {
         auto& type_info = type_info_map[type_mask<T>()];
-        type_info.typeId = type_mask<T>();
-        type_info.name = typeName;
-        type_info.sizeInBytes = sizeof T;
-        type_info.alignment = alignof(T);
+        type_info.name = type_name;
+        type_info.size_in_bytes = sizeof(T);
+        type_info.alignment_in_bytes = alignof(T);
         type_info.constructor = [](void* p) { new (p) T(); };
-        type_info_map[type_info.flag] = type_info;
+        type_info_map[mask] = type_info;
     }
 }
 template<typename T>
@@ -71,10 +70,14 @@ inline const TypeInfo& ComponentRegistry::get_type_info(TypeMask flag)
     return type_info_map[flag];
 }
 
-#define REGISTER_COMPONENT_TYPE(Type)                                             \
-  struct Type##Registerer                                                         \
-  {                                                                               \
-    Type##Registerer() { ComponentRegistry::registerComponentType<Type>(#Type); } \
-  };                                                                              \
+/**
+ * \brief Register a type so it can be used as a component of an entity.
+ * \param Type The type to be registered. Must have a public default constructor.
+ */
+#define REGISTER_COMPONENT_TYPE(Type)                                               \
+  struct Type##Registerer                                                           \
+  {                                                                                 \
+    Type##Registerer() { ComponentRegistry::register_component_type<Type>(#Type); } \
+  };                                                                                \
   static Type##Registerer global_##Type##_registerer;
 }  // namespace vkpbrt
