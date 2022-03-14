@@ -35,7 +35,7 @@ void IlluminationBuffer::update_image_layouts(vsg::Context& context)
 void IlluminationBuffer::copy_image(
     vsg::ref_ptr<vsg::Commands> commands, uint32_t image_index, vsg::ref_ptr<vsg::Image> dst_image)
 {
-    assert(imageIndex < illuminationImages.size());
+    assert(image_index < illumination_images.size());
     auto src_image = illumination_images[image_index]->imageInfoList[0]->imageView->image;
 
     VkImageSubresourceRange resource_range{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};

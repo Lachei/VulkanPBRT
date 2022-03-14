@@ -66,24 +66,24 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::VertexIndexDraw& vid)
                 std::memcpy(indices.data(), vid.indices->data->dataPointer(), vid.indices->data->dataSize());
                 for (int tri = 0; tri < indices.size() / 3; ++tri)
                 {
-                    uint32_t indA = indices[3 * tri];
-                    uint32_t indB = indices[3 * tri + 1];
-                    uint32_t indC = indices[3 * tri + 2];
-                    vsg::vec3& a = positions[indA];
-                    vsg::vec3& b = positions[indB];
-                    vsg::vec3& c = positions[indC];
+                    uint32_t ind_a = indices[3 * tri];
+                    uint32_t ind_b = indices[3 * tri + 1];
+                    uint32_t ind_c = indices[3 * tri + 2];
+                    vsg::vec3& a = positions[ind_a];
+                    vsg::vec3& b = positions[ind_b];
+                    vsg::vec3& c = positions[ind_c];
                     vsg::vec3 face_normal = cross(b - a, c - a);
                     float w = length(face_normal);  // the weight is proportional to the area of the face
                     face_normal /= w;
-                    float new_w = w + weight_sum[indA];
-                    nors[indA] = nors[indA] * (weight_sum[indA] / new_w) + face_normal * (w / new_w);
-                    weight_sum[indA] = new_w;
-                    new_w = w + weight_sum[indB];
-                    nors[indB] = nors[indB] * (weight_sum[indB] / new_w) + face_normal * (w / new_w);
-                    weight_sum[indB] = new_w;
-                    new_w = w + weight_sum[indC];
-                    nors[indC] = nors[indC] * (weight_sum[indC] / new_w) + face_normal * (w / new_w);
-                    weight_sum[indC] = new_w;
+                    float new_w = w + weight_sum[ind_a];
+                    nors[ind_a] = nors[ind_a] * (weight_sum[ind_a] / new_w) + face_normal * (w / new_w);
+                    weight_sum[ind_a] = new_w;
+                    new_w = w + weight_sum[ind_b];
+                    nors[ind_b] = nors[ind_b] * (weight_sum[ind_b] / new_w) + face_normal * (w / new_w);
+                    weight_sum[ind_b] = new_w;
+                    new_w = w + weight_sum[ind_c];
+                    nors[ind_c] = nors[ind_c] * (weight_sum[ind_c] / new_w) + face_normal * (w / new_w);
+                    weight_sum[ind_c] = new_w;
                 }
             }
             else
@@ -93,24 +93,24 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::VertexIndexDraw& vid)
                 std::memcpy(indices.data(), vid.indices->data->dataPointer(), vid.indices->data->dataSize());
                 for (int tri = 0; tri < indices.size() / 3; ++tri)
                 {
-                    uint32_t indA = indices[3 * tri];
-                    uint32_t indB = indices[3 * tri + 1];
-                    uint32_t indC = indices[3 * tri + 2];
-                    vsg::vec3& a = positions[indA];
-                    vsg::vec3& b = positions[indB];
-                    vsg::vec3& c = positions[indC];
+                    uint32_t ind_a = indices[3 * tri];
+                    uint32_t ind_b = indices[3 * tri + 1];
+                    uint32_t ind_c = indices[3 * tri + 2];
+                    vsg::vec3& a = positions[ind_a];
+                    vsg::vec3& b = positions[ind_b];
+                    vsg::vec3& c = positions[ind_c];
                     vsg::vec3 face_normal = cross(b - a, c - a);
                     float w = length(face_normal);  // the weight is proportional to the area of the face
                     face_normal /= w;
-                    float new_w = w + weight_sum[indA];
-                    nors[indA] = nors[indA] * (weight_sum[indA] / new_w) + face_normal * (w / new_w);
-                    weight_sum[indA] = new_w;
-                    new_w = w + weight_sum[indB];
-                    nors[indB] = nors[indB] * (weight_sum[indB] / new_w) + face_normal * (w / new_w);
-                    weight_sum[indB] = new_w;
-                    new_w = w + weight_sum[indC];
-                    nors[indC] = nors[indC] * (weight_sum[indC] / new_w) + face_normal * (w / new_w);
-                    weight_sum[indC] = new_w;
+                    float new_w = w + weight_sum[ind_a];
+                    nors[ind_a] = nors[ind_a] * (weight_sum[ind_a] / new_w) + face_normal * (w / new_w);
+                    weight_sum[ind_a] = new_w;
+                    new_w = w + weight_sum[ind_b];
+                    nors[ind_b] = nors[ind_b] * (weight_sum[ind_b] / new_w) + face_normal * (w / new_w);
+                    weight_sum[ind_b] = new_w;
+                    new_w = w + weight_sum[ind_c];
+                    nors[ind_c] = nors[ind_c] * (weight_sum[ind_c] / new_w) + face_normal * (w / new_w);
+                    weight_sum[ind_c] = new_w;
                 }
             }
             // for(auto& normal: nors) normal = vsg::normalize(normal);
@@ -253,23 +253,23 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::BindDescriptorSet& bds
             if (d->bufferInfoList[0]->data->dataSize() == sizeof(vsg::PbrMaterial))
             {
                 // pbr material
-                vsg::PbrMaterial vsgMat;
-                std::memcpy(&vsgMat, d->bufferInfoList[0]->data->dataPointer(), sizeof(vsg::PbrMaterial));
+                vsg::PbrMaterial vsg_mat;
+                std::memcpy(&vsg_mat, d->bufferInfoList[0]->data->dataPointer(), sizeof(vsg::PbrMaterial));
                 WaveFrontMaterialPacked mat;
-                std::memcpy(&mat.ambient_roughness, &vsgMat.baseColorFactor, sizeof(vsg::vec4));
-                std::memcpy(&mat.specular_dissolve, &vsgMat.specularFactor, sizeof(vsg::vec4));
-                std::memcpy(&mat.diffuse_ior, &vsgMat.diffuseFactor, sizeof(vsg::vec4));
+                std::memcpy(&mat.ambient_roughness, &vsg_mat.baseColorFactor, sizeof(vsg::vec4));
+                std::memcpy(&mat.specular_dissolve, &vsg_mat.specularFactor, sizeof(vsg::vec4));
+                std::memcpy(&mat.diffuse_ior, &vsg_mat.diffuseFactor, sizeof(vsg::vec4));
                 // std::memcpy(&mat.diffuseIor, &vsgMat.baseColorFactor, sizeof(vsg::vec4));
-                std::memcpy(&mat.emission_texture_id, &vsgMat.emissiveFactor, sizeof(vsg::vec4));
-                std::memcpy(&mat.transmittance_illum, &vsgMat.transmissionFactor, sizeof(vsgMat.transmissionFactor));
-                _mesh_emissive = vsgMat.emissiveFactor.r + vsgMat.emissiveFactor.g + vsgMat.emissiveFactor.b != 0;
-                mat.ambient_roughness.w = vsgMat.roughnessFactor;
-                mat.diffuse_ior.w = vsgMat.indexOfRefraction;
-                mat.specular_dissolve.w = vsgMat.alphaMask;
-                mat.emission_texture_id.w = vsgMat.alphaMaskCutoff;
-                mat.category_id = vsgMat.categoryId;
-                if (vsgMat.transmissionFactor.x != 1 || vsgMat.transmissionFactor.y != 1
-                    || vsgMat.transmissionFactor.z != 1)
+                std::memcpy(&mat.emission_texture_id, &vsg_mat.emissiveFactor, sizeof(vsg::vec4));
+                std::memcpy(&mat.transmittance_illum, &vsg_mat.transmissionFactor, sizeof(vsg_mat.transmissionFactor));
+                _mesh_emissive = vsg_mat.emissiveFactor.r + vsg_mat.emissiveFactor.g + vsg_mat.emissiveFactor.b != 0;
+                mat.ambient_roughness.w = vsg_mat.roughnessFactor;
+                mat.diffuse_ior.w = vsg_mat.indexOfRefraction;
+                mat.specular_dissolve.w = vsg_mat.alphaMask;
+                mat.emission_texture_id.w = vsg_mat.alphaMaskCutoff;
+                mat.category_id = vsg_mat.categoryId;
+                if (vsg_mat.transmissionFactor.x != 1 || vsg_mat.transmissionFactor.y != 1
+                    || vsg_mat.transmissionFactor.z != 1)
                 {
                     mat.transmittance_illum.w = 7;  // means that refraction and reflection should be active
                 }
@@ -278,23 +278,23 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::BindDescriptorSet& bds
             else
             {
                 // normal material
-                vsg::PhongMaterial vsgMat;
-                std::memcpy(&vsgMat, d->bufferInfoList[0]->data->dataPointer(), sizeof(vsg::PhongMaterial));
+                vsg::PhongMaterial vsg_mat;
+                std::memcpy(&vsg_mat, d->bufferInfoList[0]->data->dataPointer(), sizeof(vsg::PhongMaterial));
                 WaveFrontMaterialPacked mat{};
-                std::memcpy(&mat.ambient_roughness, &vsgMat.ambient, sizeof(vsg::vec4));
-                std::memcpy(&mat.specular_dissolve, &vsgMat.specular, sizeof(vsg::vec4));
-                std::memcpy(&mat.diffuse_ior, &vsgMat.diffuse, sizeof(vsg::vec4));
-                std::memcpy(&mat.emission_texture_id, &vsgMat.emissive, sizeof(vsg::vec4));
-                std::memcpy(&mat.transmittance_illum, &vsgMat.transmissive, sizeof(vsgMat.transmissive));
-                _mesh_emissive = vsgMat.emissive.r + vsgMat.emissive.g + vsgMat.emissive.b != 0;
+                std::memcpy(&mat.ambient_roughness, &vsg_mat.ambient, sizeof(vsg::vec4));
+                std::memcpy(&mat.specular_dissolve, &vsg_mat.specular, sizeof(vsg::vec4));
+                std::memcpy(&mat.diffuse_ior, &vsg_mat.diffuse, sizeof(vsg::vec4));
+                std::memcpy(&mat.emission_texture_id, &vsg_mat.emissive, sizeof(vsg::vec4));
+                std::memcpy(&mat.transmittance_illum, &vsg_mat.transmissive, sizeof(vsg_mat.transmissive));
+                _mesh_emissive = vsg_mat.emissive.r + vsg_mat.emissive.g + vsg_mat.emissive.b != 0;
                 // mapping of shininess to roughness: http://simonstechblog.blogspot.com/2011/12/microfacet-brdf.html
                 auto shin2_rough = [](float shininess) { return std::sqrt(2 / (shininess + 2)); };
-                mat.ambient_roughness.w = shin2_rough(vsgMat.shininess);
-                mat.diffuse_ior.w = vsgMat.indexOfRefraction;
-                mat.specular_dissolve.w = vsgMat.alphaMask;
-                mat.emission_texture_id.w = vsgMat.alphaMaskCutoff;
-                mat.category_id = vsgMat.categoryId;
-                if (vsgMat.transmissive.x != 1 || vsgMat.transmissive.y != 1 || vsgMat.transmissive.z != 1)
+                mat.ambient_roughness.w = shin2_rough(vsg_mat.shininess);
+                mat.diffuse_ior.w = vsg_mat.indexOfRefraction;
+                mat.specular_dissolve.w = vsg_mat.alphaMask;
+                mat.emission_texture_id.w = vsg_mat.alphaMaskCutoff;
+                mat.category_id = vsg_mat.categoryId;
+                if (vsg_mat.transmissive.x != 1 || vsg_mat.transmissive.y != 1 || vsg_mat.transmissive.z != 1)
                 {
                     mat.transmittance_illum.w = 7;  // means that refraction and reflection should be active
                 }

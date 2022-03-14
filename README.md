@@ -55,10 +55,13 @@ To build the project, simply
 cd VulkanPBRT
 mkdir build
 cd build
-cmake ..
+cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON ..
 make -j 8
 ```
 (the `-j 8` instruction for the `make` command enables multi threaded compilation)
+
+# pre-commit
+If you would like to contribute to this repository, please set up [pre-commit](https://pre-commit.com/) in your local git repository.
 
 # Vsg Notes
 The local copy of the vsg library is being held up to date via `git subtree`.

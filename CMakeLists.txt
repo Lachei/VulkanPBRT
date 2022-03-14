@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.7)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 project(VulkanPBRT
     VERSION 1.0.0
     DESCRIPTION "Vulkan physically based raytracer"

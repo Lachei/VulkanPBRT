@@ -98,7 +98,7 @@ public:
 private:
     vsg::ref_ptr<vsg::BufferInfo> _noisy_staging;
     vsg::ref_ptr<vsg::MemoryBufferPools> _staging_memory_buffer_pools;
-    void setup_staging_buffer(uint32_t widht, uint32_t height);
+    void setup_staging_buffer(uint32_t width, uint32_t height);
 };
 using OfflineIlluminations = std::vector<vsg::ref_ptr<OfflineIllumination>>;
 
