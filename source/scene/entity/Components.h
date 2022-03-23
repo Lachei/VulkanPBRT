@@ -1,7 +1,6 @@
 #pragma once
 #include "SimpleMath.h"
 #include "behaviors/Base.h"
-#include "ComponentRegistry.h"
 
 namespace vkpbrt
 {

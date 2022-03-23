@@ -5,6 +5,9 @@
 
 namespace vkpbrt
 {
+/**
+ * \brief A handle to an entity.
+ */
 class Entity
 {
 public:

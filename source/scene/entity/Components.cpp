@@ -1,4 +1,5 @@
 #include "Components.h"
+#include "ComponentRegistry.h"
 
 using namespace vkpbrt;
 
