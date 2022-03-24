@@ -1,6 +1,7 @@
 #pragma once
 #include "EntityManager.h"
 
+#include "Common.h"
 #include <cstdint>
 
 namespace vkpbrt
@@ -11,7 +12,7 @@ namespace vkpbrt
 class Entity
 {
 public:
-    Entity(uint64_t entity_id, EntityManager& entity_manager);
+    Entity(EntityId entity_id, EntityManager& entity_manager);
 
     /**
      * \brief Add a new component to this entity.
@@ -29,11 +30,11 @@ public:
     ComponentType* get_component();
 
 private:
-    uint64_t _id;
+    EntityId _id;
     EntityManager& _entity_manager;
 };
 
-inline Entity::Entity(uint64_t entity_id, EntityManager& entity_manager)
+inline Entity::Entity(EntityId entity_id, EntityManager& entity_manager)
     : _id(entity_id), _entity_manager(entity_manager)
 {
 }

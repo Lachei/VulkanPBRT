@@ -1,14 +1,11 @@
 #pragma once
-
-#pragma once
+#include "Common.h"
 #include "DirectXMath.h"
 
 #include <unordered_map>
 
 namespace vkpbrt
 {
-using TypeMask = uint64_t;
-
 struct TypeInfo
 {
     using Constructor = void(void*);
@@ -26,7 +23,7 @@ public:
     static void register_component_type(const char* type_name);
     template<typename T>
     static const TypeInfo& get_type_info();
-    static const TypeInfo& get_type_info(TypeMask flag);
+    static const TypeInfo& get_type_info(TypeMask type_mask);
 
 private:
     static inline std::unordered_map<TypeMask, TypeInfo> type_info_map;
@@ -64,10 +61,10 @@ const TypeInfo& ComponentRegistry::get_type_info()
 {
     return get_type_info(type_mask<T>());
 }
-inline const TypeInfo& ComponentRegistry::get_type_info(TypeMask flag)
+inline const TypeInfo& ComponentRegistry::get_type_info(TypeMask type_mask)
 {
-    assert(type_info_map.find(flag) != type_info_map.end());
-    return type_info_map[flag];
+    assert(type_info_map.find(type_mask) != type_info_map.end());
+    return type_info_map[type_mask];
 }
 
 /**
