@@ -9,10 +9,10 @@ namespace vkpbrt
 /**
  * \brief A handle to an entity.
  */
-class Entity
+class EntityHandle
 {
 public:
-    Entity(EntityId entity_id, EntityManager& entity_manager);
+    EntityHandle(EntityId entity_id, EntityManager& entity_manager);
 
     /**
      * \brief Add a new component to this entity.
@@ -34,17 +34,17 @@ private:
     EntityManager& _entity_manager;
 };
 
-inline Entity::Entity(EntityId entity_id, EntityManager& entity_manager)
+inline EntityHandle::EntityHandle(EntityId entity_id, EntityManager& entity_manager)
     : _id(entity_id), _entity_manager(entity_manager)
 {
 }
 template<typename ComponentType>
-void Entity::add_component()
+void EntityHandle::add_component()
 {
     _entity_manager.add_component<ComponentType>(_id);
 }
 template<typename ComponentType>
-ComponentType* Entity::get_component()
+ComponentType* EntityHandle::get_component()
 {
     return _entity_manager.get_component<ComponentType>(_id);
 }

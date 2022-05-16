@@ -4,21 +4,21 @@
 
 namespace vkpbrt
 {
-struct Transform
+struct TransformComponent
 {
     DirectX::SimpleMath::Quaternion orientation;
     DirectX::SimpleMath::Vector3 position;
     DirectX::SimpleMath::Vector3 scale;
 };
 
-struct Camera
+struct CameraComponent
 {
     float focal_length;
     float near_clip;
     float far_clip;
 };
 
-struct Material
+struct MaterialComponent
 {
     DirectX::SimpleMath::Vector3 albedo;
     float roughness;
@@ -26,12 +26,12 @@ struct Material
     // TODO: add texture IDs
 };
 
-struct Mesh
+struct MeshComponent
 {
-    uint64_t mesh_id;
+    uint64_t mesh_resource_id;
 };
 
-struct Behavior
+struct BehaviorComponent
 {
     EntityBehaviorBase* entity_behavior;
 };

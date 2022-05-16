@@ -5,14 +5,13 @@
 
 #include <atomic>
 #include <cstdint>
+#include <unordered_map>
 
 namespace vkpbrt
 {
 class EntityManager
 {
 public:
-    EntityManager();
-
     EntityId create_entity();
 
     template<typename ComponentType>
@@ -20,13 +19,15 @@ public:
     template<typename ComponentType>
     ComponentType* get_component(EntityId entity_id);
 
+    // TODO: get_component_iterator
+
 private:
     void change_archetype(EntityId entity_id, TypeMask target_component_type_mask);
 
     std::unordered_map<EntityId, TypeMask> _entity_id_to_component_type_mask_map;
     std::unordered_map<TypeMask, Archetype> _component_type_mask_to_archetype_map;
 
-    std::atomic<EntityId> _next_entity_id;
+    static std::atomic<EntityId> next_entity_id;
 };
 
 template<typename ComponentType>

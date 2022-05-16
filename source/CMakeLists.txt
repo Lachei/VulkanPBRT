@@ -12,6 +12,7 @@ file(GLOB_RECURSE SRC_NESTED
 	${PROJECT_SOURCE_DIR}/source/renderModules/*.cpp
        ${PROJECT_SOURCE_DIR}/source/scene/*.cpp
 	   ${PROJECT_SOURCE_DIR}/source/scene/entity/*.cpp
+	   ${PROJECT_SOURCE_DIR}/source/resources/*.cpp
 	${PROJECT_SOURCE_DIR}/source/io/*.cpp
        ${PROJECT_SOURCE_DIR}/source/util/*.cpp)
 set(SRC ${SRC_TOP} ${SRC_NESTED})

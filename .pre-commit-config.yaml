@@ -7,4 +7,4 @@ repos:
       - id: clang-format
         args: ["--style=file", "-i"]
       - id: clang-tidy 
-        args: ["-p=./build", "-warnings-as-errors=*", "-fix"]
+        args: ["-p=./build", "-warnings-as-errors=*", "-fix", "-fix-errors"]

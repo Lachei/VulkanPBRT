@@ -50,7 +50,6 @@ void Archetype::add_entity(EntityId entitiy_id)
                 ALIGNED_REALLOC(component_buffer.buffer, component_buffer.size_in_bytes, type_info.alignment_in_bytes));
             resized = true;
         }
-        type_info.constructor(component_buffer.buffer + entity_offset_in_bytes);
     }
     if (resized)
     {
@@ -60,8 +59,8 @@ void Archetype::add_entity(EntityId entitiy_id)
 }
 void Archetype::remove_entity(EntityId entity_id)
 {
-    // move the last components in the component buffers to where the components of the remove entity were stored
-    // to ensure contiuity in memory
+    // move the last components in the component buffers to where the components of the removed entity were stored
+    // to ensure continuity in memory
     uint32_t last_component_index = --_entity_count;
     uint32_t removed_component_index = _entity_id_component_index_map[entity_id];
     for (auto& type_mask_component_buffer : _type_mask_to_component_buffers_map)
@@ -77,4 +76,29 @@ void Archetype::remove_entity(EntityId entity_id)
     _entity_id_component_index_map[moved_entity_id] = removed_component_index;
     _entity_id_component_index_map.erase(entity_id);
 }
-void Archetype::move_entity(EntityId entity_id, Archetype& target_archetype) {}
+void Archetype::move_entity(EntityId entity_id, Archetype& target_archetype)
+{
+    target_archetype.add_entity(entity_id);
+    uint32_t source_component_index = _entity_id_component_index_map[entity_id];
+    uint32_t target_component_index = target_archetype.get_entity_count();
+
+    for (auto& target_buffer_iterator : target_archetype._type_mask_to_component_buffers_map)
+    {
+        size_t component_size = target_buffer_iterator.second.type_info.size_in_bytes;
+        uint8_t* target_address = target_buffer_iterator.second.buffer + component_size * target_component_index;
+        TypeMask target_type_mask = target_buffer_iterator.first;
+        auto source_buffer_iterator = this->_type_mask_to_component_buffers_map.find(target_type_mask);
+        if (source_buffer_iterator != this->_type_mask_to_component_buffers_map.end())
+        {
+            // copy components whose type are contained in both archetypes
+            uint8_t* source_address = source_buffer_iterator->second.buffer + component_size * source_component_index;
+            memcpy(target_address, source_address, component_size);
+        }
+        else
+        {
+            // call the component constructor when the component type did not exist in the source archetype
+            target_buffer_iterator.second.type_info.constructor(target_address);
+        }
+    }
+    remove_entity(entity_id);
+}

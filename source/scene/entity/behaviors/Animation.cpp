@@ -9,7 +9,7 @@ void AnimationBehavior::initialize()
 }
 void AnimationBehavior::update(float frame_time)
 {
-    auto* transform = _entity.get_component<Transform>();
+    auto* transform = _entity.get_component<TransformComponent>();
 
     // TODO: modify transform based on the loaded animation
 }

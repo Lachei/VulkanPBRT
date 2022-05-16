@@ -53,9 +53,9 @@ private:
 
 int main(int argc, char** argv)
 {
-    vkpbrt::Scene test_scene = vkpbrt::Scene();
+    /*vkpbrt::Scene test_scene = vkpbrt::Scene();
     vkpbrt::Entity test_entity = test_scene.create_entity();
-    test_entity.add_component<vkpbrt::Transform>();
+    test_entity.add_component<vkpbrt::Transform>();*/
 
     try
     {

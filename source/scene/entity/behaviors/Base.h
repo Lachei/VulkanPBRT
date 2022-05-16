@@ -1,5 +1,5 @@
 #pragma once
-#include "../Entity.h"
+#include "../EntityHandle.h"
 
 namespace vkpbrt
 {
@@ -9,7 +9,7 @@ namespace vkpbrt
 class EntityBehaviorBase
 {
 public:
-    explicit EntityBehaviorBase(Entity entity);
+    explicit EntityBehaviorBase(EntityHandle entity);
     virtual ~EntityBehaviorBase() = 0;
 
     /**
@@ -32,10 +32,10 @@ protected:
     /**
      * \brief The entity this behavior is attached to.
      */
-    Entity _entity;
+    EntityHandle _entity;
 };
 
-inline EntityBehaviorBase::EntityBehaviorBase(Entity entity) : _entity(entity) {}
+inline EntityBehaviorBase::EntityBehaviorBase(EntityHandle entity) : _entity(entity) {}
 inline EntityBehaviorBase::~EntityBehaviorBase() = default;
 inline void EntityBehaviorBase::initialize() {}
 inline void EntityBehaviorBase::update(float frame_time) {}

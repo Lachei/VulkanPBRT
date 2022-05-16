@@ -2,11 +2,12 @@
 
 using namespace vkpbrt;
 
-EntityManager::EntityManager() : _next_entity_id(0) {}
+std::atomic<EntityId> EntityManager::next_entity_id = 0;
+
 EntityId EntityManager::create_entity()
 {
     TypeMask component_type_mask = 0;
-    EntityId entitiy_id = _next_entity_id++;
+    EntityId entitiy_id = next_entity_id++;
     _entity_id_to_component_type_mask_map[entitiy_id] = component_type_mask;
     return entitiy_id;
 }
