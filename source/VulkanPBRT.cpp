@@ -11,8 +11,8 @@
 #include <util/DenoiserUtils.hpp>
 #include "Gui.hpp"
 
-#include "scene/entity/Components.h"
 #include "scene/Scene.h"
+#include "resources/ResourceManager.h"
 
 #include <vsg/all.h>
 #include <vsgXchange/images.h>
@@ -53,9 +53,8 @@ private:
 
 int main(int argc, char** argv)
 {
-    /*vkpbrt::Scene test_scene = vkpbrt::Scene();
-    vkpbrt::Entity test_entity = test_scene.create_entity();
-    test_entity.add_component<vkpbrt::Transform>();*/
+    vkpbrt::ResourceManager resource_manager;
+    vkpbrt::Scene scene(resource_manager);
 
     try
     {

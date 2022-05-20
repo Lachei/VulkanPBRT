@@ -15,11 +15,18 @@ public:
     EntityHandle(EntityId entity_id, EntityManager& entity_manager);
 
     /**
-     * \brief Add a new component to this entity.
+     * \brief Add a new default initialized component to this entity.
      * \tparam ComponentType The type of the component to be added.
      */
     template<typename ComponentType>
     void add_component();
+
+    /**
+     * \brief Add a new component to this entity.
+     * \tparam ComponentType The type of the component to be added.
+     */
+    template<typename ComponentType>
+    void add_component(ComponentType component);
 
     /**
      * \brief Get a component that is attached to this entity.
@@ -42,6 +49,13 @@ template<typename ComponentType>
 void EntityHandle::add_component()
 {
     _entity_manager.add_component<ComponentType>(_id);
+}
+template<typename ComponentType>
+void EntityHandle::add_component(ComponentType component)
+{
+    _entity_manager.add_component<ComponentType>(_id);
+    ComponentType* added_component = _entity_manager.get_component<ComponentType>();
+    *added_component = component;
 }
 template<typename ComponentType>
 ComponentType* EntityHandle::get_component()

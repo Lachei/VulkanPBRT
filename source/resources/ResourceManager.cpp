@@ -4,10 +4,7 @@
 
 using namespace vkpbrt;
 
-ResourceManager::ResourceManager(std::filesystem::path resource_directory_path)
-    : _resource_directory_path(std::move(resource_directory_path)), _next_resource_id(0)
-{
-}
+ResourceManager::ResourceManager() : _next_resource_id(0) {}
 ResourceManager::~ResourceManager()
 {
     for (auto& id_resource : _resource_map)

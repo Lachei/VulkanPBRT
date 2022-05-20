@@ -12,7 +12,7 @@ class ResourceBase
 public:
     /**
      * \brief Constructor
-     * \param resource_file_path Relative path to the resource inside the resource directory.
+     * \param resource_file_path Absolute path to the resource file.
      */
     explicit ResourceBase(std::filesystem::path resource_file_path);
     virtual ~ResourceBase() = default;

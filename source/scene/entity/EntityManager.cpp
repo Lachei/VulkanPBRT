@@ -36,4 +36,8 @@ void EntityManager::change_archetype(EntityId entity_id, TypeMask target_compone
 
         _entity_id_to_component_type_mask_map[entity_id] = target_component_type_mask;
     }
+    else
+    {
+        // TODO: add a warning that a component type that already exists tried to be added
+    }
 }

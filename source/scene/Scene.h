@@ -11,9 +11,10 @@ class Scene
 {
 public:
     explicit Scene(ResourceManager& resource_manager);
-    Scene(ResourceManager& resource_manager, aiScene* ai_scene);
 
     EntityHandle create_entity();
+
+    void load_from_assimp_scene(const aiScene* ai_scene);
 
     // TODO: add scene graph (parent child relations)
 

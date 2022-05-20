@@ -1,6 +1,7 @@
 #include "Scene.h"
 
 #include "entity/Components.h"
+#include "resources/Mesh.h"
 
 #include <vsg/all.h>
 
@@ -10,16 +11,51 @@ using namespace vkpbrt;
 using namespace DirectX;
 
 Scene::Scene(ResourceManager& resource_manager) : _resource_manager(resource_manager) {}
-Scene::Scene(ResourceManager& resource_manager, aiScene* ai_scene) : Scene(resource_manager)
+
+EntityHandle Scene::create_entity()
 {
-    // TODO: load meshes
-    for (int i = 0; i < ai_scene->mNumMeshes; ++i)
+    uint64_t entity_id = _entity_manager.create_entity();
+    return EntityHandle(entity_id, _entity_manager);
+}
+
+namespace
+{
+class AssimpSceneConverter
+{
+public:
+    void convert_from_assimp_scene(const aiScene* ai_scene, Scene& target_scene, ResourceManager& resource_manager);
+
+private:
+    void load_meshes(const aiScene* ai_scene, ResourceManager& resource_manager);
+    void load_materials(const aiScene* ai_scene, ResourceManager& resource_manager);
+    void load_entities(const aiScene* ai_scene, Scene& scene);
+
+    std::unordered_map<unsigned int, uint64_t> _mesh_index_to_resource_id;
+};
+}  // namespace
+
+void Scene::load_from_assimp_scene(const aiScene* ai_scene)
+{
+    AssimpSceneConverter assimp_scene_converter;
+    assimp_scene_converter.convert_from_assimp_scene(ai_scene, *this, this->_resource_manager);
+}
+
+void AssimpSceneConverter::convert_from_assimp_scene(
+    const aiScene* ai_scene, Scene& target_scene, ResourceManager& resource_manager)
+{
+    load_meshes(ai_scene, resource_manager);
+    load_materials(ai_scene, resource_manager);
+    load_entities(ai_scene, target_scene);
+}
+void AssimpSceneConverter::load_meshes(const aiScene* ai_scene, ResourceManager& resource_manager)
+{
+    for (int i = 0; i < ai_scene->mNumMeshes; i++)
     {
         aiMesh* mesh = ai_scene->mMeshes[i];
         auto vertices = vsg::vec3Array::create(mesh->mNumVertices);
         auto normals = vsg::vec3Array::create(mesh->mNumVertices);
         auto texcoords = vsg::vec2Array::create(mesh->mNumVertices);
-        std::vector<unsigned int> indices;
+        std::vector<unsigned int> indices_vector;
 
         for (unsigned int j = 0; j < mesh->mNumVertices; ++j)
         {
@@ -50,57 +86,53 @@ Scene::Scene(ResourceManager& resource_manager, aiScene* ai_scene) : Scene(resou
 
             for (unsigned int k = 0; k < face.mNumIndices; ++k)
             {
-                indices.push_back(face.mIndices[k]);
+                indices_vector.push_back(face.mIndices[k]);
             }
         }
 
-        vsg::ref_ptr<vsg::Data> vsg_indices;
+        auto myindices = vsg::uintArray::create(static_cast<uint32_t>(indices_vector.size()));
+        std::copy(indices_vector.begin(), indices_vector.end(), myindices->data());
 
-        /*if (indices.size() < std::numeric_limits<uint16_t>::max())
-        {
-            auto myindices = vsg::ushortArray::create(static_cast<uint16_t>(indices.size()));
-            std::copy(indices.begin(), indices.end(), myindices->data());
-            vsg_indices = myindices;
-        }
-        else*/
-        {
-            auto myindices = vsg::uintArray::create(static_cast<uint32_t>(indices.size()));
-            std::copy(indices.begin(), indices.end(), myindices->data());
-            vsg_indices = myindices;
-        }
-
-        // TODO: add mesh to resource manager
-        /* stategroup->addChild(vsg::BindVertexBuffers::create(0, vsg::DataList{ vertices, normals, texcoords }));
-         stategroup->addChild(vsg::BindIndexBuffer::create(vsg_indices));
-         stategroup->addChild(vsg::DrawIndexed::create(static_cast<uint32_t>(indices.size()), 1, 0, 0, 0));*/
+        auto* mesh_resource = new MeshResource(vertices, normals, texcoords, myindices);
+        uint64_t resource_id = resource_manager.add_resource(mesh_resource);
+        _mesh_index_to_resource_id[i] = resource_id;
     }
-
-    // TODO: load materials
-
+}
+void AssimpSceneConverter::load_materials(const aiScene* ai_scene, ResourceManager& resource_manager)
+{
+    // TODO
+}
+void AssimpSceneConverter::load_entities(const aiScene* ai_scene, Scene& scene)
+{
+    // create entities
     std::stack<aiNode*> ai_node_stack;
     ai_node_stack.push(ai_scene->mRootNode);
-
     while (!ai_node_stack.empty())
     {
         aiNode* ai_node = ai_node_stack.top();
 
         if (ai_node != nullptr)
         {
-            EntityHandle new_entity_handle = create_entity();
-
             aiMatrix4x4 m = ai_node->mTransformation;
             aiVector3t<float> scale;
             aiQuaterniont<float> rotation;
             aiVector3t<float> position;
             m.Decompose(scale, rotation, position);
 
-            new_entity_handle.add_component<TransformComponent>();
-            auto* transform_component = new_entity_handle.get_component<TransformComponent>();
-            transform_component->position = SimpleMath::Vector3(position.x, position.y, position.z);
-            transform_component->orientation = SimpleMath::Quaternion(rotation.x, rotation.y, rotation.z, rotation.w);
-            transform_component->scale = SimpleMath::Vector3(scale.x, scale.y, scale.z);
+            TransformComponent transform_component;
+            transform_component.position = SimpleMath::Vector3(position.x, position.y, position.z);
+            transform_component.orientation = SimpleMath::Quaternion(rotation.x, rotation.y, rotation.z, rotation.w);
+            transform_component.scale = SimpleMath::Vector3(scale.x, scale.y, scale.z);
 
-            // TODO: create one entity per reference mesh
+            for (int i = 0; i < ai_node->mNumMeshes; i++)
+            {
+                EntityHandle entity_handle = scene.create_entity();
+                entity_handle.add_component(transform_component);
+
+                MeshComponent mesh_component;
+                mesh_component.mesh_resource_id = _mesh_index_to_resource_id[i];
+                entity_handle.add_component(mesh_component);
+            }
 
             ai_node_stack.pop();
 
@@ -114,10 +146,4 @@ Scene::Scene(ResourceManager& resource_manager, aiScene* ai_scene) : Scene(resou
             ai_node_stack.pop();
         }
     }
-}
-
-EntityHandle Scene::create_entity()
-{
-    uint64_t entity_id = _entity_manager.create_entity();
-    return EntityHandle(entity_id, _entity_manager);
 }
