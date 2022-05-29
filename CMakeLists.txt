@@ -8,6 +8,7 @@ project(VulkanPBRT
     LANGUAGES C CXX
 )
 
+find_package(directxmath CONFIG REQUIRED)
 find_package(nlohmann_json REQUIRED)
 
 set(SLAVE_PROJECTS true)    #information for the subprojects to not find packes via find_package they can assume the packages exist
@@ -22,7 +23,7 @@ include_directories(${OpenEXR_INCLUDE_DIRS})
 set(CMAKE_CXX_STANDARD 17)
 
 add_executable(VulkanPBRT ${VulkanPBRT_SRC})
-target_include_directories(VulkanPBRT PRIVATE source)
+target_include_directories(VulkanPBRT PRIVATE source external/simpleMath)
 target_link_libraries(VulkanPBRT vsg vsgXchange vsgImGui nlohmann_json)
 set_property(TARGET VulkanPBRT PROPERTY CXX_STANDARD 17)
 

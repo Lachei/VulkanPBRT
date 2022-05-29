@@ -1,5 +1,3 @@
-
-
 #include "scene/CountTrianglesVisitor.hpp"
 
 #include "renderModules/PipelineStructs.hpp"
@@ -12,6 +10,9 @@
 #include <util/VsgUtils.hpp>
 #include <util/DenoiserUtils.hpp>
 #include "Gui.hpp"
+
+#include "scene/Scene.h"
+#include "resources/ResourceManager.h"
 
 #include <vsg/all.h>
 #include <vsgXchange/images.h>
@@ -52,6 +53,9 @@ private:
 
 int main(int argc, char** argv)
 {
+    vkpbrt::ResourceManager resource_manager;
+    vkpbrt::Scene scene(resource_manager);
+
     try
     {
         vsg::CommandLine arguments(&argc, argv);

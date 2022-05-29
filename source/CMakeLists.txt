@@ -1,8 +1,7 @@
-
-include_directories(${PROJECT_SOURCE_DIR}/external/vsg/include/vsg)
 include_directories(buffers)
 include_directories(renderModules)
 include_directories(scene)
+include_directories(scene/entity)
 include_directories(io)
 include_directories(util)
 
@@ -12,6 +11,8 @@ file(GLOB_RECURSE SRC_NESTED
        ${PROJECT_SOURCE_DIR}/source/buffers/*.cpp
 	${PROJECT_SOURCE_DIR}/source/renderModules/*.cpp
        ${PROJECT_SOURCE_DIR}/source/scene/*.cpp
+	   ${PROJECT_SOURCE_DIR}/source/scene/entity/*.cpp
+	   ${PROJECT_SOURCE_DIR}/source/resources/*.cpp
 	${PROJECT_SOURCE_DIR}/source/io/*.cpp
        ${PROJECT_SOURCE_DIR}/source/util/*.cpp)
 set(SRC ${SRC_TOP} ${SRC_NESTED})
