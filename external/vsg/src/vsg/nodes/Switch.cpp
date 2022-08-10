@@ -18,8 +18,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 using namespace vsg;
 
-Switch::Switch(Allocator* allocator) :
-    Inherit(allocator)
+Switch::Switch()
 {
 }
 
@@ -31,36 +30,11 @@ void Switch::read(Input& input)
 {
     Node::read(input);
 
-    if (input.version_greater_equal(0, 2, 2))
+    children.resize(input.readValue<uint32_t>("children"));
+    for (auto& child : children)
     {
-        children.resize(input.readValue<uint32_t>("children"));
-        for (auto& child : children)
-        {
-            input.read("child.mask", child.mask);
-            input.read("child.node", child.node);
-        }
-    }
-    else if (input.version_greater_equal(0, 1, 4))
-    {
-        children.resize(input.readValue<uint32_t>("children"));
-        for (auto& child : children)
-        {
-            bool enabled;
-            input.read("child.enabled", enabled);
-            input.read("child.node", child.node);
-            child.mask = enabled ? 0 : 0xffffffff;
-        }
-    }
-    else
-    {
-        children.resize(input.readValue<uint32_t>("NumChildren"));
-        for (auto& child : children)
-        {
-            bool enabled;
-            input.read("enabled", enabled);
-            input.read("node", child.node);
-            child.mask = enabled ? 0 : 0xffffffff;
-        }
+        input.read("child.mask", child.mask);
+        input.read("child.node", child.node);
     }
 }
 
@@ -68,38 +42,15 @@ void Switch::write(Output& output) const
 {
     Node::write(output);
 
-    if (output.version_greater_equal(0, 2, 2))
+    output.writeValue<uint32_t>("children", children.size());
+    for (auto& child : children)
     {
-        output.writeValue<uint32_t>("children", children.size());
-        for (auto& child : children)
-        {
-            output.write("child.mask", child.mask);
-            output.write("child.node", child.node);
-        }
-    }
-    else if (output.version_greater_equal(0, 1, 4))
-    {
-        output.writeValue<uint32_t>("children", children.size());
-        for (auto& child : children)
-        {
-            bool enabled = child.mask == 0 ? false : true;
-            output.write("child.enabled", enabled);
-            output.write("child.node", child.node);
-        }
-    }
-    else
-    {
-        output.writeValue<uint32_t>("NumChildren", children.size());
-        for (auto& child : children)
-        {
-            bool enabled = child.mask == 0 ? false : true;
-            output.write("enabled", enabled);
-            output.write("node", child.node);
-        }
+        output.write("child.mask", child.mask);
+        output.write("child.node", child.node);
     }
 }
 
-void Switch::addChild(uint32_t mask, ref_ptr<Node> child)
+void Switch::addChild(vsg::Mask mask, ref_ptr<Node> child)
 {
     children.push_back(Child{mask, child});
 }

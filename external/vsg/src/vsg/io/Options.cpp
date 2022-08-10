@@ -10,17 +10,19 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
-#include <vsg/io/ObjectCache.h>
 #include <vsg/io/Options.h>
 #include <vsg/io/ReaderWriter.h>
+#include <vsg/state/DescriptorSetLayout.h>
 #include <vsg/threading/OperationThreads.h>
 #include <vsg/utils/CommandLine.h>
+#include <vsg/utils/ShaderSet.h>
+#include <vsg/utils/SharedObjects.h>
 
 using namespace vsg;
 
 Options::Options()
 {
-    getOrCreateUniqueAuxiliary();
+    getOrCreateAuxiliary();
 
     formatCoordinateConventions[".gltf"] = CoordinateConvention::Y_UP;
     formatCoordinateConventions[".glb"] = CoordinateConvention::Y_UP;
@@ -31,7 +33,7 @@ Options::Options()
 
 Options::Options(const Options& options) :
     Inherit(),
-    objectCache(options.objectCache),
+    sharedObjects(options.sharedObjects),
     readerWriters(options.readerWriters),
     operationThreads(options.operationThreads),
     checkFilenameHint(options.checkFilenameHint),
@@ -41,11 +43,12 @@ Options::Options(const Options& options) :
     extensionHint(options.extensionHint),
     mapRGBtoRGBAHint(options.mapRGBtoRGBAHint),
     sceneCoordinateConvention(options.sceneCoordinateConvention),
-    formatCoordinateConventions(options.formatCoordinateConventions)
+    formatCoordinateConventions(options.formatCoordinateConventions),
+    shaderSets(options.shaderSets)
 {
-    getOrCreateUniqueAuxiliary();
+    getOrCreateAuxiliary();
     // copy any meta data.
-    if (options.getAuxiliary()) getAuxiliary()->getObjectMap() = options.getAuxiliary()->getObjectMap();
+    if (options.getAuxiliary()) getAuxiliary()->userObjects = options.getAuxiliary()->userObjects;
 }
 
 Options::~Options()
@@ -56,7 +59,7 @@ void Options::read(Input& input)
 {
     Object::read(input);
 
-    input.readObject("objectCache", objectCache);
+    input.readObject("sharedObjects", sharedObjects);
 
     readerWriters.clear();
     uint32_t count = input.readValue<uint32_t>("NumReaderWriters");
@@ -78,13 +81,24 @@ void Options::read(Input& input)
     input.read("fileCache", fileCache);
     input.read("extensionHint", extensionHint);
     input.read("mapRGBtoRGBAHint", mapRGBtoRGBAHint);
+
+    shaderSets.clear();
+    uint32_t numShaderSets = input.readValue<uint32_t>("numShaderSets");
+    for (; numShaderSets > 0; --numShaderSets)
+    {
+        std::string name;
+        ref_ptr<ShaderSet> shaderSet;
+        input.read("name", name);
+        input.readObject("shaderSet", shaderSet);
+        shaderSets[name] = shaderSet;
+    }
 }
 
 void Options::write(Output& output) const
 {
     Object::write(output);
 
-    output.writeObject("objectCache", objectCache);
+    output.writeObject("sharedObjects", sharedObjects);
 
     output.writeValue<uint32_t>("NumReaderWriters", readerWriters.size());
     for (auto& rw : readerWriters)
@@ -104,6 +118,13 @@ void Options::write(Output& output) const
     output.write("fileCache", fileCache);
     output.write("extensionHint", extensionHint);
     output.write("mapRGBtoRGBAHint", mapRGBtoRGBAHint);
+
+    output.writeValue<uint32_t>("numShaderSets", shaderSets.size());
+    for (auto& [name, shaderSet] : shaderSets)
+    {
+        output.write("name", name);
+        output.writeObject("shaderSet", shaderSet);
+    }
 }
 
 void Options::add(ref_ptr<ReaderWriter> rw)
@@ -132,7 +153,7 @@ bool Options::readOptions(CommandLine& arguments)
 ref_ptr<const vsg::Options> vsg::prependPathToOptionsIfRequired(const vsg::Path& filename, ref_ptr<const vsg::Options> options)
 {
     auto path = filePath(filename);
-    if (path.empty()) return options;
+    if (!path) return options;
 
     auto duplicate = vsg::Options::create(*options);
     duplicate->paths.insert(duplicate->paths.begin(), path);

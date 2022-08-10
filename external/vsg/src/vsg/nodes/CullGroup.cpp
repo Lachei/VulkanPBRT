@@ -16,13 +16,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 using namespace vsg;
 
-CullGroup::CullGroup(Allocator* allocator) :
-    Inherit(allocator)
+CullGroup::CullGroup()
 {
 }
 
-CullGroup::CullGroup(const dsphere& in_bound, Allocator* allocator) :
-    Inherit(allocator)
+CullGroup::CullGroup(const dsphere& in_bound)
 {
     bound = in_bound;
 }
@@ -35,26 +33,12 @@ void CullGroup::read(Input& input)
 {
     Group::read(input);
 
-    if (input.version_greater_equal(0, 1, 4))
-    {
-        input.read("bound", bound);
-    }
-    else
-    {
-        input.read("Bound", bound);
-    }
+    input.read("bound", bound);
 }
 
 void CullGroup::write(Output& output) const
 {
     Group::write(output);
 
-    if (output.version_greater_equal(0, 1, 4))
-    {
-        output.write("bound", bound);
-    }
-    else
-    {
-        output.write("Bound", bound);
-    }
+    output.write("bound", bound);
 }

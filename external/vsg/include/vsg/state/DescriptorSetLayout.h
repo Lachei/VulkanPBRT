@@ -21,6 +21,7 @@ namespace vsg
     class Context;
 
     using DescriptorSetLayoutBindings = std::vector<VkDescriptorSetLayoutBinding>;
+    using DescriptorPoolSizes = std::vector<VkDescriptorPoolSize>;
 
     class VSG_DECLSPEC DescriptorSetLayout : public Inherit<Object, DescriptorSetLayout>
     {
@@ -32,13 +33,18 @@ namespace vsg
         DescriptorSetLayoutBindings bindings;
 
         /// Vulkan VkDescriptorSetLayout handle
-        VkDescriptorSetLayout vk(uint32_t deviceID) const { return _implementation[deviceID]->_descriptorSetLayout; }
+        virtual VkDescriptorSetLayout vk(uint32_t deviceID) const { return _implementation[deviceID]->_descriptorSetLayout; }
+
+        /// map the descriptor bindigs to the descriptor pool sizes that will be required to represent them.
+        void getDescriptorPoolSizes(DescriptorPoolSizes& descriptorPoolSizes);
+
+        int compare(const Object& rhs_object) const override;
 
         void read(Input& input) override;
         void write(Output& output) const override;
 
         // compile the Vulkan object, context parameter used for Device
-        void compile(Context& context);
+        virtual void compile(Context& context);
 
         // remove the local reference to the Vulkan implementation
         void release(uint32_t deviceID) { _implementation[deviceID] = {}; }

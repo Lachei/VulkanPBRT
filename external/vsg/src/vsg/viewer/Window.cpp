@@ -41,7 +41,6 @@ void Window::clear()
     _swapchain = 0;
 
     _depthImage = 0;
-    _depthImageMemory = 0;
     _depthImageView = 0;
 
     _renderPass = 0;
@@ -154,22 +153,14 @@ ref_ptr<ImageView> Window::getOrCreateDepthImageView()
 void Window::_initInstance()
 {
     // create the vkInstance
-    vsg::Names instanceExtensions = _traits->instanceExtensionNames;
+    _traits->validate();
+
+    vsg::Names& instanceExtensions = _traits->instanceExtensionNames;
 
     instanceExtensions.push_back("VK_KHR_surface");
     instanceExtensions.push_back(instanceExtensionSurfaceName());
 
-    vsg::Names requestedLayers;
-    if (_traits->debugLayer || _traits->apiDumpLayer)
-    {
-        instanceExtensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
-        requestedLayers.push_back("VK_LAYER_KHRONOS_validation");         // new validation layer name
-        requestedLayers.push_back("VK_LAYER_LUNARG_standard_validation"); // old validation layer name
-        if (_traits->apiDumpLayer) requestedLayers.push_back("VK_LAYER_LUNARG_api_dump");
-    }
-
-    vsg::Names validatedNames = vsg::validateInstancelayerNames(requestedLayers);
-    _instance = vsg::Instance::create(instanceExtensions, validatedNames, _traits->vulkanVersion);
+    _instance = vsg::Instance::create(instanceExtensions, _traits->requestedLayers, _traits->vulkanVersion);
 }
 
 void Window::_initPhysicalDevice()
@@ -223,14 +214,7 @@ void Window::_initDevice()
     }
 
     // set up logical device
-    vsg::Names requestedLayers;
-    if (_traits->debugLayer)
-    {
-        requestedLayers.push_back("VK_LAYER_LUNARG_standard_validation");
-        if (_traits->apiDumpLayer) requestedLayers.push_back("VK_LAYER_LUNARG_api_dump");
-    }
-
-    vsg::Names validatedNames = vsg::validateInstancelayerNames(requestedLayers);
+    const vsg::Names& validatedNames = _traits->requestedLayers;
 
     vsg::Names deviceExtensions;
     deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
@@ -249,13 +233,15 @@ void Window::_initRenderPass()
 {
     if (!_device) _initDevice();
 
+    bool requiresDepthRead = (_traits->depthImageUsage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0;
+
     if (_framebufferSamples == VK_SAMPLE_COUNT_1_BIT)
     {
-        _renderPass = vsg::createRenderPass(_device, _imageFormat.format, _depthFormat);
+        _renderPass = vsg::createRenderPass(_device, _imageFormat.format, _depthFormat, requiresDepthRead);
     }
     else
     {
-        _renderPass = vsg::createMultisampledRenderPass(_device, _imageFormat.format, _depthFormat, _framebufferSamples);
+        _renderPass = vsg::createMultisampledRenderPass(_device, _imageFormat.format, _depthFormat, _framebufferSamples, requiresDepthRead);
     }
 }
 
@@ -280,21 +266,16 @@ void Window::buildSwapchain()
 
         _depthImageView = 0;
         _depthImage = 0;
-        _depthImageMemory = 0;
 
         _multisampleImage = 0;
         _multisampleImageView = 0;
-
-        _swapchain = 0;
     }
 
     // is width and height even required here as the surface appear to control it.
-    _swapchain = Swapchain::create(_physicalDevice, _device, _surface, _extent2D.width, _extent2D.height, _traits->swapchainPreferences);
+    _swapchain = Swapchain::create(_physicalDevice, _device, _surface, _extent2D.width, _extent2D.height, _traits->swapchainPreferences, _swapchain);
 
     // pass back the extents used by the swap chain.
     _extent2D = _swapchain->getExtent();
-
-    auto deviceID = _device->deviceID;
 
     bool multisampling = _framebufferSamples != VK_SAMPLE_COUNT_1_BIT;
     if (multisampling)
@@ -309,19 +290,20 @@ void Window::buildSwapchain()
         _multisampleImage->arrayLayers = 1;
         _multisampleImage->samples = _framebufferSamples;
         _multisampleImage->tiling = VK_IMAGE_TILING_OPTIMAL;
-        _multisampleImage->usage = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        _multisampleImage->usage = _traits->swapchainPreferences.imageUsage;
         _multisampleImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
         _multisampleImage->flags = 0;
         _multisampleImage->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
         _multisampleImage->compile(_device);
-
-        auto colorMemory = DeviceMemory::create(_device, _multisampleImage->getMemoryRequirements(deviceID), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        _multisampleImage->bind(colorMemory, 0);
+        _multisampleImage->allocateAndBindMemory(_device);
 
         _multisampleImageView = ImageView::create(_multisampleImage, VK_IMAGE_ASPECT_COLOR_BIT);
         _multisampleImageView->compile(_device);
     }
+
+    bool requiresDepthRead = (_traits->depthImageUsage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0;
+    bool requiresDepthResolve = (multisampling && requiresDepthRead);
 
     // create depth buffer
     _depthImage = Image::create();
@@ -334,18 +316,42 @@ void Window::buildSwapchain()
     _depthImage->format = _depthFormat;
     _depthImage->tiling = VK_IMAGE_TILING_OPTIMAL;
     _depthImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    _depthImage->usage = _traits->depthImageUsage;
     _depthImage->samples = _framebufferSamples;
     _depthImage->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    _depthImage->usage = _traits->depthImageUsage;
 
     _depthImage->compile(_device);
-
-    _depthImageMemory = DeviceMemory::create(_device, _depthImage->getMemoryRequirements(deviceID), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-    _depthImage->bind(_depthImageMemory, 0);
+    _depthImage->allocateAndBindMemory(_device);
 
     _depthImageView = ImageView::create(_depthImage);
     _depthImageView->compile(_device);
+
+    if (requiresDepthResolve)
+    {
+        _multisampleDepthImage = _depthImage;
+        _multisampleDepthImageView = _depthImageView;
+
+        // create depth buffer
+        _depthImage = Image::create();
+        _depthImage->imageType = VK_IMAGE_TYPE_2D;
+        _depthImage->extent.width = _extent2D.width;
+        _depthImage->extent.height = _extent2D.height;
+        _depthImage->extent.depth = 1;
+        _depthImage->mipLevels = 1;
+        _depthImage->arrayLayers = 1;
+        _depthImage->format = _depthFormat;
+        _depthImage->tiling = VK_IMAGE_TILING_OPTIMAL;
+        _depthImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        _depthImage->usage = _traits->depthImageUsage;
+        _depthImage->samples = VK_SAMPLE_COUNT_1_BIT;
+        _depthImage->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+        _depthImage->compile(_device);
+        _depthImage->allocateAndBindMemory(_device);
+
+        _depthImageView = ImageView::create(_depthImage);
+        _depthImageView->compile(_device);
+    }
 
     int graphicsFamily = -1;
     std::tie(graphicsFamily, std::ignore) = _physicalDevice->getQueueFamily(VK_QUEUE_GRAPHICS_BIT, _surface);
@@ -359,25 +365,31 @@ void Window::buildSwapchain()
     for (size_t i = 0; i < imageViews.size(); ++i)
     {
         vsg::ImageViews attachments;
-        if (multisampling)
+        if (_multisampleImageView)
         {
             attachments.push_back(_multisampleImageView);
         }
         attachments.push_back(imageViews[i]);
+
+        if (_multisampleDepthImageView)
+        {
+            attachments.push_back(_multisampleDepthImageView);
+        }
         attachments.push_back(_depthImageView);
 
         ref_ptr<Framebuffer> fb = Framebuffer::create(_renderPass, attachments, _extent2D.width, _extent2D.height, 1);
 
         ref_ptr<Semaphore> ias = vsg::Semaphore::create(_device, _traits->imageAvailableSemaphoreWaitFlag);
 
-        _frames.push_back({multisampling ? _multisampleImageView : imageViews[i], fb, ias});
+        //_frames.push_back({multisampling ? _multisampleImageView : imageViews[i], fb, ias});
+        _frames.push_back({imageViews[i], fb, ias});
         _indices.push_back(initial_indexValue);
     }
 
     {
         // ensure image attachments are setup on GPU.
-        ref_ptr<CommandPool> commandPool = CommandPool::create(_device, graphicsFamily);
-        submitCommandsToQueue(_device, commandPool, _device->getQueue(graphicsFamily), [&](CommandBuffer& commandBuffer) {
+        auto commandPool = CommandPool::create(_device, graphicsFamily);
+        submitCommandsToQueue(commandPool, _device->getQueue(graphicsFamily), [&](CommandBuffer& commandBuffer) {
             auto depthImageBarrier = ImageMemoryBarrier::create(
                 0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
                 VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
@@ -413,6 +425,9 @@ VkResult Window::acquireNextImage(uint64_t timeout)
 
     if (!_availableSemaphore) _availableSemaphore = vsg::Semaphore::create(_device, _traits->imageAvailableSemaphoreWaitFlag);
 
+    // check the dimensions of the swapchain and window extents are consistent, if nit return a VK_ERROR_OUT_OF_DATE_KHR;
+    if (_swapchain->getExtent() != _extent2D) return VK_ERROR_OUT_OF_DATE_KHR;
+
     uint32_t imageIndex;
     VkResult result = _swapchain->acquireNextImage(timeout, _availableSemaphore, {}, imageIndex);
 
@@ -422,7 +437,7 @@ VkResult Window::acquireNextImage(uint64_t timeout)
         _availableSemaphore.swap(_frames[imageIndex].imageAvailableSemaphore);
 
         // shift up previous frame indices
-        for (size_t i = 1; i < _indices.size(); ++i)
+        for (size_t i = _indices.size() - 1; i > 0; --i)
         {
             _indices[i] = _indices[i - 1];
         }

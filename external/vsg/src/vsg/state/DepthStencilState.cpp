@@ -10,6 +10,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
+#include <vsg/core/compare.h>
 #include <vsg/io/Options.h>
 #include <vsg/state/DepthStencilState.h>
 #include <vsg/vk/Context.h>
@@ -20,8 +21,31 @@ DepthStencilState::DepthStencilState()
 {
 }
 
+DepthStencilState::DepthStencilState(const DepthStencilState& dss) :
+    Inherit(dss),
+    depthTestEnable(dss.depthTestEnable),
+    depthWriteEnable(dss.depthWriteEnable),
+    depthCompareOp(dss.depthCompareOp),
+    depthBoundsTestEnable(dss.depthBoundsTestEnable),
+    stencilTestEnable(dss.stencilTestEnable),
+    front(dss.front),
+    back(dss.back),
+    minDepthBounds(dss.minDepthBounds),
+    maxDepthBounds(dss.maxDepthBounds)
+{
+}
+
 DepthStencilState::~DepthStencilState()
 {
+}
+
+int DepthStencilState::compare(const Object& rhs_object) const
+{
+    int result = Object::compare(rhs_object);
+    if (result != 0) return result;
+
+    auto& rhs = static_cast<decltype(*this)>(rhs_object);
+    return compare_region(depthTestEnable, maxDepthBounds, rhs.depthTestEnable);
 }
 
 void DepthStencilState::read(Input& input)
@@ -34,27 +58,24 @@ void DepthStencilState::read(Input& input)
     input.readValue<uint32_t>("depthBoundsTestEnable", depthBoundsTestEnable);
     input.readValue<uint32_t>("stencilTestEnable", stencilTestEnable);
 
-    if (input.version_greater_equal(0, 0, 2))
-    {
-        input.readValue<uint32_t>("front.failOp", front.failOp);
-        input.readValue<uint32_t>("front.passOp", front.passOp);
-        input.readValue<uint32_t>("front.depthFailOp", front.depthFailOp);
-        input.readValue<uint32_t>("front.compareOp", front.compareOp);
-        input.read("front.compareMask", front.compareMask);
-        input.read("front.writeMask", front.writeMask);
-        input.read("front.reference", front.reference);
+    input.readValue<uint32_t>("front.failOp", front.failOp);
+    input.readValue<uint32_t>("front.passOp", front.passOp);
+    input.readValue<uint32_t>("front.depthFailOp", front.depthFailOp);
+    input.readValue<uint32_t>("front.compareOp", front.compareOp);
+    input.read("front.compareMask", front.compareMask);
+    input.read("front.writeMask", front.writeMask);
+    input.read("front.reference", front.reference);
 
-        input.readValue<uint32_t>("back.failOp", back.failOp);
-        input.readValue<uint32_t>("back.passOp", back.passOp);
-        input.readValue<uint32_t>("back.depthFailOp", back.depthFailOp);
-        input.readValue<uint32_t>("back.compareOp", back.compareOp);
-        input.read("back.compareMask", back.compareMask);
-        input.read("back.writeMask", back.writeMask);
-        input.read("back.reference", back.reference);
+    input.readValue<uint32_t>("back.failOp", back.failOp);
+    input.readValue<uint32_t>("back.passOp", back.passOp);
+    input.readValue<uint32_t>("back.depthFailOp", back.depthFailOp);
+    input.readValue<uint32_t>("back.compareOp", back.compareOp);
+    input.read("back.compareMask", back.compareMask);
+    input.read("back.writeMask", back.writeMask);
+    input.read("back.reference", back.reference);
 
-        input.read("minDepthBounds", minDepthBounds);
-        input.read("maxDepthBounds", maxDepthBounds);
-    }
+    input.read("minDepthBounds", minDepthBounds);
+    input.read("maxDepthBounds", maxDepthBounds);
 }
 
 void DepthStencilState::write(Output& output) const
@@ -67,27 +88,24 @@ void DepthStencilState::write(Output& output) const
     output.writeValue<uint32_t>("depthBoundsTestEnable", depthBoundsTestEnable);
     output.writeValue<uint32_t>("stencilTestEnable", stencilTestEnable);
 
-    if (output.version_greater_equal(0, 0, 2))
-    {
-        output.writeValue<uint32_t>("front.failOp", front.failOp);
-        output.writeValue<uint32_t>("front.passOp", front.passOp);
-        output.writeValue<uint32_t>("front.depthFailOp", front.depthFailOp);
-        output.writeValue<uint32_t>("front.compareOp", front.compareOp);
-        output.write("front.compareMask", front.compareMask);
-        output.write("front.writeMask", front.writeMask);
-        output.write("front.reference", front.reference);
+    output.writeValue<uint32_t>("front.failOp", front.failOp);
+    output.writeValue<uint32_t>("front.passOp", front.passOp);
+    output.writeValue<uint32_t>("front.depthFailOp", front.depthFailOp);
+    output.writeValue<uint32_t>("front.compareOp", front.compareOp);
+    output.write("front.compareMask", front.compareMask);
+    output.write("front.writeMask", front.writeMask);
+    output.write("front.reference", front.reference);
 
-        output.writeValue<uint32_t>("back.failOp", back.failOp);
-        output.writeValue<uint32_t>("back.passOp", back.passOp);
-        output.writeValue<uint32_t>("back.depthFailOp", back.depthFailOp);
-        output.writeValue<uint32_t>("back.compareOp", back.compareOp);
-        output.write("back.compareMask", back.compareMask);
-        output.write("back.writeMask", back.writeMask);
-        output.write("back.reference", back.reference);
+    output.writeValue<uint32_t>("back.failOp", back.failOp);
+    output.writeValue<uint32_t>("back.passOp", back.passOp);
+    output.writeValue<uint32_t>("back.depthFailOp", back.depthFailOp);
+    output.writeValue<uint32_t>("back.compareOp", back.compareOp);
+    output.write("back.compareMask", back.compareMask);
+    output.write("back.writeMask", back.writeMask);
+    output.write("back.reference", back.reference);
 
-        output.write("minDepthBounds", minDepthBounds);
-        output.write("maxDepthBounds", maxDepthBounds);
-    }
+    output.write("minDepthBounds", minDepthBounds);
+    output.write("maxDepthBounds", maxDepthBounds);
 }
 
 void DepthStencilState::apply(Context& context, VkGraphicsPipelineCreateInfo& pipelineInfo) const

@@ -15,7 +15,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/io/AsciiOutput.h>
 
 #include <cstring>
-#include <iostream>
 
 using namespace vsg;
 
@@ -44,6 +43,23 @@ void AsciiOutput::write(size_t num, const std::string* value)
         {
             _output << ' ';
             _write(*value);
+        }
+    }
+}
+
+void AsciiOutput::write(size_t num, const Path* value)
+{
+    if (num == 1)
+    {
+        _output << ' ';
+        _write(value->string());
+    }
+    else
+    {
+        for (; num > 0; --num, ++value)
+        {
+            _output << ' ';
+            _write(value->string());
         }
     }
 }

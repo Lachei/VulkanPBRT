@@ -12,11 +12,13 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
+#include <vsg/core/Allocator.h>
 #include <vsg/core/Object.h>
+#include <vsg/core/compare.h>
 #include <vsg/core/type_name.h>
+#include <vsg/vk/vulkan.h>
 
-#include <vulkan/vulkan.h>
-
+#include <cstring>
 #include <vector>
 
 namespace vsg
@@ -103,6 +105,12 @@ namespace vsg
             uint8_t blockDepth = 1;
             uint8_t origin = TOP_LEFT; /// Hint for setting up texture coordinates, bit 0 x/width axis, bit 1 y/height axis, bit 2 z/depth axis. Vulkan origin for images is top left, which is denoted as 0 here.
             int8_t imageViewType = -1; /// -1 signifies undefined VkImageViewType, if value >=0 then value should be treated as valid VkImageViewType
+            AllocatorType allocatorType = ALLOCATOR_TYPE_VSG_ALLOCATOR;
+
+            int compare(const Layout& rhs) const
+            {
+                return compare_region(format, allocatorType, rhs.format);
+            }
         };
 
         Data() {}
@@ -116,8 +124,32 @@ namespace vsg
             if (_layout.stride < min_stride) _layout.stride = min_stride;
         }
 
+        /// provide new and delete to enable custom memory management via the vsg::Allocator singleton, using the MEMORY_AFFINTY_DATA
+        static void* operator new(std::size_t count);
+        static void operator delete(void* ptr);
+
         std::size_t sizeofObject() const noexcept override { return sizeof(Data); }
         bool is_compatible(const std::type_info& type) const noexcept override { return typeid(Data) == type ? true : Object::is_compatible(type); }
+
+        int compare(const Object& rhs_object) const override
+        {
+            int result = Object::compare(rhs_object);
+            if (result != 0) return result;
+
+            auto& rhs = static_cast<decltype(*this)>(rhs_object);
+
+            if ((result = _layout.compare(rhs._layout))) return result;
+
+            // the shorter data is less
+            if (dataSize() < rhs.dataSize()) return -1;
+            if (dataSize() > rhs.dataSize()) return 1;
+
+            // if both empty then they must be equal
+            if (dataSize() == 0) return 0;
+
+            // use memcpy to compare the contents of the data
+            return std::memcmp(dataPointer(), rhs.dataPointer(), dataSize());
+        }
 
         void read(Input& input) override;
         void write(Output& output) const override;
@@ -157,7 +189,7 @@ namespace vsg
         virtual std::uint32_t height() const = 0;
         virtual std::uint32_t depth() const = 0;
 
-        bool contigous() const { return valueSize() == _layout.stride; }
+        bool contiguous() const { return valueSize() == _layout.stride; }
 
         uint32_t stride() const { return _layout.stride ? _layout.stride : static_cast<uint32_t>(valueSize()); }
 
@@ -180,7 +212,7 @@ namespace vsg
                 return false;
         }
 
-        /// return true if Data's ModifiedCount is diffferent than the specified ModifiedCount
+        /// return true if Data's ModifiedCount is different than the specified ModifiedCount
         bool differentModifiedCount(const ModifiedCount& mc) const { return _modifiedCount != mc; }
 
     protected:

@@ -10,49 +10,29 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
+#include <vsg/io/Logger.h>
 #include <vsg/io/Options.h>
+#include <vsg/vk/Device.h>
 #include <vsg/vk/Extensions.h>
 
 #include <algorithm>
 #include <cstring>
 
-#include <iostream>
-
 using namespace vsg;
-
-ExtensionProperties vsg::getExtensionProperties(const char* pLayerName)
-{
-    uint32_t extCount = 0;
-    VkResult err = vkEnumerateInstanceExtensionProperties(pLayerName, &extCount, nullptr);
-    if (err)
-    {
-        std::cout << "Error: vsg::getExtensionPropertiesCount(...) failed, could not get extension count from vkEnumerateInstanceExtensionProperties." << std::endl;
-        return ExtensionProperties();
-    }
-
-    ExtensionProperties extensionProperties(extCount);
-    err = vkEnumerateInstanceExtensionProperties(pLayerName, &extCount, extensionProperties.data());
-    if (err)
-    {
-        std::cout << "Error: vsg::getExtensionProperties(...) failed, could not get extension properties from vkEnumerateInstanceExtensionProperties." << std::endl;
-        return ExtensionProperties();
-    }
-    return extensionProperties;
-}
 
 bool vsg::isExtensionSupported(const char* extensionName)
 {
-    ExtensionProperties extProps = getExtensionProperties();
+    auto extProps = enumerateInstanceExtensionProperties();
     for (auto prop : extProps)
     {
-        if (strcmp(prop.extensionName, extensionName) == 0) return true;
+        if (strncmp(prop.extensionName, extensionName, VK_MAX_EXTENSION_NAME_SIZE) == 0) return true;
     }
     return false;
 }
 
 bool vsg::isExtensionListSupported(const Names& extensionList)
 {
-    ExtensionProperties extProps = getExtensionProperties();
+    auto extProps = enumerateInstanceExtensionProperties();
     for (auto ext : extensionList)
     {
         auto compare = [&](const VkExtensionProperties& rhs) { return strcmp(ext, rhs.extensionName) == 0; };
@@ -61,32 +41,28 @@ bool vsg::isExtensionListSupported(const Names& extensionList)
     return true;
 }
 
-typedef std::map<Device*, ref_ptr<Extensions>> BufferedExtensions;
-static BufferedExtensions s_extensions;
-
-Extensions* Extensions::Get(Device* device, bool createIfNotInitalized)
-{
-    if (!s_extensions[device] && createIfNotInitalized)
-        s_extensions[device] = new Extensions(device);
-
-    return s_extensions[device].get();
-}
-
 Extensions::Extensions(Device* device)
 {
+    // VK_EXT_host_query_reset
+    device->getProcAddr(vkResetQueryPool, "vkResetQueryPool", "vkResetQueryPoolEXT");
+
+    // VK_KHR_create_renderpass2
+    device->getProcAddr(vkCreateRenderPass2, "vkCreateRenderPass2", "vkCreateRenderPass2KHR");
+
     // VK_KHR_ray_tracing
-    vkCreateAccelerationStructureKHR = reinterpret_cast<PFN_vkCreateAccelerationStructureKHR>(vkGetDeviceProcAddr(*device, "vkCreateAccelerationStructureKHR"));
-    vkDestroyAccelerationStructureKHR = reinterpret_cast<PFN_vkDestroyAccelerationStructureKHR>(vkGetDeviceProcAddr(*device, "vkDestroyAccelerationStructureKHR"));
-    vkGetAccelerationStructureDeviceAddressKHR = reinterpret_cast<PFN_vkGetAccelerationStructureDeviceAddressKHR>(vkGetDeviceProcAddr(*device, "vkGetAccelerationStructureDeviceAddressKHR"));
-    vkGetAccelerationStructureBuildSizesKHR = reinterpret_cast<PFN_vkGetAccelerationStructureBuildSizesKHR>(vkGetDeviceProcAddr(*device, "vkGetAccelerationStructureBuildSizesKHR"));
-    vkCmdBuildAccelerationStructuresKHR = reinterpret_cast<PFN_vkCmdBuildAccelerationStructuresKHR>(vkGetDeviceProcAddr(*device, "vkCmdBuildAccelerationStructuresKHR"));
-    vkCreateRayTracingPipelinesKHR = reinterpret_cast<PFN_vkCreateRayTracingPipelinesKHR>(vkGetDeviceProcAddr(*device, "vkCreateRayTracingPipelinesKHR"));
-    vkGetRayTracingShaderGroupHandlesKHR = reinterpret_cast<PFN_vkGetRayTracingShaderGroupHandlesKHR>(vkGetDeviceProcAddr(*device, "vkGetRayTracingShaderGroupHandlesKHR"));
-    vkCmdTraceRaysKHR = reinterpret_cast<PFN_vkCmdTraceRaysKHR>(vkGetDeviceProcAddr(*device, "vkCmdTraceRaysKHR"));
-    vkGetBufferDeviceAddressKHR = reinterpret_cast<PFN_vkGetBufferDeviceAddressKHR>(vkGetDeviceProcAddr(*device, "vkGetBufferDeviceAddressKHR"));
+    device->getProcAddr(vkCreateAccelerationStructureKHR, "vkCreateAccelerationStructureKHR");
+    device->getProcAddr(vkDestroyAccelerationStructureKHR, "vkDestroyAccelerationStructureKHR");
+    device->getProcAddr(vkGetAccelerationStructureDeviceAddressKHR, "vkGetAccelerationStructureDeviceAddressKHR");
+    device->getProcAddr(vkGetAccelerationStructureBuildSizesKHR, "vkGetAccelerationStructureBuildSizesKHR");
+    device->getProcAddr(vkCmdBuildAccelerationStructuresKHR, "vkCmdBuildAccelerationStructuresKHR");
+    device->getProcAddr(vkCreateRayTracingPipelinesKHR, "vkCreateRayTracingPipelinesKHR");
+    device->getProcAddr(vkGetRayTracingShaderGroupHandlesKHR, "vkGetRayTracingShaderGroupHandlesKHR");
+    device->getProcAddr(vkCmdTraceRaysKHR, "vkCmdTraceRaysKHR");
+
+    device->getProcAddr(vkGetBufferDeviceAddressKHR, "vkGetBufferDeviceAddressKHR");
 
     // VK_NV_mesh_shader
-    vkCmdDrawMeshTasksNV = reinterpret_cast<PFN_vkCmdDrawMeshTasksNV>(vkGetDeviceProcAddr(*device, "vkCmdDrawMeshTasksNV"));
-    vkCmdDrawMeshTasksIndirectNV = reinterpret_cast<PFN_vkCmdDrawMeshTasksIndirectNV>(vkGetDeviceProcAddr(*device, "vkCmdDrawMeshTasksIndirectNV"));
-    vkCmdDrawMeshTasksIndirectCountNV = reinterpret_cast<PFN_vkCmdDrawMeshTasksIndirectCountNV>(vkGetDeviceProcAddr(*device, "vkCmdDrawMeshTasksIndirectCountNV"));
+    device->getProcAddr(vkCmdDrawMeshTasksNV, "vkCmdDrawMeshTasksNV");
+    device->getProcAddr(vkCmdDrawMeshTasksIndirectNV, "vkCmdDrawMeshTasksIndirectNV");
+    device->getProcAddr(vkCmdDrawMeshTasksIndirectCountNV, "vkCmdDrawMeshTasksIndirectCountNV");
 }

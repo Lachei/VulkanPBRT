@@ -15,8 +15,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/core/ref_ptr.h>
 #include <vsg/vk/AllocationCallbacks.h>
 
-#include <vulkan/vulkan.h>
-
 #include <vector>
 
 namespace vsg
@@ -27,16 +25,25 @@ namespace vsg
 
     using Names = std::vector<const char*>;
     using PhysicalDeviceTypes = std::vector<VkPhysicalDeviceType>;
+    using InstanceLayerProperties = std::vector<VkLayerProperties>;
+    using InstanceExtensionProperties = std::vector<VkExtensionProperties>;
 
+    /// wrapper for vkEnumerateInstanceExtensionProperties
+    extern VSG_DECLSPEC InstanceExtensionProperties enumerateInstanceExtensionProperties(const char* pLayerName = nullptr);
+
+    /// wrapper for vkEnumerateInstanceLayerProperties
+    extern VSG_DECLSPEC InstanceLayerProperties enumerateInstanceLayerProperties();
+
+    /// return names of layers that are supported from the desired list.
     extern VSG_DECLSPEC Names validateInstancelayerNames(const Names& names);
 
     class VSG_DECLSPEC Instance : public Inherit<Object, Instance>
     {
     public:
-        Instance(const Names& instanceExtensions, const Names& layers, uint32_t vulkanApiVersion = VK_API_VERSION_1_0, AllocationCallbacks* allocator = nullptr);
+        Instance(Names instanceExtensions, Names layers, uint32_t vulkanApiVersion = VK_API_VERSION_1_0, AllocationCallbacks* allocator = nullptr);
 
         /// Vulkan apiVersion used when creating the VkInstaance
-        uint32_t apiVersion = VK_API_VERSION_1_0;
+        const uint32_t apiVersion = VK_API_VERSION_1_0;
 
         operator VkInstance() const { return _instance; }
         VkInstance getInstance() const { return _instance; }
@@ -59,6 +66,17 @@ namespace vsg
 
         /// get a PhysicalDevice and queue family index that supports the specified queueFlags, and presentation of specified surface if one is provided.
         std::tuple<ref_ptr<PhysicalDevice>, int, int> getPhysicalDeviceAndQueueFamily(VkQueueFlags queueFlags, Surface* surface, const PhysicalDeviceTypes& deviceTypePreferences = {}) const;
+
+        /// get the address of specified function using vkGetInstanceProcAddr.
+        template<typename T>
+        bool getProcAddr(T& procAdddress, const char* pName, const char* pNameFallback = nullptr) const
+        {
+            procAdddress = reinterpret_cast<T>(vkGetInstanceProcAddr(_instance, pName));
+            if (procAdddress) return true;
+
+            if (pNameFallback) procAdddress = reinterpret_cast<T>(vkGetInstanceProcAddr(_instance, pNameFallback));
+            return (procAdddress);
+        }
 
     protected:
         virtual ~Instance();

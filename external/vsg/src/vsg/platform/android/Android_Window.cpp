@@ -18,17 +18,15 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 #include <vsg/core/Exception.h>
 #include <vsg/core/observer_ptr.h>
+#include <vsg/io/Logger.h>
 #include <vsg/ui/KeyEvent.h>
 #include <vsg/ui/TouchEvent.h>
 #include <vsg/vk/Extensions.h>
 
-#include <iostream>
 #include <time.h>
 
 using namespace vsg;
 using namespace vsgAndroid;
-
-#define LOG(...) ((void)__android_log_print(ANDROID_LOG_WARN, "native-activity", __VA_ARGS__))
 
 namespace vsg
 {
@@ -55,6 +53,10 @@ namespace vsgAndroid
             surfaceCreateInfo.window = window;
 
             auto result = vkCreateAndroidSurfaceKHR(*instance, &surfaceCreateInfo, _instance->getAllocationCallbacks(), &_surface);
+            if (result != VK_SUCCESS)
+            {
+                throw Exception{"Failed to created AndroidSurface.", result};
+            }
         }
     };
 
@@ -157,7 +159,7 @@ KeyboardMap::KeyboardMap()
             {':', KEY_Colon},
             {AKEYCODE_SEMICOLON, KEY_Semicolon},
             {'<', KEY_Less},
-            {AKEYCODE_EQUALS, KEY_Equals}, // + isnt an unmodded key, why does windows map is as a virtual??
+            {AKEYCODE_EQUALS, KEY_Equals}, // + isn't an unmodded key, why does windows map is as a virtual??
             {'>', KEY_Greater},
             {'?', KEY_Question},
             {AKEYCODE_AT, KEY_At},
@@ -351,11 +353,6 @@ Android_Window::Android_Window(vsg::ref_ptr<WindowTraits> traits) :
 Android_Window::~Android_Window()
 {
     clear();
-
-    if (_window != nullptr)
-    {
-        std::cout << "Calling DestroyWindow(_window);" << std::endl;
-    }
 }
 
 void Android_Window::_initSurface()
@@ -375,7 +372,7 @@ void Android_Window::resize()
     _extent2D.width = ANativeWindow_getWidth(_window);
     _extent2D.height = ANativeWindow_getHeight(_window);
 
-    LOG("resize event = wh: %d, %d", _extent2D.width, _extent2D.height);
+    vsg::debug("resize event = wh: ", _extent2D.width, ", ",_extent2D.height);
 
     buildSwapchain();
 }
@@ -388,15 +385,15 @@ bool Android_Window::handleAndroidInputEvent(AInputEvent* anEvent)
     {
         auto action = AMotionEvent_getAction(anEvent);
 
-        // first process the historical events (mutiple touch events may have occured since the last frame)
-        auto historySize = AMotionEvent_getHistorySize(anEvent);
-        auto pointerCount = AMotionEvent_getPointerCount(anEvent);
-        for (auto h = 0; h < historySize; h++)
+        // first process the historical events (multiple touch events may have occurred since the last frame)
+        size_t historySize = AMotionEvent_getHistorySize(anEvent);
+        size_t pointerCount = AMotionEvent_getPointerCount(anEvent);
+        for (size_t h = 0; h < historySize; h++)
         {
             int64_t htime = AMotionEvent_getHistoricalEventTime(anEvent, h) / 1e-6;
             vsg::clock::time_point historical_event_time = _first_android_time_point + std::chrono::milliseconds(htime - _first_android_timestamp);
 
-            for (int p = 0; p < pointerCount; p++)
+            for (size_t p = 0; p < pointerCount; p++)
             {
                 uint32_t id = AMotionEvent_getPointerId(anEvent, p);
                 float x = AMotionEvent_getHistoricalX(anEvent, p, h);
@@ -423,7 +420,7 @@ bool Android_Window::handleAndroidInputEvent(AInputEvent* anEvent)
         int64_t ctime = AMotionEvent_getEventTime(anEvent) / 1e-6;
         vsg::clock::time_point event_time = _first_android_time_point + std::chrono::milliseconds(ctime - _first_android_timestamp);
 
-        for (int p = 0; p < pointerCount; p++)
+        for (size_t p = 0; p < pointerCount; p++)
         {
             uint32_t id = AMotionEvent_getPointerId(anEvent, p);
             float x = AMotionEvent_getX(anEvent, p);
@@ -432,16 +429,16 @@ bool Android_Window::handleAndroidInputEvent(AInputEvent* anEvent)
             switch (action)
             {
             case AMOTION_EVENT_ACTION_DOWN:
-                LOG("touch down event = id: %d - xy: %f, %f", id, x, y);
+                vsg::debug("touch down event = id: ", id, " - xy: ", x, ", ", y);
                 bufferedEvents.emplace_back(vsg::TouchDownEvent::create(this, event_time, x, y, id));
                 break;
             case AMOTION_EVENT_ACTION_MOVE:
-                LOG("touch move event = id: %d - xy: %f, %f", id, x, y);
+                vsg::debug("touch move event = id: ", id, " - xy: ", x, ", ", y);
                 bufferedEvents.emplace_back(vsg::TouchMoveEvent::create(this, event_time, x, y, id));
                 break;
             case AMOTION_EVENT_ACTION_UP:
             case AMOTION_EVENT_ACTION_CANCEL: // for now just treat cancel as up
-                LOG("touch up event = id: %d - xy: %f, %f", id, x, y);
+                vsg::debug("touch up event = id: ", id, " - xy: ", x, ", ", y);
                 bufferedEvents.emplace_back(vsg::TouchUpEvent::create(this, event_time, x, y, id));
                 break;
             default: break;
@@ -458,9 +455,9 @@ bool Android_Window::handleAndroidInputEvent(AInputEvent* anEvent)
 
         int32_t keycode = AKeyEvent_getKeyCode(anEvent);
         int32_t metastate = AKeyEvent_getMetaState(anEvent);
-        int32_t flags = AKeyEvent_getFlags(anEvent);
-        int32_t scancode = AKeyEvent_getScanCode(anEvent);
-        int32_t repeatcount = AKeyEvent_getRepeatCount(anEvent);
+        // int32_t flags = AKeyEvent_getFlags(anEvent);
+        // int32_t scancode = AKeyEvent_getScanCode(anEvent);
+        // int32_t repeatcount = AKeyEvent_getRepeatCount(anEvent);
 
         vsg::KeySymbol keySymbol, modifiedKeySymbol;
         vsg::KeyModifier keyModifier;
@@ -470,11 +467,11 @@ bool Android_Window::handleAndroidInputEvent(AInputEvent* anEvent)
         switch (action)
         {
             case AKEY_EVENT_ACTION_DOWN:
-                LOG("key down event = unmodified: %d modified:%d", int32_t(keySymbol), int32_t(modifiedKeySymbol));
+                vsg::debug("key down event = unmodified: ", int32_t(keySymbol), " modified: ", int32_t(modifiedKeySymbol));
                 bufferedEvents.emplace_back(vsg::KeyPressEvent::create(this, event_time, keySymbol, modifiedKeySymbol, keyModifier));
                 break;
             case AKEY_EVENT_ACTION_UP:
-                LOG("key up event = unmodified: %d modified:%d", int32_t(keySymbol), int32_t(modifiedKeySymbol));
+                vsg::debug("key up event = unmodified: ", int32_t(keySymbol), " modified: ", int32_t(modifiedKeySymbol));
                 bufferedEvents.emplace_back(vsg::KeyReleaseEvent::create(this, event_time, keySymbol, modifiedKeySymbol, keyModifier));
                 break;
                 //case AKEY_EVENT_ACTION_MULTIPLE:

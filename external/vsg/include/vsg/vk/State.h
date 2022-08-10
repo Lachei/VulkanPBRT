@@ -15,9 +15,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/commands/PushConstants.h>
 #include <vsg/maths/plane.h>
 #include <vsg/nodes/MatrixTransform.h>
-#include <vsg/state/ComputePipeline.h>
-#include <vsg/state/DescriptorSet.h>
-#include <vsg/state/GraphicsPipeline.h>
 #include <vsg/vk/CommandBuffer.h>
 
 #include <array>
@@ -164,10 +161,10 @@ namespace vsg
         {
             face[0].set(1.0, 0.0, 0.0, 1.0);                                    // left plane
             face[1].set(-1.0, 0.0, 0.0, 1.0);                                   // right plane
-            face[2].set(0.0, 1.0, 0.0, 1.0);                                    // bottom plane
-            face[3].set(0.0, -1.0, 0.0, 1.0);                                   // top plane
-            if constexpr (POLYTOPE_SIZE >= 5) face[4].set(0.0, 0.0, -1.0, 1.0); // far plane
-            if constexpr (POLYTOPE_SIZE >= 6) face[5].set(0.0, 0.0, 1.0, 1.0);  // near plane
+            face[2].set(0.0, -1.0, 0.0, 1.0);                                   // bottom plane
+            face[3].set(0.0, 1.0, 0.0, 1.0);                                    // top plane
+            if constexpr (POLYTOPE_SIZE >= 5) face[4].set(0.0, 0.0, 1.0, 0.0);  // far plane
+            if constexpr (POLYTOPE_SIZE >= 6) face[5].set(0.0, 0.0, -1.0, 1.0); // near plane
         }
 
         template<class M>

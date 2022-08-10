@@ -15,8 +15,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/vk/CommandBuffer.h>
 #include <vsg/vk/Extensions.h>
 
-#include <iostream>
-
 using namespace vsg;
 
 DrawMeshTasksIndirectCount::DrawMeshTasksIndirectCount() :
@@ -88,6 +86,6 @@ void DrawMeshTasksIndirectCount::compile(Context& context)
 void DrawMeshTasksIndirectCount::record(vsg::CommandBuffer& commandBuffer) const
 {
     Device* device = commandBuffer.getDevice();
-    Extensions* extensions = Extensions::Get(device, true);
+    auto extensions = device->getExtensions();
     extensions->vkCmdDrawMeshTasksIndirectCountNV(commandBuffer, drawParameters->buffer->vk(commandBuffer.deviceID), drawParameters->offset, drawCount->buffer->vk(commandBuffer.deviceID), drawCount->offset, maxDrawCount, stride);
 }

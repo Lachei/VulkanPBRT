@@ -4,7 +4,7 @@
 #include<vsg/core/Exception.h>
 
 void vsg::RayTracingShaderBindingTable::compile(Context& context){
-    Extensions* extensions = Extensions::Get(context.device, true);
+    const Extensions* extensions = context.device->getExtensions();
     auto rayTracingProperties = context.device->getPhysicalDevice()->getProperties<VkPhysicalDeviceRayTracingPipelinePropertiesKHR, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR>();
     auto alignedSize = [](uint32_t value, uint32_t alignment)
     {

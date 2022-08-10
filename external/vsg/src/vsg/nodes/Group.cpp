@@ -10,11 +10,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
-#include <vsg/nodes/Group.h>
-
+#include <vsg/core/compare.h>
 #include <vsg/io/Input.h>
 #include <vsg/io/Options.h>
 #include <vsg/io/Output.h>
+#include <vsg/nodes/Group.h>
 
 using namespace vsg;
 
@@ -23,53 +23,29 @@ Group::Group(size_t numChildren) :
 {
 }
 
-Group::Group(Allocator* allocator, size_t numChildren) :
-    Inherit(allocator),
-    children(numChildren)
+Group::~Group()
 {
 }
 
-Group::~Group()
+int Group::compare(const Object& rhs_object) const
 {
+    int result = Object::compare(rhs_object);
+    if (result != 0) return result;
+
+    auto& rhs = static_cast<decltype(*this)>(rhs_object);
+    return compare_pointer_container(children, rhs.children);
 }
 
 void Group::read(Input& input)
 {
     Node::read(input);
 
-    if (input.version_greater_equal(0, 1, 4))
-    {
-        input.read("children", children);
-    }
-    else
-    {
-        uint32_t numChildren = input.readValue<uint32_t>("NumChildren");
-
-        children.clear();
-        children.reserve(numChildren);
-        for (uint32_t i = 0; i < numChildren; ++i)
-        {
-            ref_ptr<Node> child;
-            input.read("Child", child);
-            if (child) children.push_back(child);
-        }
-    }
+    input.readObjects("children", children);
 }
 
 void Group::write(Output& output) const
 {
     Node::write(output);
 
-    if (output.version_greater_equal(0, 1, 4))
-    {
-        output.write("children", children);
-    }
-    else
-    {
-        output.writeValue<uint32_t>("NumChildren", children.size());
-        for (auto& child : children)
-        {
-            output.write("Child", child);
-        }
-    }
+    output.writeObjects("children", children);
 }

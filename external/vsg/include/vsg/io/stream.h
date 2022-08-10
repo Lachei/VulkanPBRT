@@ -14,7 +14,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 #include <vsg/core/ref_ptr.h>
 #include <vsg/core/type_name.h>
+#include <vsg/io/Path.h>
 #include <vsg/maths/box.h>
+#include <vsg/maths/mat3.h>
 #include <vsg/maths/mat4.h>
 #include <vsg/maths/plane.h>
 #include <vsg/maths/quat.h>
@@ -103,6 +105,17 @@ namespace vsg
         return input;
     }
 
+    // stream support for vsg::t_mat3
+    template<typename T>
+    std::ostream& operator<<(std::ostream& output, const vsg::t_mat3<T>& mat)
+    {
+        output << std::endl;
+        output << "    " << mat(0, 0) << " " << mat(1, 0) << " " << mat(2, 0) << std::endl;
+        output << "    " << mat(0, 1) << " " << mat(1, 1) << " " << mat(2, 1) << std::endl;
+        output << "    " << mat(0, 2) << " " << mat(1, 2) << " " << mat(2, 2) << std::endl;
+        return output;
+    }
+
     // stream support for vsg::t_mat4
     template<typename T>
     std::ostream& operator<<(std::ostream& output, const vsg::t_mat4<T>& mat)
@@ -182,5 +195,19 @@ namespace vsg
     std::ostream& operator<<(typename std::enable_if<std::is_enum<T>::value, std::ostream>::type& stream, const T& e)
     {
         return stream << static_cast<typename std::underlying_type<T>::type>(e);
+    }
+
+    inline std::ostream& operator<<(std::ostream& output, const vsg::Path& path)
+    {
+        output << path.string();
+        return output;
+    }
+
+    inline std::istream& operator>>(std::istream& input, vsg::Path& path)
+    {
+        std::string str;
+        input >> str;
+        path = str;
+        return input;
     }
 } // namespace vsg

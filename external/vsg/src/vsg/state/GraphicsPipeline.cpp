@@ -11,6 +11,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 </editor-fold> */
 
 #include <vsg/core/Exception.h>
+#include <vsg/core/compare.h>
 #include <vsg/io/Options.h>
 #include <vsg/state/GraphicsPipeline.h>
 #include <vsg/traversals/CompileTraversal.h>
@@ -38,33 +39,27 @@ GraphicsPipeline::~GraphicsPipeline()
 {
 }
 
+int GraphicsPipeline::compare(const Object& rhs_object) const
+{
+    int result = Object::compare(rhs_object);
+    if (result != 0) return result;
+
+    auto& rhs = static_cast<decltype(*this)>(rhs_object);
+
+    if ((result = compare_pointer_container(stages, rhs.stages))) return result;
+    if ((result = compare_pointer_container(pipelineStates, rhs.pipelineStates))) return result;
+    if ((result = compare_pointer(layout, rhs.layout))) return result;
+    if ((result = compare_pointer(renderPass, rhs.renderPass))) return result;
+    return compare_value(subpass, rhs.subpass);
+}
+
 void GraphicsPipeline::read(Input& input)
 {
     Object::read(input);
 
-    if (input.version_greater_equal(0, 1, 4))
-    {
-        input.read("layout", layout);
-        input.read("stages", stages);
-        input.read("pipelineStates", pipelineStates);
-    }
-    else
-    {
-        input.read("PipelineLayout", layout);
-
-        stages.resize(input.readValue<uint32_t>("NumShaderStages"));
-        for (auto& shaderStage : stages)
-        {
-            input.read("ShaderStage", shaderStage);
-        }
-
-        pipelineStates.resize(input.readValue<uint32_t>("NumPipelineStates"));
-        for (auto& pipelineState : pipelineStates)
-        {
-            input.read("PipelineState", pipelineState);
-        }
-    }
-
+    input.readObject("layout", layout);
+    input.readObjects("stages", stages);
+    input.readObjects("pipelineStates", pipelineStates);
     input.read("subpass", subpass);
 }
 
@@ -72,29 +67,9 @@ void GraphicsPipeline::write(Output& output) const
 {
     Object::write(output);
 
-    if (output.version_greater_equal(0, 1, 4))
-    {
-        output.write("layout", layout);
-        output.write("stages", stages);
-        output.write("pipelineStates", pipelineStates);
-    }
-    else
-    {
-        output.write("PipelineLayout", layout);
-
-        output.writeValue<uint32_t>("NumShaderStages", stages.size());
-        for (auto& shaderStage : stages)
-        {
-            output.write("ShaderStage", shaderStage);
-        }
-
-        output.writeValue<uint32_t>("NumPipelineStates", pipelineStates.size());
-        for (auto& pipelineState : pipelineStates)
-        {
-            output.write("PipelineState", pipelineState);
-        }
-    }
-
+    output.writeObject("layout", layout);
+    output.writeObjects("stages", stages);
+    output.writeObjects("pipelineStates", pipelineStates);
     output.write("subpass", subpass);
 }
 
@@ -207,32 +182,27 @@ BindGraphicsPipeline::~BindGraphicsPipeline()
 {
 }
 
+int BindGraphicsPipeline::compare(const Object& rhs_object) const
+{
+    int result = StateCommand::compare(rhs_object);
+    if (result != 0) return result;
+
+    auto& rhs = static_cast<decltype(*this)>(rhs_object);
+    return compare_pointer(pipeline, rhs.pipeline);
+}
+
 void BindGraphicsPipeline::read(Input& input)
 {
     StateCommand::read(input);
 
-    if (input.version_greater_equal(0, 1, 4))
-    {
-        input.read("pipeline", pipeline);
-    }
-    else
-    {
-        input.read("GraphicsPipeline", pipeline);
-    }
+    input.readObject("pipeline", pipeline);
 }
 
 void BindGraphicsPipeline::write(Output& output) const
 {
     StateCommand::write(output);
 
-    if (output.version_greater_equal(0, 1, 4))
-    {
-        output.write("pipeline", pipeline);
-    }
-    else
-    {
-        output.write("GraphicsPipeline", pipeline);
-    }
+    output.writeObject("pipeline", pipeline);
 }
 
 void BindGraphicsPipeline::record(CommandBuffer& commandBuffer) const

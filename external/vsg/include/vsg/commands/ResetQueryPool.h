@@ -2,7 +2,7 @@
 
 /* <editor-fold desc="MIT License">
 
-Copyright(c) 2022 Josef Stumpfegger
+Copyright(c) 2022 Josef Stumpfegger & Robert Osfield
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -17,12 +17,19 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 namespace vsg
 {
+    /// encapsulation of vkCmdResetQueryPool
     class VSG_DECLSPEC ResetQueryPool : public Inherit<Command, ResetQueryPool>
     {
     public:
-        ResetQueryPool(ref_ptr<QueryPool> pool):queryPool(pool) {};
+        ResetQueryPool();
+        explicit ResetQueryPool(ref_ptr<QueryPool> pool);
 
         ref_ptr<QueryPool> queryPool;
+        uint32_t firstQuery = 0;
+        uint32_t queryCount = 0;
+
+        void read(Input& input) override;
+        void write(Output& output) const override;
 
         void compile(Context& context) override;
 

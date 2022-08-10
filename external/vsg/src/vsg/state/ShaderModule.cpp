@@ -11,6 +11,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 </editor-fold> */
 
 #include <vsg/core/Exception.h>
+#include <vsg/core/compare.h>
 #include <vsg/io/Options.h>
 #include <vsg/io/read.h>
 #include <vsg/state/ShaderModule.h>
@@ -22,6 +23,22 @@ using namespace vsg;
 //
 // ShaderCompileSettings
 //
+int ShaderCompileSettings::compare(const Object& rhs_object) const
+{
+    int result = Object::compare(rhs_object);
+    if (result != 0) return result;
+
+    auto& rhs = static_cast<decltype(*this)>(rhs_object);
+
+    if ((result = compare_value(vulkanVersion, rhs.vulkanVersion))) return result;
+    if ((result = compare_value(clientInputVersion, rhs.clientInputVersion))) return result;
+    if ((result = compare_value(language, rhs.language))) return result;
+    if ((result = compare_value(defaultVersion, rhs.defaultVersion))) return result;
+    if ((result = compare_value(target, rhs.target))) return result;
+    if ((result = compare_value(forwardCompatible, rhs.forwardCompatible))) return result;
+    return compare_container(defines, rhs.defines);
+}
+
 void ShaderCompileSettings::read(Input& input)
 {
     input.read("vulkanVersion", vulkanVersion);
@@ -31,10 +48,7 @@ void ShaderCompileSettings::read(Input& input)
     input.readValue<int>("target", target);
     input.read("forwardCompatible", forwardCompatible);
 
-    if (input.version_greater_equal(0, 1, 4))
-    {
-        input.read("defines", defines);
-    }
+    input.readValues("defines", defines);
 }
 
 void ShaderCompileSettings::write(Output& output) const
@@ -46,10 +60,7 @@ void ShaderCompileSettings::write(Output& output) const
     output.writeValue<int>("target", target);
     output.write("forwardCompatible", forwardCompatible);
 
-    if (output.version_greater_equal(0, 1, 4))
-    {
-        output.write("defines", defines);
-    }
+    output.writeValues("defines", defines);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -81,21 +92,25 @@ ShaderModule::~ShaderModule()
 {
 }
 
+int ShaderModule::compare(const Object& rhs_object) const
+{
+    int result = Object::compare(rhs_object);
+    if (result != 0) return result;
+
+    auto& rhs = static_cast<decltype(*this)>(rhs_object);
+
+    if ((result = compare_value(source, rhs.source))) return result;
+    if ((result = compare_pointer(hints, rhs.hints))) return result;
+    return compare_value(code, rhs.code);
+}
+
 void ShaderModule::read(Input& input)
 {
     Object::read(input);
 
-    // TODO review IO
-    input.read("Source", source);
-
-    if (input.version_greater_equal(0, 1, 3))
-    {
-        input.readObject("hints", hints);
-    }
-
-    code.resize(input.readValue<uint32_t>("SPIRVSize"));
-
-    input.matchPropertyName("SPIRV");
+    input.readObject("hints", hints);
+    input.read("source", source);
+    code.resize(input.readValue<uint32_t>("code"));
     input.read(code.size(), code.data());
 }
 
@@ -103,16 +118,10 @@ void ShaderModule::write(Output& output) const
 {
     Object::write(output);
 
-    output.write("Source", source);
-
-    if (output.version_greater_equal(0, 1, 3))
-    {
-        output.writeObject("hints", hints);
-    }
-
-    output.writeValue<uint32_t>("SPIRVSize", code.size());
-
-    output.writePropertyName("SPIRV");
+    output.writeObject("hints", hints);
+    output.write("source", source);
+    output.writeValue<uint32_t>("code", code.size());
+    output.writePropertyName(""); // convenient way of forcing an indent to the appropriate column when writing out to ascii, doesn't require a matching matchProprertyName() in ShaderModel::read(..).
     output.write(code.size(), code.data());
     output.writeEndOfLine();
 }

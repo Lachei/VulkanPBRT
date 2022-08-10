@@ -11,11 +11,10 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 </editor-fold> */
 
 #include <vsg/io/BinaryInput.h>
+#include <vsg/io/Logger.h>
 #include <vsg/io/ReaderWriter.h>
 
 #include <cstring>
-#include <iostream>
-#include <sstream>
 
 using namespace vsg;
 
@@ -48,6 +47,25 @@ void BinaryInput::read(size_t num, std::string* value)
     }
 }
 
+void BinaryInput::read(size_t num, Path* value)
+{
+    if (num == 1)
+    {
+        std::string str_value;
+        _read(str_value);
+        *value = str_value;
+    }
+    else
+    {
+        for (; num > 0; --num, ++value)
+        {
+            std::string str_value;
+            _read(str_value);
+            *value = str_value;
+        }
+    }
+}
+
 vsg::ref_ptr<vsg::Object> BinaryInput::read()
 {
     ObjectID id = objectID();
@@ -70,7 +88,7 @@ vsg::ref_ptr<vsg::Object> BinaryInput::read()
             }
             else
             {
-                std::cout << "Unable to create instance of class : " << className << std::endl;
+                warn("Unable to create instance of class : ", className);
             }
         }
 

@@ -1,6 +1,9 @@
 if(SLAVE_PROJECTS)
     set(CMAKE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../..)
 endif()
+
+include(CheckCXXSourceCompiles)
+
 # collect all the headers in the source directory
 file(GLOB HEADERS ${CMAKE_SOURCE_DIR}/include/vsg/*.h ${CMAKE_SOURCE_DIR}/include/vsg/*/*.h ${CMAKE_SOURCE_DIR}/include/SPIRV-Reflect/*.h)
 
@@ -18,12 +21,11 @@ set(SOURCES
     core/ConstVisitor.cpp
     core/Data.cpp
     core/External.cpp
+    core/MemorySlots.cpp
     core/Object.cpp
     core/Objects.cpp
     core/Visitor.cpp
     core/Version.cpp
-
-    introspection/c_interface.cpp
 
     maths/maths_transform.cpp
 
@@ -35,6 +37,7 @@ set(SOURCES
     nodes/CullNode.cpp
     nodes/LOD.cpp
     nodes/PagedLOD.cpp
+    nodes/AbsoluteTransform.cpp
     nodes/MatrixTransform.cpp
     nodes/Transform.cpp
     nodes/VertexIndexDraw.cpp
@@ -42,6 +45,8 @@ set(SOURCES
     nodes/Bin.cpp
     nodes/Switch.cpp
     nodes/StateGroup.cpp
+    nodes/Light.cpp
+    nodes/TileDatabase.cpp
 
     commands/BindIndexBuffer.cpp
     commands/BindVertexBuffers.cpp
@@ -65,9 +70,16 @@ set(SOURCES
     commands/SetLineWidth.cpp
     commands/SetScissor.cpp
     commands/SetViewport.cpp
+    commands/ResolveImage.cpp
     commands/ResetQueryPool.cpp
     commands/WriteTimestamp.cpp
+    commands/BeginQuery.cpp
+    commands/EndQuery.cpp
+    commands/CopyQueryPoolResults.cpp
+    commands/ExecuteCommands.cpp
 
+    state/ArrayState.cpp
+    state/BindDescriptorSet.cpp
     state/Buffer.cpp
     state/BufferInfo.cpp
     state/BufferView.cpp
@@ -98,8 +110,10 @@ set(SOURCES
     state/DepthStencilState.cpp
     state/ColorBlendState.cpp
     state/DynamicState.cpp
+    state/ViewDependentState.cpp
     state/QueryPool.cpp
 
+    io/convert_utf.cpp
     io/FileSystem.cpp
     io/AsciiInput.cpp
     io/DatabasePager.cpp
@@ -107,13 +121,15 @@ set(SOURCES
     io/BinaryInput.cpp
     io/BinaryOutput.cpp
     io/Input.cpp
-    io/ObjectCache.cpp
+    io/Logger.cpp
     io/Output.cpp
     io/Options.cpp
     io/ObjectFactory.cpp
+    io/Path.cpp
     io/ReaderWriter.cpp
     io/VSG.cpp
     io/spirv.cpp
+    io/tile.cpp
     io/read.cpp
     io/write.cpp
 
@@ -123,7 +139,6 @@ set(SOURCES
     text/StandardLayout.cpp
     text/Text.cpp
 
-    traversals/ArrayState.cpp
     traversals/RecordTraversal.cpp
     traversals/CompileTraversal.cpp
     traversals/ComputeBounds.cpp
@@ -132,24 +147,28 @@ set(SOURCES
     traversals/LoadPagedLOD.cpp
 
     threading/Affinity.cpp
-    threading/OperationQueue.cpp
     threading/OperationThreads.cpp
 
     viewer/Camera.cpp
+    viewer/CompileManager.cpp
     viewer/EllipsoidModel.cpp
     viewer/Viewer.cpp
     viewer/Window.cpp
     viewer/WindowAdapter.cpp
+    viewer/WindowTraits.cpp
     viewer/Trackball.cpp
     viewer/CopyImageViewToWindow.cpp
-    viewer/ExecuteCommands.cpp
     viewer/CommandGraph.cpp
+    viewer/SecondaryCommandGraph.cpp
     viewer/RenderGraph.cpp
     viewer/Presentation.cpp
     viewer/RecordAndSubmitTask.cpp
     viewer/WindowResizeHandler.cpp
     viewer/View.cpp
     viewer/FlyNavigation.cpp
+    viewer/ViewMatrix.cpp
+    viewer/ProjectionMatrix.cpp
+    viewer/UpdateOperations.cpp
 
     raytracing/AccelerationGeometry.cpp
     raytracing/AccelerationStructure.cpp
@@ -182,7 +201,6 @@ set(SOURCES
     vk/CommandBuffer.cpp
     vk/CommandPool.cpp
     vk/Context.cpp
-    vk/ShaderCompiler.cpp
     vk/DescriptorPool.cpp
     vk/Device.cpp
     vk/DeviceFeatures.cpp
@@ -203,7 +221,11 @@ set(SOURCES
     utils/AnimationPath.cpp
     utils/CommandLine.cpp
     utils/Builder.cpp
-    
+    utils/SharedObjects.cpp
+    utils/ShaderSet.cpp
+    utils/GraphicsPipelineConfig.cpp
+    utils/ShaderCompiler.cpp
+
     SPIRV-Reflect/spirv_reflect.cpp
 )
 # add platform specific Window implementation
@@ -216,6 +238,20 @@ set(LIBRARIES PUBLIC
         Vulkan::Vulkan
         Threads::Threads
 )
+
+# Check for std::atomic
+if(NOT MSVC AND NOT ANDROID AND NOT APPLE)
+  check_cxx_source_compiles("
+    #include <atomic>
+    std::atomic<int> a;
+    int main() { return a; }"
+    HAVE_CXX_ATOMIC_WITHOUT_LIB
+  )
+  if(NOT HAVE_CXX_ATOMIC_WITHOUT_LIB)
+    find_library(CXX_ATOMIC_LIBRARIES NAMES atomic atomic.so.1 libatomic.so.1 REQUIRED)
+    list(APPEND LIBRARIES ${CXX_ATOMIC_LIBRARIES})
+  endif()
+endif()
 
 if (glslang_FOUND)
     set(LIBRARIES ${LIBRARIES} PUBLIC ${glslang_LIBRARIES})
@@ -238,6 +274,36 @@ if (glslang_FOUND)
                 return 0;
             }
         " GLSLANG_ResourceLimits_maxDualSourceDrawBuffersEXT)
+    endif()
+
+    if (NOT GLSLANG_EShLanguage_EShLangRayGen)
+        check_cxx_source_runs("
+            #include <glslang/Public/ShaderLang.h>
+
+            int main()
+            {
+                EShLanguage result = EShLangRayGen;
+                return 0;
+            }
+        " GLSLANG_EShLanguage_EShLangRayGen)
+    endif()
+
+    if (NOT GLSLANG_EShLanguage_EShLangRayGenNV)
+        check_cxx_source_runs("
+            #include <glslang/Public/ShaderLang.h>
+
+            int main()
+            {
+                EShLanguage result = EShLangRayGenNV;
+                return 0;
+            }
+        " GLSLANG_EShLanguage_EShLangRayGenNV)
+    endif()
+
+    if (GLSLANG_EShLanguage_EShLangRayGen)
+        set(EXTRA_DEFINES ${EXTRA_DEFINES} "GLSLANG_EShLangRayGen")
+    elseif (GLSLANG_EShLanguage_EShLangRayGenNV)
+        set(EXTRA_DEFINES ${EXTRA_DEFINES} "GLSLANG_EShLangRayGenNV")
     endif()
 
     # check whether glslang/build_info.h exists
@@ -264,6 +330,16 @@ if (ANDROID)
 
 elseif (WIN32)
     set(SOURCES ${SOURCES} platform/win32/Win32_Window.cpp)
+elseif (IOS)
+    set(HEADERS ${HEADERS}
+        ${CMAKE_SOURCE_DIR}/include/vsg/platform/ios/iOS_Window.h
+        ${CMAKE_SOURCE_DIR}/include/vsg/platform/ios/iOS_ViewController.h
+    )
+    set(SOURCES ${SOURCES}
+        platform/ios/iOS_Window.mm
+        platform/ios/iOS_ViewController.mm
+    )
+    set(LIBRARIES ${LIBRARIES} PRIVATE ${UIKIT_LIBRARY} PRIVATE ${QUARTZCORE_LIBRARY})
 elseif (APPLE)
     set(SOURCES ${SOURCES} platform/macos/MacOS_Window.mm)
     set(LIBRARIES ${LIBRARIES} PRIVATE ${COCOA_LIBRARY} PRIVATE ${QUARTZCORE_LIBRARY})

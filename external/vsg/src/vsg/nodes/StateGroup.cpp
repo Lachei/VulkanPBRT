@@ -10,16 +10,15 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
-#include <vsg/nodes/StateGroup.h>
-
+#include <vsg/core/compare.h>
 #include <vsg/io/Input.h>
 #include <vsg/io/Options.h>
 #include <vsg/io/Output.h>
+#include <vsg/nodes/StateGroup.h>
 
 using namespace vsg;
 
-StateGroup::StateGroup(Allocator* allocator) :
-    Inherit(allocator)
+StateGroup::StateGroup()
 {
 }
 
@@ -27,50 +26,30 @@ StateGroup::~StateGroup()
 {
 }
 
+int StateGroup::compare(const Object& rhs_object) const
+{
+    int result = Group::compare(rhs_object);
+    if (result != 0) return result;
+
+    auto& rhs = static_cast<decltype(*this)>(rhs_object);
+    if ((result = compare_pointer_container(stateCommands, rhs.stateCommands))) return result;
+    return compare_pointer(prototypeArrayState, rhs.prototypeArrayState);
+}
+
 void StateGroup::read(Input& input)
 {
     Group::read(input);
 
-    if (input.version_greater_equal(0, 1, 4))
-    {
-        input.read("stateCommands", stateCommands);
-    }
-    else
-    {
-        stateCommands.resize(input.readValue<uint32_t>("NumStateCommands"));
-        for (auto& command : stateCommands)
-        {
-            input.read("StateCommand", command);
-        }
-    }
-
-    if (input.version_greater_equal(0, 2, 3))
-    {
-        input.readObject("prototypeArrayState", prototypeArrayState);
-    }
+    input.readObjects("stateCommands", stateCommands);
+    input.readObject("prototypeArrayState", prototypeArrayState);
 }
 
 void StateGroup::write(Output& output) const
 {
     Group::write(output);
 
-    if (output.version_greater_equal(0, 1, 4))
-    {
-        output.write("stateCommands", stateCommands);
-    }
-    else
-    {
-        output.writeValue<uint32_t>("NumStateCommands", stateCommands.size());
-        for (auto& command : stateCommands)
-        {
-            output.write("StateCommand", command);
-        }
-    }
-
-    if (output.version_greater_equal(0, 2, 3))
-    {
-        output.write("prototypeArrayState", prototypeArrayState);
-    }
+    output.writeObjects("stateCommands", stateCommands);
+    output.write("prototypeArrayState", prototypeArrayState);
 }
 
 void StateGroup::compile(Context& context)

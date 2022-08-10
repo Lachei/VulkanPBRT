@@ -481,6 +481,26 @@ void Visitor::apply(Switch& value)
 {
     apply(static_cast<Node&>(value));
 }
+void Visitor::apply(Light& value)
+{
+    apply(static_cast<Node&>(value));
+}
+void Visitor::apply(AmbientLight& value)
+{
+    apply(static_cast<Light&>(value));
+}
+void Visitor::apply(DirectionalLight& value)
+{
+    apply(static_cast<Light&>(value));
+}
+void Visitor::apply(PointLight& value)
+{
+    apply(static_cast<Light&>(value));
+}
+void Visitor::apply(SpotLight& value)
+{
+    apply(static_cast<Light&>(value));
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -623,6 +643,30 @@ void Visitor::apply(DrawIndexed& value)
     apply(static_cast<Command&>(value));
 }
 void Visitor::apply(ClearAttachments& value)
+{
+    apply(static_cast<Command&>(value));
+}
+void Visitor::apply(QueryPool& value)
+{
+    apply(static_cast<Object&>(value));
+}
+void Visitor::apply(ResetQueryPool& value)
+{
+    apply(static_cast<Command&>(value));
+}
+void Visitor::apply(BeginQuery& value)
+{
+    apply(static_cast<Command&>(value));
+}
+void Visitor::apply(EndQuery& value)
+{
+    apply(static_cast<Command&>(value));
+}
+void Visitor::apply(WriteTimestamp& value)
+{
+    apply(static_cast<Command&>(value));
+}
+void Visitor::apply(CopyQueryPoolResults& value)
 {
     apply(static_cast<Command&>(value));
 }

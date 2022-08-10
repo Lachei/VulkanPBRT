@@ -1,67 +1,106 @@
 #pragma once
 
+/* <editor-fold desc="MIT License">
+
+Copyright(c) 2022 Robert Osfield
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+</editor-fold> */
+
+#include <vsg/maths/transform.h>
 #include <vsg/nodes/Node.h>
-
-#include <vsg/maths/vec3.h>
-
-#include <vsg/traversals/CompileTraversal.h>
 
 namespace vsg
 {
-    enum LightSourceType
-    {
-        Undefined,
-        Directional,
-        Point,
-        Spot,
-        Ambient,
-        Area
-    };
+
     class VSG_DECLSPEC Light : public Inherit<Node, Light>
     {
     public:
-        struct PackedLight{
-            vec3 v0;
-            float type;
-            vec3 v1;
-            float radius;   //radius is used to give a point light a spherical influence
-            vec3 v2;
-            float angle;
-            vec3 dir;
-            float angle2;
-            vec4 colorAmbient;
-            vec4 colorDiffuse;
-            vec4 colorSpecular;
-            vec3 strengths; //Attenuation factors, x is constant, y is linear, and z is quadratic.(d is distance) Att = 1/( x + y * d + z * d*d)
-            float inclusiveStrength;
-        };
-        Light(){};
-        Light(vsg::ref_ptr<vsg::Light>& other){
-            *this = *other;
-        }
         std::string name;
-        // positions of the vertices of a triangle (only first vertex is used if litght type is not area)
-        vec3 v0, v1, v2, dir, colorAmbient, colorDiffuse, colorSpecular, strengths;
-        LightSourceType type;
-        float angle, angle2, radius;
+        vec3 color = vec3(1.0f, 1.0f, 1.0f);
+        float intensity = 1.0f;
 
-        PackedLight getPacked() const{
-            PackedLight p;
-            p.v0 = v0;
-            p.v1 = v1;
-            p.v2 = v2;
-            p.dir = dir;
-            p.colorAmbient.set(colorAmbient.x, colorAmbient.y, colorAmbient.z, 0);
-            p.colorDiffuse.set(colorDiffuse.x, colorDiffuse.y, colorDiffuse.z, 0);
-            p.colorSpecular.set(colorSpecular.x, colorSpecular.y, colorSpecular.z, 0);
-            p.type = (float) type;
-            p.strengths = strengths;
-            p.angle = angle;
-            p.angle = angle2;
-            p.radius = radius;
+        void read(Input& input) override;
+        void write(Output& output) const override;
 
-            return p;
-        }
     protected:
-    }; 
-}
+        virtual ~Light() {}
+    };
+    VSG_type_name(vsg::Light);
+
+    class VSG_DECLSPEC AmbientLight : public Inherit<Light, AmbientLight>
+    {
+    public:
+        void read(Input& input) override;
+        void write(Output& output) const override;
+
+    protected:
+        virtual ~AmbientLight() {}
+    };
+    VSG_type_name(vsg::AmbientLight);
+
+    class VSG_DECLSPEC DirectionalLight : public Inherit<Light, DirectionalLight>
+    {
+    public:
+        dvec3 direction = dvec3(0.0, 0.0, -1.0);
+
+        void read(Input& input) override;
+        void write(Output& output) const override;
+
+    protected:
+        virtual ~DirectionalLight() {}
+    };
+    VSG_type_name(vsg::DirectionalLight);
+
+    class VSG_DECLSPEC PointLight : public Inherit<Light, PointLight>
+    {
+    public:
+        dvec3 position = dvec3(0.0, 0.0, 0.0);
+
+        void read(Input& input) override;
+        void write(Output& output) const override;
+
+    protected:
+        virtual ~PointLight() {}
+    };
+    VSG_type_name(vsg::PointLight);
+
+    class VSG_DECLSPEC SpotLight : public Inherit<Light, SpotLight>
+    {
+    public:
+        dvec3 position = dvec3(0.0, 0.0, 0.0);
+        dvec3 direction = dvec3(0.0, 0.0, -1.0);
+        double innerAngle = radians(30.0);
+        double outerAngle = radians(45.0);
+
+        void read(Input& input) override;
+        void write(Output& output) const override;
+
+    protected:
+        virtual ~SpotLight() {}
+    };
+    VSG_type_name(vsg::SpotLight);
+
+    class VSG_DECLSPEC TriangleLight : public Inherit<Light, TriangleLight>
+    {
+    public:
+        std::array<dvec3, 3> positions{};
+
+        void read(Input& input) override;
+        void write(Output& output) const override;
+
+    protected:
+        virtual ~TriangleLight() {}
+    };
+    VSG_type_name(vsg::TriangleLight);
+
+
+    /// convenience method for creating a subgraph that creates a headlight illumination using a white AmibientLight and DirectionalLight with intensity of 0.1 and 0.9 respectively.
+    extern VSG_DECLSPEC ref_ptr<vsg::Node> createHeadlight();
+
+} // namespace vsg

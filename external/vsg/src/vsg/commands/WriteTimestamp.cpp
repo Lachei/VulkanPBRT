@@ -1,6 +1,10 @@
 /* <editor-fold desc="MIT License">
 
+<<<<<<< HEAD
 Copyright(c) 2022 Josef Stumpfegger
+=======
+Copyright(c) 2022 Josef Stumpfegger & Robert Osfield
+>>>>>>> 53d4ec104f9437579e75fc761467bf124ecfb152
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
@@ -11,21 +15,46 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 </editor-fold> */
 
 #include <vsg/commands/WriteTimestamp.h>
+#include <vsg/io/Options.h>
 
 using namespace vsg;
 
-void WriteTimestamp::read(Input& input){
-
+WriteTimestamp::WriteTimestamp()
+{
 }
 
-void WriteTimestamp::write(Output& output) const{
-    
+WriteTimestamp::WriteTimestamp(VkPipelineStageFlagBits stage, ref_ptr<QueryPool> pool, uint32_t in_query) :
+    pipelineStage(stage),
+    queryPool(pool),
+    query(in_query)
+{
 }
 
-void WriteTimestamp::compile(Context& context){
-    queryPool->compile(context);
+void WriteTimestamp::read(Input& input)
+{
+    Command::read(input);
+
+    input.readValue<uint32_t>("pipelineStage", pipelineStage);
+    input.readObject("queryPool", queryPool);
+    input.read("query", query);
 }
 
-void WriteTimestamp::record(CommandBuffer& commandBuffer) const{
-    vkCmdWriteTimestamp(commandBuffer, pipelineStage, *queryPool, queryIndex);
+void WriteTimestamp::write(Output& output) const
+{
+    Command::write(output);
+
+    output.writeValue<uint32_t>("pipelineStage", pipelineStage);
+    output.writeObject("queryPool", queryPool);
+    output.write("query", query);
+}
+
+void WriteTimestamp::compile(Context& context)
+{
+    if (queryPool) queryPool->compile(context);
+}
+
+void WriteTimestamp::record(CommandBuffer& commandBuffer) const
+{
+    if (!queryPool) return;
+    vkCmdWriteTimestamp(commandBuffer, pipelineStage, *queryPool, query);
 }

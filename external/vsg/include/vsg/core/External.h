@@ -24,9 +24,8 @@ namespace vsg
     {
     public:
         External();
-        explicit External(Allocator* allocator);
         explicit External(const PathObjects& entries);
-        External(const std::string& filename, ref_ptr<Object> object);
+        External(const vsg::Path& filename, ref_ptr<Object> object);
 
         template<class O, class V>
         static void t_traverse(O& object, V& visitor)

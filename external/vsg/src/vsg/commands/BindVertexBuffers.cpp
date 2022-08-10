@@ -11,6 +11,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 </editor-fold> */
 
 #include <vsg/commands/BindVertexBuffers.h>
+#include <vsg/core/compare.h>
 #include <vsg/io/Options.h>
 #include <vsg/traversals/CompileTraversal.h>
 #include <vsg/vk/CommandBuffer.h>
@@ -25,6 +26,16 @@ BindVertexBuffers::BindVertexBuffers(uint32_t in_firstBinding, const DataList& i
 
 BindVertexBuffers::~BindVertexBuffers()
 {
+}
+
+int BindVertexBuffers::compare(const Object& rhs_object) const
+{
+    int result = Object::compare(rhs_object);
+    if (result != 0) return result;
+
+    auto& rhs = static_cast<decltype(*this)>(rhs_object);
+    if ((result = compare_value(firstBinding, rhs.firstBinding))) return result;
+    return compare_pointer_container(arrays, rhs.arrays);
 }
 
 void BindVertexBuffers::assignArrays(const DataList& arrayData)
@@ -44,17 +55,13 @@ void BindVertexBuffers::read(Input& input)
     // clear Vulkan objects
     _vulkanData.clear();
 
-    if (input.version_greater_equal(0, 1, 4))
-    {
-        input.read("firstBinding", firstBinding);
-    }
+    input.read("firstBinding", firstBinding);
 
-    // read vertex arrays
     DataList dataList;
-    dataList.resize(input.readValue<uint32_t>("NumArrays"));
+    dataList.resize(input.readValue<uint32_t>("arrays"));
     for (auto& array : dataList)
     {
-        input.readObject("Array", array);
+        input.readObject("array", array);
     }
     assignArrays(dataList);
 }
@@ -63,18 +70,15 @@ void BindVertexBuffers::write(Output& output) const
 {
     Command::write(output);
 
-    if (output.version_greater_equal(0, 1, 4))
-    {
-        output.write("firstBinding", firstBinding);
-    }
+    output.write("firstBinding", firstBinding);
 
-    output.writeValue<uint32_t>("NumArrays", arrays.size());
+    output.writeValue<uint32_t>("arrays", arrays.size());
     for (auto& array : arrays)
     {
         if (array)
-            output.writeObject("Array", array->data.get());
+            output.writeObject("array", array->data.get());
         else
-            output.writeObject("Array", nullptr);
+            output.writeObject("array", nullptr);
     }
 }
 
@@ -95,24 +99,12 @@ void BindVertexBuffers::compile(Context& context)
         }
     }
 
-    if (!requiresCreateAndCopy)
+    if (requiresCreateAndCopy)
     {
-        return;
+        createBufferAndTransferData(context, arrays, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE);
     }
 
-    auto& vkd = _vulkanData[context.deviceID];
-
-    vkd.vkBuffers.clear();
-    vkd.offsets.clear();
-
-    if (createBufferAndTransferData(context, arrays, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_SHARING_MODE_EXCLUSIVE))
-    {
-        for (auto& bufferInfo : arrays)
-        {
-            vkd.vkBuffers.push_back(bufferInfo->buffer->vk(context.deviceID));
-            vkd.offsets.push_back(bufferInfo->offset);
-        }
-    }
+    assignVulkanArrayData(deviceID, arrays, _vulkanData[deviceID]);
 }
 
 void BindVertexBuffers::record(CommandBuffer& commandBuffer) const

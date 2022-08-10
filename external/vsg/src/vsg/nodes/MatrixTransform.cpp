@@ -10,51 +10,43 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
+#include <vsg/core/compare.h>
 #include <vsg/io/Options.h>
 #include <vsg/io/stream.h>
 #include <vsg/nodes/MatrixTransform.h>
 
 using namespace vsg;
 
-MatrixTransform::MatrixTransform(Allocator* allocator) :
-    Inherit(allocator)
+MatrixTransform::MatrixTransform()
 {
 }
 
-MatrixTransform::MatrixTransform(const dmat4& in_matrix, Allocator* allocator) :
-    Inherit(allocator),
+MatrixTransform::MatrixTransform(const dmat4& in_matrix) :
     matrix(in_matrix)
 {
+}
+
+int MatrixTransform::compare(const Object& rhs_object) const
+{
+    int result = Transform::compare(rhs_object);
+    if (result != 0) return result;
+
+    auto& rhs = static_cast<decltype(*this)>(rhs_object);
+    return compare_value(matrix, rhs.matrix);
 }
 
 void MatrixTransform::read(Input& input)
 {
     Transform::read(input);
 
-    if (input.version_greater_equal(0, 1, 4))
-    {
-        input.read("matrix", matrix);
-        input.read("subgraphRequiresLocalFrustum", subgraphRequiresLocalFrustum);
-    }
-    else
-    {
-        input.read("Matrix", matrix);
-        input.read("SubgraphRequiresLocalFrustum", subgraphRequiresLocalFrustum);
-    }
+    input.read("matrix", matrix);
+    input.read("subgraphRequiresLocalFrustum", subgraphRequiresLocalFrustum);
 }
 
 void MatrixTransform::write(Output& output) const
 {
     Transform::write(output);
 
-    if (output.version_greater_equal(0, 1, 4))
-    {
-        output.write("matrix", matrix);
-        output.write("subgraphRequiresLocalFrustum", subgraphRequiresLocalFrustum);
-    }
-    else
-    {
-        output.write("Matrix", matrix);
-        output.write("SubgraphRequiresLocalFrustum", subgraphRequiresLocalFrustum);
-    }
+    output.write("matrix", matrix);
+    output.write("subgraphRequiresLocalFrustum", subgraphRequiresLocalFrustum);
 }

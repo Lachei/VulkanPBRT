@@ -11,6 +11,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 </editor-fold> */
 
 #include <vsg/core/Exception.h>
+#include <vsg/io/Logger.h>
 #include <vsg/io/Options.h>
 #include <vsg/vk/PhysicalDevice.h>
 
@@ -29,6 +30,10 @@ PhysicalDevice::PhysicalDevice(Instance* instance, VkPhysicalDevice device) :
 
     _queueFamiles.resize(queueFamilyCount);
     vkGetPhysicalDeviceQueueFamilyProperties(_device, &queueFamilyCount, _queueFamiles.data());
+
+    /// get function pointers
+    instance->getProcAddr(_vkGetPhysicalDeviceFeatures2, "vkGetPhysicalDeviceFeatures2", "vkGetPhysicalDeviceFeatures2KHR");
+    instance->getProcAddr(_vkGetPhysicalDeviceProperties2, "vkGetPhysicalDeviceProperties2", "vkGetPhysicalDeviceProperties2KHR");
 }
 
 PhysicalDevice::~PhysicalDevice()

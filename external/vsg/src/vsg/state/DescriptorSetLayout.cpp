@@ -11,9 +11,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 </editor-fold> */
 
 #include <vsg/core/Exception.h>
+#include <vsg/core/compare.h>
 #include <vsg/io/Options.h>
 #include <vsg/state/DescriptorSetLayout.h>
 #include <vsg/traversals/CompileTraversal.h>
+#include <vsg/viewer/View.h>
 
 using namespace vsg;
 
@@ -34,11 +36,41 @@ DescriptorSetLayout::~DescriptorSetLayout()
 {
 }
 
+void DescriptorSetLayout::getDescriptorPoolSizes(DescriptorPoolSizes& descriptorPoolSizes)
+{
+    for (auto& binding : bindings)
+    {
+        auto itr = descriptorPoolSizes.begin();
+        for (; itr != descriptorPoolSizes.end(); ++itr)
+        {
+            if (itr->type == binding.descriptorType)
+            {
+                itr->descriptorCount += binding.descriptorCount;
+                break;
+            }
+        }
+        if (itr == descriptorPoolSizes.end())
+        {
+            descriptorPoolSizes.emplace_back(VkDescriptorPoolSize{binding.descriptorType, binding.descriptorCount});
+        }
+    }
+}
+
+int DescriptorSetLayout::compare(const Object& rhs_object) const
+{
+    int result = Object::compare(rhs_object);
+    if (result != 0) return result;
+
+    auto& rhs = static_cast<decltype(*this)>(rhs_object);
+    return compare_value_container(bindings, rhs.bindings);
+}
+
 void DescriptorSetLayout::read(Input& input)
 {
     Object::read(input);
 
-    bindings.resize(input.readValue<uint32_t>("NumDescriptorSetLayoutBindings"));
+    bindings.resize(input.readValue<uint32_t>("bindings"));
+
     for (auto& dslb : bindings)
     {
         input.read("binding", dslb.binding);
@@ -52,7 +84,8 @@ void DescriptorSetLayout::write(Output& output) const
 {
     Object::write(output);
 
-    output.writeValue<uint32_t>("NumDescriptorSetLayoutBindings", bindings.size());
+    output.writeValue<uint32_t>("bindings", bindings.size());
+
     for (auto& dslb : bindings)
     {
         output.write("binding", dslb.binding);

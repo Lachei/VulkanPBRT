@@ -12,75 +12,42 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 #include <vsg/core/Auxiliary.h>
 #include <vsg/io/Input.h>
+#include <vsg/io/Logger.h>
 #include <vsg/io/Options.h>
 #include <vsg/io/Output.h>
 
-#if 1
-#    include <iostream>
-#    define DEBUG_NOTIFY \
-        if (false) std::cout
-#else
-#    include <iostream>
-#    define DEBUG_NOTIFY std::cout
-#endif
-
 using namespace vsg;
 
-Auxiliary::Auxiliary(Allocator* allocator) :
+Auxiliary::Auxiliary(Object* object) :
     _referenceCount(0),
-    _connectedObject(0),
-    _allocator(allocator)
+    _connectedObject(object)
 {
-    DEBUG_NOTIFY << "Auxiliary::Auxiliary(Allocator = " << allocator << ") " << this << " " << std::endl;
-}
-
-Auxiliary::Auxiliary(Object* object, Allocator* allocator) :
-    _referenceCount(0),
-    _connectedObject(object),
-    _allocator(allocator)
-{
-    DEBUG_NOTIFY << "Auxiliary::Auxiliary(Object = " << object << ", Allocator = " << allocator << ") " << this << " " << std::endl;
+    //vsg::debug("Auxiliary::Auxiliary(Object = ", object, ") ", this);
 }
 
 Auxiliary::~Auxiliary()
 {
-    DEBUG_NOTIFY << "Auxiliary::~Auxiliary() " << this << std::endl;
-    if (_allocator) _allocator->detachSharedAuxiliary(this);
+    //vsg::debug("Auxiliary::~Auxiliary() ", this);
 }
 
 void Auxiliary::ref() const
 {
     ++_referenceCount;
-    DEBUG_NOTIFY << "Auxiliary::ref() " << this << " " << _referenceCount.load() << std::endl;
+    //debug("Auxiliary::ref() ", this, " ", _referenceCount.load());
 }
 
 void Auxiliary::unref() const
 {
-    DEBUG_NOTIFY << "Auxiliary::unref() " << this << " " << _referenceCount.load() << std::endl;
+    //debug("Auxiliary::unref() ", this, " ", _referenceCount.load());
     if (_referenceCount.fetch_sub(1) <= 1)
     {
-        if (_allocator)
-        {
-            ref_ptr<Allocator> allocator = _allocator;
-
-            std::size_t size = getSizeOf();
-
-            DEBUG_NOTIFY << "  Calling this->~Auxiliary();" << std::endl;
-            this->~Auxiliary();
-
-            DEBUG_NOTIFY << "  After Calling this->~Auxiliary();" << std::endl;
-            allocator->deallocate(this, size);
-        }
-        else
-        {
-            delete this;
-        }
+        delete this;
     }
 }
 
 void Auxiliary::unref_nodelete() const
 {
-    //std::cout<<"Auxiliary::unref_nodelete() "<<this<<" "<<_referenceCount.load()<<std::endl;
+    //debug("Auxiliary::unref_nodelete() ", this, " ", _referenceCount.load());
     --_referenceCount;
 }
 
@@ -110,16 +77,14 @@ void Auxiliary::resetConnectedObject()
 
 void Auxiliary::setObject(const std::string& key, Object* object)
 {
-    _objectMap[key] = object;
-    DEBUG_NOTIFY << "Auxiliary::setObject( [" << key << "], " << object << ")"
-                 << " " << _objectMap.size() << " " << &_objectMap << std::endl;
+    userObjects[key] = object;
+    //debug("Auxiliary::setObject( [", key, "] = ", object, ", ", userObjects.size());
 }
 
 Object* Auxiliary::getObject(const std::string& key)
 {
-    DEBUG_NOTIFY << "Auxiliary::getObject( [" << key << "])" << std::endl;
-    ObjectMap::iterator itr = _objectMap.find(key);
-    if (itr != _objectMap.end())
+    //debug("Auxiliary::getObject( [", key, "])");
+    if (auto itr = userObjects.find(key); itr != userObjects.end())
         return itr->second.get();
     else
         return nullptr;
@@ -127,9 +92,8 @@ Object* Auxiliary::getObject(const std::string& key)
 
 const Object* Auxiliary::getObject(const std::string& key) const
 {
-    DEBUG_NOTIFY << "Auxiliary::getObject( [" << key << "]) const" << std::endl;
-    ObjectMap::const_iterator itr = _objectMap.find(key);
-    if (itr != _objectMap.end())
+    //debug("Auxiliary::getObject( [", key, "]) const");
+    if (auto itr = userObjects.find(key); itr != userObjects.end())
         return itr->second.get();
     else
         return nullptr;

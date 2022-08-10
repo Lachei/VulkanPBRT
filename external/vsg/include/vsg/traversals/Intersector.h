@@ -13,7 +13,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 </editor-fold> */
 
 #include <vsg/nodes/Node.h>
-#include <vsg/traversals/ArrayState.h>
+#include <vsg/state/ArrayState.h>
 
 namespace vsg
 {
@@ -23,7 +23,7 @@ namespace vsg
         using NodePath = std::vector<const Node*>;
         using ArrayStateStack = std::vector<ref_ptr<ArrayState>>;
 
-        Intersector(ref_ptr<ArrayState> initialArrayData = {});
+        Intersector(ref_ptr<ArrayState> intialArrayState = {});
 
         //
         // handle traverse of the scene graph
@@ -43,8 +43,6 @@ namespace vsg
         void apply(const Draw& draw) override;
         void apply(const DrawIndexed& drawIndexed) override;
 
-        void apply(uint32_t firstBinding, const DataList& arrays);
-
         void apply(const BufferInfo& bufferInfo) override;
         void apply(const ushortArray& array) override;
         void apply(const uintArray& array) override;
@@ -62,10 +60,10 @@ namespace vsg
         virtual bool intersects(const dsphere& sphere) = 0;
 
         /// intersect with a vkCmdDraw primitive
-        virtual bool intersectDraw(uint32_t firstVertex, uint32_t vertexCount) = 0;
+        virtual bool intersectDraw(uint32_t firstVertex, uint32_t vertexCount, uint32_t firstInstance, uint32_t instanceCount) = 0;
 
         /// intersect with a vkCmdDrawIndexed primitive
-        virtual bool intersectDrawIndexed(uint32_t firstIndex, uint32_t indexCount) = 0;
+        virtual bool intersectDrawIndexed(uint32_t firstIndex, uint32_t indexCount, uint32_t firstInstance, uint32_t instanceCount) = 0;
 
     protected:
         std::vector<dmat4> _matrixStack;

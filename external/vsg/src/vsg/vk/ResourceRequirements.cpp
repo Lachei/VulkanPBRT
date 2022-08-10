@@ -10,27 +10,17 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
-#include <vsg/traversals/CompileTraversal.h>
+#include <vsg/vk/ResourceRequirements.h>
 
-#include <vsg/commands/Command.h>
-#include <vsg/commands/Commands.h>
 #include <vsg/nodes/Bin.h>
 #include <vsg/nodes/DepthSorted.h>
 #include <vsg/nodes/Geometry.h>
 #include <vsg/nodes/Group.h>
-#include <vsg/nodes/LOD.h>
 #include <vsg/nodes/PagedLOD.h>
-#include <vsg/nodes/QuadGroup.h>
 #include <vsg/nodes/StateGroup.h>
 #include <vsg/state/MultisampleState.h>
-#include <vsg/viewer/CommandGraph.h>
-#include <vsg/viewer/RenderGraph.h>
 #include <vsg/viewer/View.h>
-#include <vsg/vk/CommandBuffer.h>
 #include <vsg/vk/RenderPass.h>
-#include <vsg/vk/State.h>
-
-#include <iostream>
 
 using namespace vsg;
 
@@ -38,8 +28,10 @@ using namespace vsg;
 //
 // ResourceRequirements
 //
-ResourceRequirements::ResourceRequirements()
+ResourceRequirements::ResourceRequirements(ref_ptr<ResourceHints> hints)
 {
+    binStack.push(ResourceRequirements::BinDetails{});
+    if (hints) apply(*hints);
 }
 
 uint32_t ResourceRequirements::computeNumDescriptorSets() const
@@ -55,6 +47,21 @@ DescriptorPoolSizes ResourceRequirements::computeDescriptorPoolSizes() const
         poolSizes.push_back(VkDescriptorPoolSize{type, count});
     }
     return poolSizes;
+}
+
+void ResourceRequirements::apply(const ResourceHints& resourceHints)
+{
+    if (resourceHints.maxSlot > maxSlot) maxSlot = resourceHints.maxSlot;
+
+    if (!resourceHints.descriptorPoolSizes.empty() || resourceHints.numDescriptorSets > 0)
+    {
+        externalNumDescriptorSets += resourceHints.numDescriptorSets;
+
+        for (auto& [type, count] : resourceHints.descriptorPoolSizes)
+        {
+            descriptorTypeMap[type] += count;
+        }
+    }
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -98,17 +105,7 @@ bool CollectResourceRequirements::checkForResourceHints(const Object& object)
 
 void CollectResourceRequirements::apply(const ResourceHints& resourceHints)
 {
-    if (resourceHints.maxSlot > requirements.maxSlot) requirements.maxSlot = resourceHints.maxSlot;
-
-    if (!resourceHints.descriptorPoolSizes.empty() || resourceHints.numDescriptorSets > 0)
-    {
-        requirements.externalNumDescriptorSets += resourceHints.numDescriptorSets;
-
-        for (auto& [type, count] : resourceHints.descriptorPoolSizes)
-        {
-            requirements.descriptorTypeMap[type] += count;
-        }
-    }
+    requirements.apply(resourceHints);
 }
 
 void CollectResourceRequirements::apply(const Node& node)
@@ -192,6 +189,16 @@ void CollectResourceRequirements::apply(const View& view)
     for (auto& bin : view.bins)
     {
         requirements.binStack.top().bins.insert(bin);
+    }
+
+    if (view.viewDependentState)
+    {
+        uint32_t numBufferedDescriptorSets = 3;
+        requirements.externalNumDescriptorSets += numBufferedDescriptorSets;
+        requirements.descriptorTypeMap[VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER] += numBufferedDescriptorSets;
+        if (requirements.maxSlot < 2) requirements.maxSlot = 2;
+
+        view.viewDependentState->accept(*this);
     }
 
     requirements.views[&view] = requirements.binStack.top();

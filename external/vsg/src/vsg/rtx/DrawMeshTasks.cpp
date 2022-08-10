@@ -16,8 +16,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/vk/Context.h>
 #include <vsg/vk/Extensions.h>
 
-#include <iostream>
-
 using namespace vsg;
 
 DrawMeshTasks::DrawMeshTasks()
@@ -45,6 +43,6 @@ void DrawMeshTasks::write(Output& output) const
 void DrawMeshTasks::record(vsg::CommandBuffer& commandBuffer) const
 {
     Device* device = commandBuffer.getDevice();
-    Extensions* extensions = Extensions::Get(device, true);
+    auto extensions = device->getExtensions();
     extensions->vkCmdDrawMeshTasksNV(commandBuffer, taskCount, firstTask);
 }

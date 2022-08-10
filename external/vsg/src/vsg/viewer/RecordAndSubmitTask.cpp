@@ -10,12 +10,12 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
+#include <vsg/io/Logger.h>
 #include <vsg/traversals/RecordTraversal.h>
 #include <vsg/ui/ApplicationEvent.h>
 #include <vsg/viewer/RecordAndSubmitTask.h>
+#include <vsg/viewer/View.h>
 #include <vsg/vk/State.h>
-
-#include <iostream>
 
 using namespace vsg;
 
@@ -126,27 +126,6 @@ VkResult RecordAndSubmitTask::finish(CommandBuffers& recordedCommandBuffers)
         vk_waitStages.emplace_back(semaphore->pipelineStageFlags());
     }
 
-    if (databasePager)
-    {
-        for (auto& semaphore : databasePager->getSemaphores())
-        {
-            if (semaphore->numDependentSubmissions().load() > 1)
-            {
-                std::cout << "    Warning: Viewer::submitNextFrame() waitSemaphore " << *(semaphore->data()) << " " << semaphore->numDependentSubmissions().load() << std::endl;
-            }
-            else
-            {
-                // std::cout<<"    Viewer::submitNextFrame() waitSemaphore "<<*(semaphore->data())<<" "<<semaphore->numDependentSubmissions().load()<<std::endl;
-            }
-
-            vk_waitSemaphores.emplace_back(*semaphore);
-            vk_waitStages.emplace_back(semaphore->pipelineStageFlags());
-
-            semaphore->numDependentSubmissions().fetch_add(1);
-            current_fence->dependentSemaphores().emplace_back(semaphore);
-        }
-    }
-
     for (auto& semaphore : signalSemaphores)
     {
         vk_signalSemaphores.emplace_back(*(semaphore));
@@ -166,25 +145,87 @@ VkResult RecordAndSubmitTask::finish(CommandBuffers& recordedCommandBuffers)
     submitInfo.pSignalSemaphores = vk_signalSemaphores.data();
 
 #if 0
-    std::cout << "pdo.graphicsQueue->submit(..) current_fence = " << current_fence << "\n";
-    std::cout << "    submitInfo.waitSemaphoreCount = " << submitInfo.waitSemaphoreCount << "\n";
+    debug("pdo.graphicsQueue->submit(..) current_fence = ", current_fence);
+    debug("    submitInfo.waitSemaphoreCount = ", submitInfo.waitSemaphoreCount);
     for (uint32_t i = 0; i < submitInfo.waitSemaphoreCount; ++i)
     {
-        std::cout << "        submitInfo.pWaitSemaphores[" << i << "] = " << submitInfo.pWaitSemaphores[i] << "\n";
-        std::cout << "        submitInfo.pWaitDstStageMask[" << i << "] = " << submitInfo.pWaitDstStageMask[i] << "\n";
+        debug("        submitInfo.pWaitSemaphores[", i, "] = ", submitInfo.pWaitSemaphores[i]);
+        debug("        submitInfo.pWaitDstStageMask[", i, "] = ", submitInfo.pWaitDstStageMask[i]);
     }
-    std::cout << "    submitInfo.commandBufferCount = " << submitInfo.commandBufferCount << "\n";
+    debug("    submitInfo.commandBufferCount = ", submitInfo.commandBufferCount);
     for (uint32_t i = 0; i < submitInfo.commandBufferCount; ++i)
     {
-        std::cout << "        submitInfo.pCommandBuffers[" << i << "] = " << submitInfo.pCommandBuffers[i] << "\n";
+        debug("        submitInfo.pCommandBuffers[", i, "] = ", submitInfo.pCommandBuffers[i]);
     }
-    std::cout << "    submitInfo.signalSemaphoreCount = " << submitInfo.signalSemaphoreCount << "\n";
+    debug("    submitInfo.signalSemaphoreCount = ", submitInfo.signalSemaphoreCount);
     for (uint32_t i = 0; i < submitInfo.signalSemaphoreCount; ++i)
     {
-        std::cout << "        submitInfo.pSignalSemaphores[" << i << "] = " << submitInfo.pSignalSemaphores[i] << "\n";
+        debug("        submitInfo.pSignalSemaphores[", i, "] = ", submitInfo.pSignalSemaphores[i]);
     }
-    std::cout << std::endl;
+    debug('\n');
 #endif
 
     return queue->submit(submitInfo, current_fence);
+}
+
+void vsg::updateTasks(RecordAndSubmitTasks& tasks, ref_ptr<CompileManager> compileManager, const CompileResult& compileResult)
+{
+    // assign database pager if required
+    for (auto& task : tasks)
+    {
+        for (auto& commandGraph : task->commandGraphs)
+        {
+            if (compileResult.maxSlot > commandGraph->maxSlot)
+            {
+                commandGraph->maxSlot = compileResult.maxSlot;
+            }
+        }
+    }
+
+    // assign database pager if required
+    if (compileResult.containsPagedLOD)
+    {
+        vsg::ref_ptr<vsg::DatabasePager> databasePager;
+        for (auto& task : tasks)
+        {
+            if (task->databasePager && !databasePager) databasePager = task->databasePager;
+        }
+
+        if (!databasePager)
+        {
+            databasePager = vsg::DatabasePager::create();
+            for (auto& task : tasks)
+            {
+                if (!task->databasePager)
+                {
+                    task->databasePager = databasePager;
+                    task->databasePager->compileManager = compileManager;
+                }
+            }
+
+            databasePager->start();
+        }
+    }
+
+    /// handle any need Bin needs
+    for (auto& [const_view, binDetails] : compileResult.views)
+    {
+        auto view = const_cast<vsg::View*>(const_view);
+        for (auto& binNumber : binDetails.indices)
+        {
+            bool binNumberMatched = false;
+            for (auto& bin : view->bins)
+            {
+                if (bin->binNumber == binNumber)
+                {
+                    binNumberMatched = true;
+                }
+            }
+            if (!binNumberMatched)
+            {
+                vsg::Bin::SortOrder sortOrder = (binNumber < 0) ? vsg::Bin::ASCENDING : ((binNumber == 0) ? vsg::Bin::NO_SORT : vsg::Bin::DESCENDING);
+                view->bins.push_back(vsg::Bin::create(binNumber, sortOrder));
+            }
+        }
+    }
 }

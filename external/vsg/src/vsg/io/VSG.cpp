@@ -15,10 +15,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/io/AsciiOutput.h>
 #include <vsg/io/BinaryInput.h>
 #include <vsg/io/BinaryOutput.h>
+#include <vsg/io/Logger.h>
 #include <vsg/io/VSG.h>
-
-#include <cstring>
-#include <iostream>
 
 using namespace vsg;
 
@@ -66,7 +64,7 @@ VSG::FormatInfo VSG::readHeader(std::istream& fin) const
 
     if (type == NOT_RECOGNIZED)
     {
-        std::cout << "Header token not matched [" << read_token << "]" << std::endl;
+        error("Header token not matched [", read_token, "]");
         return FormatInfo(NOT_RECOGNIZED, VsgVersion{0, 0, 0, 0});
     }
 
@@ -98,7 +96,7 @@ vsg::ref_ptr<vsg::Object> VSG::read(const vsg::Path& filename, ref_ptr<const Opt
     if (ext == ".vsga" || ext == ".vsgt" || ext == ".vsgb")
     {
         vsg::Path filenameToUse = findFile(filename, options);
-        if (filenameToUse.empty()) return {};
+        if (!filenameToUse) return {};
 
         std::ifstream fin(filenameToUse, std::ios::in | std::ios::binary);
         if (!fin) return {};

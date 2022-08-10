@@ -12,7 +12,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
-#include <vsg/core/Allocator.h>
 #include <vsg/core/ConstVisitor.h>
 #include <vsg/core/Visitor.h>
 #include <vsg/core/ref_ptr.h>
@@ -30,35 +29,8 @@ namespace vsg
     {
     public:
         template<typename... Args>
-        Inherit(Allocator* allocator, Args&&... args) :
-            ParentClass(allocator, args...) {}
-
-        template<typename... Args>
         Inherit(Args&&... args) :
             ParentClass(args...) {}
-
-        template<typename... Args>
-        static ref_ptr<Subclass> create(ref_ptr<Allocator> allocator, Args&&... args)
-        {
-            if (allocator)
-            {
-                // need to think about alignment...
-                const std::size_t size = sizeof(Subclass);
-                void* ptr = allocator->allocate(size);
-
-                ref_ptr<Subclass> object(new (ptr) Subclass(allocator, args...));
-                // object->setAuxiliary(allocator->getOrCreateSharedAuxiliary());
-
-                // check the sizeof(Subclass) is consistent with Subclass::sizeOfObject()
-                if (std::size_t new_size = object->sizeofObject(); new_size != size)
-                {
-                    throw make_string("Warning: Allocator::create(", typeid(Subclass).name(), ") mismatch sizeof() = ", size, ", ", new_size);
-                }
-                return object;
-            }
-            else
-                return ref_ptr<Subclass>(new Subclass(args...));
-        }
 
         template<typename... Args>
         static ref_ptr<Subclass> create(Args&&... args)
@@ -77,6 +49,24 @@ namespace vsg
         const char* className() const noexcept override { return type_name<Subclass>(); }
         const std::type_info& type_info() const noexcept override { return typeid(Subclass); }
         bool is_compatible(const std::type_info& type) const noexcept override { return typeid(Subclass) == type ? true : ParentClass::is_compatible(type); }
+
+        int compare(const Object& rhs) const override
+        {
+            int result = ParentClass::compare(rhs);
+            if (result != 0) return result;
+
+            size_t startOfSubclass = sizeof(ParentClass);
+            size_t size = sizeof(Subclass) - startOfSubclass;
+
+            // Subclass adds no extra data to compare
+            if (size == 0) return 0;
+
+            const char* lhs_ptr = reinterpret_cast<const char*>(this);
+            const char* rhs_ptr = reinterpret_cast<const char*>(&rhs);
+
+            // compare the data that Subclass adds over ParentClass
+            return std::memcmp(lhs_ptr + startOfSubclass, rhs_ptr + startOfSubclass, size);
+        }
 
         void accept(Visitor& visitor) override { visitor.apply(static_cast<Subclass&>(*this)); }
         void accept(ConstVisitor& visitor) const override { visitor.apply(static_cast<const Subclass&>(*this)); }
