@@ -25,7 +25,7 @@ namespace vsg
 {
 
     // RecordAndSubmitTask
-    class RecordAndSubmitTask : public Inherit<Object, RecordAndSubmitTask>
+    class VSG_DECLSPEC RecordAndSubmitTask : public Inherit<Object, RecordAndSubmitTask>
     {
     public:
         explicit RecordAndSubmitTask(Device* device, uint32_t numBuffers = 3);
@@ -64,5 +64,10 @@ namespace vsg
         std::vector<ref_ptr<Fence>> _fences;
     };
     VSG_type_name(vsg::RecordAndSubmitTask);
+
+    using RecordAndSubmitTasks = std::vector<ref_ptr<RecordAndSubmitTask>>;
+
+    /// update RecordAndSubmitTask data structures to match the needs of newly compile subgraph
+    extern VSG_DECLSPEC void updateTasks(RecordAndSubmitTasks& tasks, ref_ptr<CompileManager> compileManager, const CompileResult& compileResult);
 
 } // namespace vsg

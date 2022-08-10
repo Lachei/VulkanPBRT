@@ -20,12 +20,12 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/state/BufferInfo.h>
 #include <vsg/state/GraphicsPipeline.h>
 #include <vsg/state/ImageInfo.h>
+#include <vsg/utils/ShaderCompiler.h>
 #include <vsg/vk/CommandPool.h>
 #include <vsg/vk/DescriptorPool.h>
 #include <vsg/vk/Fence.h>
 #include <vsg/vk/MemoryBufferPools.h>
 #include <vsg/vk/ResourceRequirements.h>
-#include <vsg/vk/ShaderCompiler.h>
 
 #include <vsg/commands/Command.h>
 #include <vsg/commands/CopyAndReleaseBuffer.h>
@@ -33,13 +33,16 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 namespace vsg
 {
+    // forward declare
+    class View;
+    class ViewDependentState;
 
     class VSG_DECLSPEC BuildAccelerationStructureCommand : public Inherit<Command, BuildAccelerationStructureCommand>
     {
     public:
         // the primitive Count is A) the amount of triangles to be built for type VK_GEOMETRY_TYPE_TRIANGLES_KHR (blas) B) the amount of AABBs for type VK_GEOMETRY_TYPE_AABBS_KHR
         // and C) the number of acceleration structures for type VK_GEOMETRY_TYPE_INSTANCES_KHR
-        BuildAccelerationStructureCommand(Device* device, const VkAccelerationStructureBuildGeometryInfoKHR& info, const VkAccelerationStructureKHR& structure, const std::vector<uint32_t>& primitiveCounts, Allocator* allocator);
+        BuildAccelerationStructureCommand(Device* device, const VkAccelerationStructureBuildGeometryInfoKHR& info, const VkAccelerationStructureKHR& structure, const std::vector<uint32_t>& primitiveCounts);
 
         void compile(Context&) override {}
         void record(CommandBuffer& commandBuffer) const override;
@@ -71,12 +74,26 @@ namespace vsg
         const uint32_t deviceID = 0;
         ref_ptr<Device> device;
 
+        observer_ptr<View> view;
         uint32_t viewID = 0;
+        ViewDependentState* viewDependentState = nullptr;
 
-        // get existing ShaderCompile or create a new one when GLSLang is supported
+        /// get existing ShaderCompile or create a new one when GLSLang is supported
         ShaderCompiler* getOrCreateShaderCompiler();
 
         ref_ptr<CommandBuffer> getOrCreateCommandBuffer();
+
+        uint32_t minimum_maxSets = 0;
+        DescriptorPoolSizes minimum_descriptorPoolSizes;
+
+        /// get the maxSets and descriptorPoolSizes to use
+        void getDescriptorPoolSizesToUse(uint32_t& maxSets, DescriptorPoolSizes& descriptorPoolSizes);
+
+        /// allocate or reuse a DescriptorSet::Implementation from the available DescriptorPool
+        ref_ptr<DescriptorSet::Implementation> allocateDescriptorSet(DescriptorSetLayout* descriptorSetLayout);
+
+        /// reserve resources that may be needed during compile travversal..
+        void reserve(const ResourceRequirements& requirements);
 
         // used by GraphicsPipeline.cpp
         ref_ptr<RenderPass> renderPass;
@@ -94,7 +111,7 @@ namespace vsg
         GraphicsPipelineStates overridePipelineStates;
 
         // DescriptorPool
-        ref_ptr<DescriptorPool> descriptorPool;
+        std::list<ref_ptr<DescriptorPool>> descriptorPools;
 
         // ShaderCompiler
         ref_ptr<ShaderCompiler> shaderCompiler;

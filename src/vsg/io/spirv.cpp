@@ -10,11 +10,10 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
+#include <vsg/io/Logger.h>
 #include <vsg/io/spirv.h>
 #include <vsg/state/ShaderStage.h>
-#include <vsg/vk/ShaderCompiler.h>
-
-#include <iostream>
+#include <vsg/utils/ShaderCompiler.h>
 
 using namespace vsg;
 
@@ -50,7 +49,7 @@ vsg::ref_ptr<vsg::Object> spirv::read(const vsg::Path& filename, vsg::ref_ptr<co
     if (ext == ".spv")
     {
         vsg::Path found_filename = vsg::findFile(filename, options);
-        if (found_filename.empty()) return {};
+        if (!found_filename) return {};
 
         vsg::ShaderModule::SPIRV spirv_module;
         readFile(spirv_module, found_filename);
@@ -75,7 +74,7 @@ bool spirv::write(const vsg::Object* object, const vsg::Path& filename, vsg::ref
                 vsg::ShaderCompiler sc;
                 if (!sc.compile(vsg::ref_ptr<vsg::ShaderStage>(const_cast<vsg::ShaderStage*>(ss))))
                 {
-                    std::cout << "spirv::write() Failed compile to spv." << std::endl;
+                    warn("spirv::write() Failed compile to spv.");
                     return false;
                 }
             }

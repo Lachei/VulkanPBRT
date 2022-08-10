@@ -13,9 +13,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 </editor-fold> */
 
 #include <vsg/nodes/Group.h>
+#include <vsg/state/ArrayState.h>
 #include <vsg/state/StateCommand.h>
-#include <vsg/traversals/ArrayState.h>
-#include <vsg/traversals/CompileTraversal.h>
 
 #include <algorithm>
 
@@ -27,15 +26,12 @@ namespace vsg
     class VSG_DECLSPEC StateGroup : public Inherit<Group, StateGroup>
     {
     public:
-        StateGroup(Allocator* allocator = nullptr);
+        StateGroup();
 
-        void read(Input& input) override;
-        void write(Output& output) const override;
-
-        using StateCommands = std::vector<ref_ptr<StateCommand>>;
+        using StateCommands = std::vector<ref_ptr<StateCommand>, allocator_affinity_nodes<ref_ptr<StateCommand>>>;
         StateCommands stateCommands;
 
-        /// if the shaders associated with GraphicsPipeline don't treat the array 0 as xyz vertex then provide a ArrayState prototype to provide custom mapping of arrays to vertices.
+        /// if the shaders associated with GraphicsPipeline don't treat the array 0 as xyz vertex then provide an ArrayState prototype to provide custom mapping of arrays to vertices.
         ref_ptr<ArrayState> prototypeArrayState;
 
         template<class T>
@@ -57,6 +53,11 @@ namespace vsg
                 stateCommands.erase(itr);
             }
         }
+
+        int compare(const Object& rhs) const override;
+
+        void read(Input& input) override;
+        void write(Output& output) const override;
 
         virtual void compile(Context& context);
 

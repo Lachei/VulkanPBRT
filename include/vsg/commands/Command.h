@@ -12,9 +12,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
-#include <vulkan/vulkan.h>
-
 #include <vsg/nodes/Node.h>
+#include <vsg/vk/vulkan.h>
 
 namespace vsg
 {
@@ -24,8 +23,7 @@ namespace vsg
     class VSG_DECLSPEC Command : public Inherit<Node, Command>
     {
     public:
-        Command(Allocator* allocator = nullptr) :
-            Inherit(allocator) {}
+        Command() {}
 
         virtual void compile(Context& /*context*/) {}
 

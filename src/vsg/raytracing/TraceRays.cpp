@@ -24,14 +24,14 @@ TraceRays::TraceRays()
 void TraceRays::record(CommandBuffer& commandBuffer) const
 {
     Device* device = commandBuffer.getDevice();
-    Extensions* extensions = Extensions::Get(device, true);
+    auto extensions = device->getExtensions();
     auto rayTracingProperties = device->getPhysicalDevice()->getProperties<VkPhysicalDeviceRayTracingPipelinePropertiesKHR, VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR>();
     auto alignedSize = [](uint32_t value, uint32_t alignment) {
         return (value + alignment - 1) & ~(alignment - 1);
     };
     uint32_t handleSizeAligned = alignedSize(rayTracingProperties.shaderGroupHandleSize, rayTracingProperties.shaderGroupHandleAlignment);
 
-    auto stridedDeviceAddress = [&](auto& shaderGroup) {
+    auto stridedDeviceAddress = [&](const auto& shaderGroup) {
         if (!shaderGroup) return VkStridedDeviceAddressRegionKHR{};
         VkBufferDeviceAddressInfo info{};
         info.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;

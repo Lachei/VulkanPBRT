@@ -12,26 +12,27 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
-#include <vsg/vk/Device.h>
 #include <vsg/vk/Instance.h>
 
 namespace vsg
 {
-    using ExtensionProperties = std::vector<VkExtensionProperties>;
-
-    extern VSG_DECLSPEC ExtensionProperties getExtensionProperties(const char* pLayerName = nullptr);
+    class Device;
 
     extern VSG_DECLSPEC bool isExtensionSupported(const char* extensionName);
 
     extern VSG_DECLSPEC bool isExtensionListSupported(const Names& extensionList);
 
     // TODO need to reorganize so that the Device "has a" extension structure and avoid the usage of static container
-    class VSG_DECLSPEC Extensions : public Object
+    class VSG_DECLSPEC Extensions : public Inherit<Object, Extensions>
     {
     public:
-        static Extensions* Get(Device* device, bool createIfNotInitalized);
-
         explicit Extensions(Device* device);
+
+        // VK_EXT_host_query_reset / Vulkan-1.2
+        PFN_vkResetQueryPoolEXT vkResetQueryPool = nullptr;
+
+        // VK_KHR_create_renderpass2
+        PFN_vkCreateRenderPass2KHR_Compatibility vkCreateRenderPass2 = nullptr;
 
         // VK_KHR_ray_tracing
         PFN_vkCreateAccelerationStructureKHR vkCreateAccelerationStructureKHR = nullptr;
@@ -42,7 +43,8 @@ namespace vsg
         PFN_vkCreateRayTracingPipelinesKHR vkCreateRayTracingPipelinesKHR = nullptr;
         PFN_vkGetRayTracingShaderGroupHandlesKHR vkGetRayTracingShaderGroupHandlesKHR = nullptr;
         PFN_vkCmdTraceRaysKHR vkCmdTraceRaysKHR = nullptr;
-        PFN_vkGetBufferDeviceAddressKHR vkGetBufferDeviceAddressKHR = nullptr;
+
+        PFN_vkGetBufferDeviceAddressKHR_Compatibility vkGetBufferDeviceAddressKHR = nullptr;
 
         // VK_NV_mesh_shader
         PFN_vkCmdDrawMeshTasksNV vkCmdDrawMeshTasksNV = nullptr;

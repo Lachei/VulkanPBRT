@@ -28,14 +28,8 @@ namespace vsg
 
         std::string name;
         ref_ptr<Device> device;
-        ResourceRequirements resourceRequirements;
-
-        // transfer data settings
-        using MemoryPools = std::vector<ref_ptr<DeviceMemory>>;
-        MemoryPools memoryPools;
-
-        using BufferPools = std::vector<ref_ptr<Buffer>>;
-        BufferPools bufferPools;
+        VkDeviceSize minimumBufferSize = 16 * 1024 * 1024;
+        VkDeviceSize minimumDeviceMemorySize = 16 * 1024 * 1024;
 
         VkDeviceSize computeMemoryTotalAvailable() const;
         VkDeviceSize computeMemoryTotalReserved() const;
@@ -46,6 +40,16 @@ namespace vsg
 
         using DeviceMemoryOffset = std::pair<ref_ptr<DeviceMemory>, VkDeviceSize>;
         DeviceMemoryOffset reserveMemory(VkMemoryRequirements memRequirements, VkMemoryPropertyFlags memoryProperties, void* pNextAllocInfo = nullptr);
+
+    protected:
+        mutable std::mutex _mutex;
+
+        // transfer data settings
+        using MemoryPools = std::vector<ref_ptr<DeviceMemory>>;
+        MemoryPools memoryPools;
+
+        using BufferPools = std::vector<ref_ptr<Buffer>>;
+        BufferPools bufferPools;
     };
 
 } // namespace vsg

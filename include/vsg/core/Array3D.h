@@ -52,7 +52,7 @@ namespace vsg
         {
             if (_width != 0 && _height != 0 && _depth != 0)
             {
-                _data = new value_type[_width * _height * _depth];
+                _data = _allocate(_width * _height * _depth);
                 auto dest_v = _data;
                 for (auto& v : rhs) *(dest_v++) = v;
             }
@@ -61,7 +61,7 @@ namespace vsg
 
         Array3D(uint32_t width, uint32_t height, uint32_t depth, Layout layout = {}) :
             Data(layout, sizeof(value_type)),
-            _data(new value_type[width * height * depth]),
+            _data(_allocate(width * height * depth)),
             _width(width),
             _height(height),
             _depth(depth)
@@ -78,7 +78,7 @@ namespace vsg
 
         Array3D(uint32_t width, uint32_t height, uint32_t depth, const value_type& value, Layout layout = {}) :
             Data(layout, sizeof(value_type)),
-            _data(new value_type[width * height * depth]),
+            _data(_allocate(width * height * depth)),
             _width(width),
             _height(height),
             _depth(depth)
@@ -118,22 +118,18 @@ namespace vsg
 
             Data::read(input);
 
-            uint32_t w = input.readValue<uint32_t>("Width");
-            uint32_t h = input.readValue<uint32_t>("Height");
-            uint32_t d = input.readValue<uint32_t>("Depth");
+            uint32_t w = input.readValue<uint32_t>("width");
+            uint32_t h = input.readValue<uint32_t>("height");
+            uint32_t d = input.readValue<uint32_t>("depth");
 
-            if (input.version_greater_equal(0, 0, 1))
+            if (auto data_storage = input.readObject<Data>("storage"))
             {
-                auto data_storage = input.readObject<Data>("Storage");
-                if (data_storage)
-                {
-                    uint32_t offset = input.readValue<uint32_t>("Offset");
-                    assign(data_storage, offset, _layout.stride, w, h, d, _layout);
-                    return;
-                }
+                uint32_t offset = input.readValue<uint32_t>("offset");
+                assign(data_storage, offset, _layout.stride, w, h, d, _layout);
+                return;
             }
 
-            if (input.matchPropertyName("Data"))
+            if (input.matchPropertyName("data"))
             {
                 std::size_t new_size = computeValueCountIncludingMipmaps(w, h, d, _layout.maxNumMipmaps);
 
@@ -142,12 +138,12 @@ namespace vsg
                     if (original_size != new_size) // if existing data is a different size delete old, and create new
                     {
                         _delete();
-                        _data = new value_type[new_size];
+                        _data = _allocate(new_size);
                     }
                 }
                 else // allocate space for data
                 {
-                    _data = new value_type[new_size];
+                    _data = _allocate(new_size);
                 }
 
                 _layout.stride = sizeof(value_type);
@@ -165,22 +161,20 @@ namespace vsg
         void write(Output& output) const override
         {
             Data::write(output);
-            output.writeValue<uint32_t>("Width", _width);
-            output.writeValue<uint32_t>("Height", _height);
-            output.writeValue<uint32_t>("Depth", _depth);
 
-            if (output.version_greater_equal(0, 0, 1))
+            output.writeValue<uint32_t>("width", _width);
+            output.writeValue<uint32_t>("height", _height);
+            output.writeValue<uint32_t>("depth", _depth);
+
+            output.writeObject("storage", _storage);
+            if (_storage)
             {
-                output.writeObject("Storage", _storage);
-                if (_storage)
-                {
-                    auto offset = (reinterpret_cast<uintptr_t>(_data) - reinterpret_cast<uintptr_t>(_storage->dataPointer()));
-                    output.writeValue<uint32_t>("Offset", offset);
-                    return;
-                }
+                auto offset = (reinterpret_cast<uintptr_t>(_data) - reinterpret_cast<uintptr_t>(_storage->dataPointer()));
+                output.writeValue<uint32_t>("offset", offset);
+                return;
             }
 
-            output.writePropertyName("Data");
+            output.writePropertyName("data");
             output.write(valueCount(), _data);
             output.writeEndOfLine();
         }
@@ -213,7 +207,7 @@ namespace vsg
 
             if (_width != 0 && _height != 0 && _depth != 0)
             {
-                _data = new value_type[_width * _height * _depth];
+                _data = _allocate(_width * _height * _depth);
                 auto dest_v = _data;
                 for (auto& v : rhs) *(dest_v++) = v;
             }
@@ -336,9 +330,27 @@ namespace vsg
             _delete();
         }
 
+        value_type* _allocate(size_t size) const
+        {
+            if (_layout.allocatorType == ALLOCATOR_TYPE_NEW_DELETE)
+                return new value_type[size];
+            else if (_layout.allocatorType == ALLOCATOR_TYPE_MALLOC_FREE)
+                return new (std::malloc(sizeof(value_type) * size)) value_type[size];
+            else
+                return new (vsg::allocate(sizeof(value_type) * size, ALLOCATOR_AFFINITY_DATA)) value_type[size];
+        }
+
         void _delete()
         {
-            if (!_storage && _data) delete[] _data;
+            if (!_storage && _data)
+            {
+                if (_layout.allocatorType == ALLOCATOR_TYPE_NEW_DELETE)
+                    delete[] _data;
+                else if (_layout.allocatorType == ALLOCATOR_TYPE_MALLOC_FREE)
+                    std::free(_data);
+                else if (_layout.allocatorType != 0)
+                    vsg::deallocate(_data);
+            }
         }
 
     private:

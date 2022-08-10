@@ -10,6 +10,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
+#include <vsg/core/Allocator.h>
 #include <vsg/core/Auxiliary.h>
 #include <vsg/core/ConstVisitor.h>
 #include <vsg/core/Object.h>
@@ -18,19 +19,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/traversals/RecordTraversal.h>
 
 #include <vsg/io/Input.h>
+#include <vsg/io/Logger.h>
 #include <vsg/io/Options.h>
 #include <vsg/io/Output.h>
 
 using namespace vsg;
-
-#if 1
-#    include <iostream>
-#    define DEBUG_NOTIFY \
-        if (false) std::cout
-#else
-#    include <iostream>
-#    define DEBUG_NOTIFY std::cout
-#endif
 
 Object::Object() :
     _referenceCount(0),
@@ -44,36 +37,30 @@ Object::Object(const Object& rhs) :
     if (rhs._auxiliary && rhs._auxiliary->getConnectedObject() == &rhs)
     {
         // the rhs's rhs._auxiliary is uniquely attached to it, so we need to create our own and copy it's ObjectMap across
-        Auxiliary::ObjectMap& objectMap = getOrCreateUniqueAuxiliary()->getObjectMap();
-        objectMap = rhs._auxiliary->getObjectMap();
+        auto& userObjects = getOrCreateAuxiliary()->userObjects;
+        userObjects = rhs._auxiliary->userObjects;
     }
 }
 
 Object& Object::operator=(const Object& rhs)
 {
-    // std::cout << "Object& operator=(const Object&)" << std::endl;
+    //debug("Object& operator=(const Object&)");
+
     if (&rhs == this) return *this;
 
-    if (rhs._auxiliary && rhs._auxiliary->getConnectedObject() == &rhs)
+    if (rhs._auxiliary)
     {
         // the rhs's rhs._auxiliary is uniquely attached to it, so we need to create our own and copy it's ObjectMap across
-        Auxiliary::ObjectMap& objectMap = getOrCreateUniqueAuxiliary()->getObjectMap();
-        objectMap = rhs._auxiliary->getObjectMap();
+        auto& userObjects = getOrCreateAuxiliary()->userObjects;
+        userObjects = rhs._auxiliary->userObjects;
     }
 
     return *this;
 }
 
-Object::Object(Allocator* allocator) :
-    _referenceCount(0),
-    _auxiliary(nullptr)
-{
-    if (allocator) _auxiliary = allocator->getOrCreateSharedAuxiliary();
-}
-
 Object::~Object()
 {
-    DEBUG_NOTIFY << "Object::~Object() " << this << std::endl;
+    //debug("Object::~Object() ", this);
 
     if (_auxiliary)
     {
@@ -89,52 +76,15 @@ void Object::_attemptDelete() const
     // if no auxiliary is attached then go straight ahead and delete.
     if (_auxiliary == nullptr || _auxiliary->signalConnectedObjectToBeDeleted())
     {
-        DEBUG_NOTIFY << "Object::_delete() " << this << " calling delete" << std::endl;
+        //debug("Object::_delete() ", this, " calling delete");
 
-        ref_ptr<Allocator> allocator(getAllocator());
-        if (allocator)
-        {
-            std::size_t size = sizeofObject();
-
-            DEBUG_NOTIFY << "Calling this->~Object();" << std::endl;
-            this->~Object();
-
-            DEBUG_NOTIFY << "After Calling this->~Object();" << std::endl;
-            allocator->deallocate(this, size);
-        }
-        else
-        {
-            delete this;
-        }
+        delete this;
     }
     else
     {
-        //std::cout<<"Object::_delete() "<<this<<" choosing not to delete"<<std::endl;
+        debug("Object::_delete() ", this, " choosing not to delete");
     }
 }
-
-#if 0
-ref_ptr<Object> Object::create(Allocator* allocator)
-{
-    if (allocator)
-    {
-        // need to think about alignment...
-        const std::size_t size = sizeof(Object);
-        void* ptr = allocator->allocate(size);
-
-        ref_ptr<Object> object(new (ptr) Object());
-        object->setAuxiliary(allocator->getOrCreateSharedAuxiliary());
-
-        // check the sizeof(Object) is consistent with Object::sizeOfObject()
-        if (std::size_t new_size = object->sizeofObject(); new_size != size)
-        {
-            throw make_string("Warning: Allocator::create(",typeid(Object).name(),") mismatch sizeof() = ",size,", ",new_size);
-        }
-        return object;
-    }
-    else return ref_ptr<Object>(new Object());
-}
-#endif
 
 void Object::accept(Visitor& visitor)
 {
@@ -153,40 +103,40 @@ void Object::accept(RecordTraversal& visitor) const
 
 void Object::read(Input& input)
 {
-    auto numObjects = input.readValue<uint32_t>("NumUserObjects");
+    auto numObjects = input.readValue<uint32_t>("userObjects");
     if (numObjects > 0)
     {
-        Auxiliary::ObjectMap& objectMap = getOrCreateUniqueAuxiliary()->getObjectMap();
+        auto& objectMap = getOrCreateAuxiliary()->userObjects;
         for (; numObjects > 0; --numObjects)
         {
-            std::string key = input.readValue<std::string>("Key");
-            input.readObject("Object", objectMap[key]);
+            std::string key = input.readValue<std::string>("key");
+            input.readObject("object", objectMap[key]);
         }
     }
 }
 
 void Object::write(Output& output) const
 {
-    if (_auxiliary && _auxiliary->getConnectedObject() == this)
+    if (_auxiliary)
     {
         // we have a unique auxiliary, need to write out it's ObjectMap entries
-        const Auxiliary::ObjectMap& objectMap = _auxiliary->getObjectMap();
-        output.writeValue<uint32_t>("NumUserObjects", objectMap.size());
-        for (auto& entry : objectMap)
+        auto& userObjects = _auxiliary->userObjects;
+        output.writeValue<uint32_t>("userObjects", userObjects.size());
+        for (auto& entry : userObjects)
         {
-            output.write("Key", entry.first);
-            output.writeObject("Object", entry.second.get());
+            output.write("key", entry.first);
+            output.writeObject("object", entry.second.get());
         }
     }
     else
     {
-        output.writeValue<uint32_t>("NumUserObjects", 0);
+        output.writeValue<uint32_t>("userObjects", 0);
     }
 }
 
 void Object::setObject(const std::string& key, Object* object)
 {
-    getOrCreateUniqueAuxiliary()->setObject(key, object);
+    getOrCreateAuxiliary()->setObject(key, object);
 }
 
 Object* Object::getObject(const std::string& key)
@@ -205,7 +155,7 @@ void Object::removeObject(const std::string& key)
 {
     if (_auxiliary)
     {
-        _auxiliary->getObjectMap().erase(key);
+        _auxiliary->userObjects.erase(key);
     }
 }
 
@@ -225,42 +175,23 @@ void Object::setAuxiliary(Auxiliary* auxiliary)
     }
 }
 
-Auxiliary* Object::getOrCreateUniqueAuxiliary()
+Auxiliary* Object::getOrCreateAuxiliary()
 {
-    DEBUG_NOTIFY << "Object::getOrCreateUniqueAuxiliary() _auxiliary=" << _auxiliary << std::endl;
+    //debug("Object::getOrCreateAuxiliary() _auxiliary=",  _auxiliary);
     if (!_auxiliary)
     {
         _auxiliary = new Auxiliary(this);
         _auxiliary->ref();
     }
-    else
-    {
-        if (_auxiliary->getConnectedObject() != this)
-        {
-            Auxiliary* previousAuxiliary = _auxiliary;
-            Allocator* allocator = previousAuxiliary->getAllocator();
-            if (allocator)
-            {
-                void* ptr = allocator->allocate(sizeof(Auxiliary));
-                _auxiliary = new (ptr) Auxiliary(this, allocator);
-                DEBUG_NOTIFY << "   used Allocator to allocate _auxiliary=" << _auxiliary << std::endl;
-            }
-            else
-            {
-                _auxiliary = new Auxiliary(this, allocator);
-            }
-
-            _auxiliary->ref();
-
-            DEBUG_NOTIFY << "Object::getOrCreateUniqueAuxiliary() _auxiliary=" << _auxiliary << " replaces previousAuxiliary=" << previousAuxiliary << std::endl;
-
-            previousAuxiliary->unref();
-        }
-    }
     return _auxiliary;
 }
 
-Allocator* Object::getAllocator() const
+void* Object::operator new(std::size_t count)
 {
-    return _auxiliary ? _auxiliary->getAllocator() : 0;
+    return vsg::allocate(count, vsg::ALLOCATOR_AFFINITY_OBJECTS);
+}
+
+void Object::operator delete(void* ptr)
+{
+    vsg::deallocate(ptr);
 }

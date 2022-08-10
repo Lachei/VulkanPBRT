@@ -23,7 +23,7 @@ namespace vsg
         vec4 ambientColor;
         vec4 diffuseColor;
         vec4 specularColor;
-        float shininess;
+        float shininess{100.0f};
 
         void read(vsg::Input& input)
         {
@@ -50,11 +50,11 @@ namespace vsg
 
     struct PhongMaterial
     {
-        vec4 ambient{0.0f, 0.0f, 0.0f, 1.0f};
-        vec4 diffuse{1.0f, 1.0f, 1.0f, 1.0f};
-        vec4 specular{0.0f, 0.0f, 0.0f, 1.0f};
-        vec4 emissive{0.0f, 0.0f, 0.0f, 1.0f};
-        float shininess{0.0f};
+        vec4 ambient{1.0f, 1.0f, 1.0f, 0.9f};
+        vec4 diffuse{1.0f, 1.0f, 1.0f, 0.9f};
+        vec4 specular{0.0f, 0.0f, 0.0f, 0.2f};
+        vec4 emissive{0.0f, 0.0f, 0.0f, 0.0f};
+        float shininess{100.0f};
         float alphaMask{1.0f};
         float alphaMaskCutoff{0.5f};
 

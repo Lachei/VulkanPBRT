@@ -14,13 +14,13 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 #include <vsg/core/Exception.h>
 #include <vsg/core/observer_ptr.h>
+#include <vsg/io/Logger.h>
 #include <vsg/ui/KeyEvent.h>
 #include <vsg/ui/PointerEvent.h>
 #include <vsg/ui/TouchEvent.h>
 #include <vsg/ui/ScrollWheelEvent.h>
 #include <vsg/vk/Extensions.h>
 
-#include <iostream>
 #include <time.h>
 
 #import <Cocoa/Cocoa.h>
@@ -74,7 +74,7 @@ namespace vsg
 
 
 //------------------------------------------------------------------------
-// NSWindow implmentation
+// NSWindow implementation
 //------------------------------------------------------------------------
 
 @interface vsg_MacOS_NSWindow : NSWindow {}
@@ -84,7 +84,7 @@ namespace vsg
 
 - (BOOL)canBecomeKeyWindow
 {
-    //std::cout << "canBecomeKeyWindow" << std::endl;
+    //vsg:debug("canBecomeKeyWindow");
     return YES;
 }
 
@@ -141,7 +141,7 @@ namespace vsg
     uint32_t width = contentRect.size.width * devicePixelScale;
     uint32_t height = contentRect.size.height * devicePixelScale;
     
-    //std::cout << "handleFrameSizeChange: " << width << ", " << height << std::endl;
+    //vsg:debug("handleFrameSizeChange: ", width, ", ", height);
     
     window->queueEvent(vsg::ConfigureWindowEvent::create(window, event_time, contentRect.origin.x, contentRect.origin.y, width, height));
 }
@@ -168,18 +168,18 @@ namespace vsg
 
 - (void)windowDidBecomeKey:(NSNotification *)notification
 {
-    //std::cout << "windowDidBecomeKey" << std::endl;
+    //vsg:debug("windowDidBecomeKey");
 }
 
 - (void)windowDidResignKey:(NSNotification *)notification
 {
-    //std::cout << "windowDidResignKey" << std::endl;
+    //vsg:debug("windowDidResignKey");
 }
 
 @end
 
 //------------------------------------------------------------------------
-// NSView implmentation
+// NSView implementation
 //------------------------------------------------------------------------
 
 @interface vsg_MacOS_NSView : NSView
@@ -544,7 +544,7 @@ KeyboardMap::KeyboardMap()
         { ':', KEY_Colon },
         { kVK_ANSI_Semicolon, KEY_Semicolon },
         { '<', KEY_Less },
-        { kVK_ANSI_Equal, KEY_Equals }, // + isnt an unmodded key, why does windows map is as a virtual??
+        { kVK_ANSI_Equal, KEY_Equals }, // + isn't an unmodded key, why does windows map is as a virtual??
         { '>', KEY_Greater },
         { '?', KEY_Question },
         { '@', KEY_At},
@@ -797,6 +797,7 @@ MacOS_Window::MacOS_Window(vsg::ref_ptr<vsg::WindowTraits> traits) :
     [_window setOpaque:YES];
     [_window setBackgroundColor:[NSColor whiteColor]];
 
+    
     // create view
     _view = [[vsg_MacOS_NSView alloc] initWithVsgWindow:this];
     [_view setWantsBestResolutionOpenGLSurface:_traits->hdpi];
@@ -827,7 +828,15 @@ MacOS_Window::MacOS_Window(vsg::ref_ptr<vsg::WindowTraits> traits) :
     _first_macos_timestamp = [[NSProcessInfo processInfo] systemUptime];
     _first_macos_time_point = vsg::clock::now();
 
+   // set the top left corner window position as offset from the top left corner of the screen
+    NSPoint pos;
+    int xmax = [[NSScreen mainScreen] frame].size.width - [_window frame].size.width;
+    int ymax = [[NSScreen mainScreen] frame].size.height - [_window frame].size.height;
+    pos.x = std::clamp(traits->x,0,xmax);
+    pos.y = ymax-std::clamp(traits->y,0,ymax);
     // show
+    [_window setFrame:CGRectMake(pos.x, pos.y, [_window frame].size.width , [_window frame].size.height) display:YES];
+
     //vsgMacOS::createApplicationMenus();
     [NSApp activateIgnoringOtherApps:YES];
     [_window makeKeyAndOrderFront:nil];
@@ -910,7 +919,7 @@ bool MacOS_Window::handleNSEvent(NSEvent* anEvent)
             NSInteger buttonNumber = [anEvent buttonNumber];
             NSUInteger pressedButtons = [NSEvent pressedMouseButtons];
             
-            //std::cout << "NSEventTypeMouseMoved(etc): " << pos.x << ", " << pos.y << std::endl;
+            //vsg:debug("NSEventTypeMouseMoved(etc): ", pos.x, ", ", pos.y);
 
             auto buttonMask = 0;
             if(pressedButtons & (1 << 0)) buttonMask |= vsg::BUTTON_MASK_1;

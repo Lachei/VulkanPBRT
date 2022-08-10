@@ -11,6 +11,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 </editor-fold> */
 
 #include <vsg/io/FileSystem.h>
+#include <vsg/io/Logger.h>
 #include <vsg/io/read.h>
 #include <vsg/nodes/CullNode.h>
 #include <vsg/nodes/LOD.h>
@@ -63,13 +64,13 @@ void LoadPagedLOD::apply(CullNode& node)
     // check if cullNode bounding sphere is in view frustum.
     if (!intersect(_frustumStack.top(), node.bound)) return;
 
-    //std::cout<<"apply(CullNode& node) : Need to do cull test of bounding sphere"<<std::endl;
+    debug("apply(CullNode& node) : Need to do cull test of bounding sphere");
     node.traverse(*this);
 }
 
 void LoadPagedLOD::apply(Transform& transform)
 {
-    //std::cout<<"apply(Transform& transform) Need to do transform modelview matrix"<<std::endl;
+    debug("apply(Transform& transform) Need to do transform modelview matrix");
 
     modelviewMatrixStack.emplace(transform.transform(modelviewMatrixStack.top()));
 
@@ -109,7 +110,7 @@ void LoadPagedLOD::apply(PagedLOD& plod)
     // check if lod bounding sphere is in view frustum.
     if (level >= loadLevels || !intersect(_frustumStack.top(), bs)) return;
 
-    //std::cout<<"PLOD intersects "<< (intersect(_frustumStack.top(), bs))<<std::endl;
+    //debug("PLOD intersects ", (intersect(_frustumStack.top(), bs)));
 
     auto [distance, rf] = computeDistanceAndRF(bs);
 
@@ -120,15 +121,15 @@ void LoadPagedLOD::apply(PagedLOD& plod)
         {
             ++level;
 
-            Path filename = _pathStack.empty() ? plod.filename : concatPaths(_pathStack.back(), plod.filename);
+            Path filename = _pathStack.empty() ? plod.filename : (_pathStack.back() / plod.filename);
 
             Path localPath = filePath(plod.filename);
-            if (!localPath.empty())
+            if (localPath)
             {
                 if (_pathStack.empty())
                     _pathStack.push_back(localPath);
                 else
-                    _pathStack.push_back(concatPaths(_pathStack.back(), localPath));
+                    _pathStack.push_back(_pathStack.back() / localPath);
             }
 
             if (!child.node)
@@ -139,7 +140,7 @@ void LoadPagedLOD::apply(PagedLOD& plod)
 
             if (child.node) child.node->accept(*this);
 
-            if (!localPath.empty())
+            if (localPath)
             {
                 _pathStack.pop_back();
             }

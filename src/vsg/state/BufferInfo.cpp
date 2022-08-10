@@ -11,12 +11,12 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 </editor-fold> */
 
 #include <vsg/commands/CopyAndReleaseBuffer.h>
+#include <vsg/core/compare.h>
+#include <vsg/io/Logger.h>
 #include <vsg/io/Options.h>
 #include <vsg/state/BufferInfo.h>
 #include <vsg/traversals/CompileTraversal.h>
 #include <vsg/vk/CommandBuffer.h>
-
-#include <iostream>
 
 using namespace vsg;
 
@@ -44,6 +44,23 @@ BufferInfo::BufferInfo(Buffer* in_buffer, VkDeviceSize in_offset, VkDeviceSize i
 BufferInfo::~BufferInfo()
 {
     release();
+}
+
+int BufferInfo::compare(const Object& rhs_object) const
+{
+    int result = Object::compare(rhs_object);
+    if (result != 0) return result;
+
+    auto& rhs = static_cast<decltype(*this)>(rhs_object);
+
+    if ((result = compare_pointer(data, rhs.data))) return result;
+
+    /// if one of less buffer is assigned treat as a match as data is the same, and we can reuse any BufferInfo that's been assigned.
+    if (!buffer || !rhs.buffer) return 0;
+
+    if ((result = compare_pointer(buffer, rhs.buffer))) return result;
+    if ((result = compare_value(offset, rhs.offset))) return result;
+    return compare_value(range, rhs.range);
 }
 
 void BufferInfo::release()
@@ -81,7 +98,7 @@ void BufferInfo::copyDataToBuffer(uint32_t deviceID)
     {
         if ((dm->getMemoryPropertyFlags() & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0)
         {
-            std::cout << "Warning: BufferInfo::copyDataToBuffer() cannot copy data. DeviceMemory does not support direct memory mapping." << std::endl;
+            warn("BufferInfo::copyDataToBuffer() cannot copy data. DeviceMemory does not support direct memory mapping.");
 
             // 1. allocate staging buffer
             // 2. copy to staging buffer
@@ -94,7 +111,7 @@ void BufferInfo::copyDataToBuffer(uint32_t deviceID)
         VkResult result = dm->map(offset, range, 0, &buffer_data);
         if (result != 0)
         {
-            std::cout << "Warning: BufferInfo::copyDataToBuffer() cannot copy data. VkMapMemory(..) failed with result = " << result << std::endl;
+            warn("BufferInfo::copyDataToBuffer() cannot copy data. VkMapMemory(..) failed with result = ", result);
             return;
         }
 
@@ -119,7 +136,7 @@ ref_ptr<BufferInfo> vsg::copyDataToStagingBuffer(Context& context, const Data* d
     auto stagingBufferInfo = context.stagingMemoryBufferPools->reserveBuffer(imageTotalSize, alignment, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_SHARING_MODE_EXCLUSIVE, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     stagingBufferInfo->data = const_cast<Data*>(data);
 
-    // std::cout<<"stagingBufferInfo->buffer "<<stagingBufferInfo->buffer.get()<<", "<<stagingBufferInfo->offset<<", "<<stagingBufferInfo->range<<")"<<std::endl;
+    debug("stagingBufferInfo->buffer ", stagingBufferInfo->buffer.get(), ", ", stagingBufferInfo->offset, ", ", stagingBufferInfo->range, ")");
 
     ref_ptr<Buffer> imageStagingBuffer(stagingBufferInfo->buffer);
     ref_ptr<DeviceMemory> imageStagingMemory(imageStagingBuffer->getDeviceMemory(context.deviceID));
@@ -129,7 +146,7 @@ ref_ptr<BufferInfo> vsg::copyDataToStagingBuffer(Context& context, const Data* d
     // copy data to staging memory
     imageStagingMemory->copy(imageStagingBuffer->getMemoryOffset(context.deviceID) + stagingBufferInfo->offset, imageTotalSize, data->dataPointer());
 
-    // std::cout << "Creating imageStagingBuffer and memory size = " << imageTotalSize<<std::endl;
+    debug("Creating imageStagingBuffer and memory size = ", imageTotalSize);
 
     return stagingBufferInfo;
 }
@@ -140,7 +157,7 @@ ref_ptr<BufferInfo> vsg::copyDataToStagingBuffer(Context& context, const Data* d
 //
 bool vsg::createBufferAndTransferData(Context& context, const BufferInfoList& bufferInfoList, VkBufferUsageFlags usage, VkSharingMode sharingMode)
 {
-    //std::cout<<"vsg::createBufferAndTransferData(.., )"<<std::endl;
+    debug("vsg::createBufferAndTransferData(.., )");
 
     if (bufferInfoList.empty()) return false;
 
@@ -178,13 +195,13 @@ bool vsg::createBufferAndTransferData(Context& context, const BufferInfoList& bu
 
     if (numBuffersRequired == 0)
     {
-        std::cout << "\nvsg::createBufferAndTransferData(...) already all compiled. deviceID = " << deviceID << std::endl;
+        debug("\nvsg::createBufferAndTransferData(...) already all compiled. deviceID = ", deviceID);
         return false;
     }
 
     if (containsMultipleParents)
     {
-        std::cout << "Warning : vsg::createBufferAndTransferData(...) does not support multiple parent BufferInfo." << std::endl;
+        warn("vsg::createBufferAndTransferData(...) does not support multiple parent BufferInfo.");
         return false;
     }
 
@@ -213,12 +230,12 @@ bool vsg::createBufferAndTransferData(Context& context, const BufferInfoList& bu
     {
         if (totalSize != deviceBufferInfo->range)
         {
-            std::cout << "Exisitng deviceBufferInfo, " << deviceBufferInfo << ", deviceBufferInfo->range  = " << deviceBufferInfo->range << ", " << totalSize << " NOT compatible" << std::endl;
+            warn("Existing deviceBufferInfo, ", deviceBufferInfo, ", deviceBufferInfo->range  = ", deviceBufferInfo->range, ", ", totalSize, " NOT compatible");
             return false;
         }
         else
         {
-            //std::cout<<"Exisitng deviceBufferInfo, "<<deviceBufferInfo<<", deviceBufferInfo->range  = "<<deviceBufferInfo->range <<", "<<totalSize<<" with compatible size"<<std::endl;
+            debug("Existing deviceBufferInfo, ", deviceBufferInfo, ", deviceBufferInfo->range  = ", deviceBufferInfo->range, ", ", totalSize, " with compatible size");
 
             // make sure the VkBuffer is created
             deviceBufferInfo->buffer->compile(context);
@@ -240,7 +257,7 @@ bool vsg::createBufferAndTransferData(Context& context, const BufferInfoList& bu
         deviceBufferInfo = context.deviceMemoryBufferPools->reserveBuffer(totalSize, alignment, bufferUsageFlags, sharingMode, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     }
 
-    //std::cout<<"deviceBufferInfo->buffer "<<deviceBufferInfo->buffer.get()<<", "<<deviceBufferInfo->offset<<", "<<deviceBufferInfo->range<<")"<<std::endl;
+    debug("deviceBufferInfo->buffer ", deviceBufferInfo->buffer.get(), ", ", deviceBufferInfo->offset, ", ", deviceBufferInfo->range, ")");
 
     // assign the buffer to the bufferData entries and shift the offsets to offset within the buffer
     for (auto& bufferInfo : bufferInfoList)
@@ -251,7 +268,7 @@ bool vsg::createBufferAndTransferData(Context& context, const BufferInfoList& bu
 
     auto stagingBufferInfo = context.stagingMemoryBufferPools->reserveBuffer(totalSize, alignment, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, sharingMode, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-    //std::cout<<"stagingBufferInfo->buffer "<<stagingBufferInfo->buffer.get()<<", "<<stagingBufferInfo->offset<<", "<<stagingBufferInfo->range<<")"<<std::endl;
+    debug("stagingBufferInfo->buffer ", stagingBufferInfo->buffer.get(), ", ", stagingBufferInfo->offset, ", ", stagingBufferInfo->range, ")");
 
     ref_ptr<Buffer> stagingBuffer(stagingBufferInfo->buffer);
     ref_ptr<DeviceMemory> stagingMemory(stagingBuffer->getDeviceMemory(context.deviceID));
@@ -265,7 +282,7 @@ bool vsg::createBufferAndTransferData(Context& context, const BufferInfoList& bu
     stagingMemory->map(stagingBuffer->getMemoryOffset(context.deviceID) + stagingBufferInfo->offset, stagingBufferInfo->range, 0, &buffer_data);
     char* ptr = reinterpret_cast<char*>(buffer_data);
 
-    //std::cout<<"    buffer_data " <<buffer_data<<", stagingBufferInfo->offset="<<stagingBufferInfo->offset<<", "<<totalSize<< std::endl;
+    debug("    buffer_data ", buffer_data, ", stagingBufferInfo->offset=", stagingBufferInfo->offset, ", ", totalSize);
 
     for (auto& bufferInfo : bufferInfoList)
     {
@@ -324,5 +341,28 @@ void vsg::copyDataListToBuffers(Device* device, BufferInfoList& bufferInfoList)
     for (auto& bufferData : bufferInfoList)
     {
         bufferData->copyDataToBuffer(device->deviceID);
+    }
+}
+
+void vsg::assignVulkanArrayData(uint32_t deviceID, const BufferInfoList& arrays, VulkanArrayData& vkd)
+{
+    //    info("vsg::assignVulkanArrayData(deviceID = ", deviceID, ", arrays.size() = ", arrays.size(), " vkd.vkBuffers.size() = ", vkd.vkBuffers.size(), ", &vkd ", &vkd);
+    vkd.vkBuffers.resize(arrays.size());
+    vkd.offsets.resize(arrays.size());
+
+    for (size_t i = 0; i < arrays.size(); ++i)
+    {
+        auto& bufferInfo = arrays[i];
+        if (bufferInfo->buffer)
+        {
+            vkd.vkBuffers[i] = bufferInfo->buffer->vk(deviceID);
+            vkd.offsets[i] = bufferInfo->offset;
+        }
+        else
+        {
+            // error, no buffer to assign
+            vkd.vkBuffers[i] = 0;
+            vkd.offsets[i] = 0;
+        }
     }
 }

@@ -13,7 +13,9 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/commands/Command.h>
 #include <vsg/commands/Commands.h>
 #include <vsg/io/DatabasePager.h>
+#include <vsg/io/Logger.h>
 #include <vsg/io/Options.h>
+#include <vsg/io/stream.h>
 #include <vsg/maths/plane.h>
 #include <vsg/nodes/Bin.h>
 #include <vsg/nodes/CullGroup.h>
@@ -21,6 +23,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/nodes/DepthSorted.h>
 #include <vsg/nodes/Group.h>
 #include <vsg/nodes/LOD.h>
+#include <vsg/nodes/Light.h>
 #include <vsg/nodes/MatrixTransform.h>
 #include <vsg/nodes/PagedLOD.h>
 #include <vsg/nodes/QuadGroup.h>
@@ -35,8 +38,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/vk/State.h>
 
 using namespace vsg;
-
-#include <iostream>
 
 #define INLINE_TRAVERSE 0
 
@@ -110,13 +111,13 @@ void RecordTraversal::clearBins()
 
 void RecordTraversal::apply(const Object& object)
 {
-    //    std::cout<<"Visiting object"<<std::endl;
+    //debug("Visiting Object");
     object.traverse(*this);
 }
 
 void RecordTraversal::apply(const Group& group)
 {
-//    std::cout<<"Visiting Group "<<std::endl;
+    //debug("Visiting Group");
 #if INLINE_TRAVERSE
     vsg::Group::t_traverse(group, *this);
 #else
@@ -126,7 +127,7 @@ void RecordTraversal::apply(const Group& group)
 
 void RecordTraversal::apply(const QuadGroup& group)
 {
-//    std::cout<<"Visiting QuadGroup "<<std::endl;
+    //debug("Visiting QuadGroup");
 #if INLINE_TRAVERSE
     vsg::QuadGroup::t_traverse(group, *this);
 #else
@@ -218,7 +219,7 @@ void RecordTraversal::apply(const PagedLOD& plod)
                 }
                 else
                 {
-                    //std::cout<<"repeat request "<<&plod<<", "<<plod.requestCount.load()<<std::endl;;
+                    //debug("repeat request ",&plod,", ",plod.filename,", ",plod.requestCount.load(),", plod.requestStatus = ",plod.requestStatus.load());
                 }
             }
         }
@@ -250,7 +251,7 @@ void RecordTraversal::apply(const CullGroup& cullGroup)
 {
     if (_state->intersect(cullGroup.bound))
     {
-        //std::cout<<"Passed node"<<std::endl;
+        // debug("Passed node");
         cullGroup.traverse(*this);
     }
 }
@@ -259,7 +260,7 @@ void RecordTraversal::apply(const CullNode& cullNode)
 {
     if (_state->intersect(cullNode.bound))
     {
-        //std::cout<<"Passed node"<<std::endl;
+        //debug("Passed node");
         cullNode.traverse(*this);
     }
 }
@@ -280,16 +281,45 @@ void RecordTraversal::apply(const Switch& sw)
 {
     for (auto& child : sw.children)
     {
-        if ((traversalMask & (overrideMask | child.mask)) != 0)
+        if ((traversalMask & (overrideMask | child.mask)) != MASK_OFF)
         {
             child.node->accept(*this);
         }
     }
 }
 
+void RecordTraversal::apply(const Light& /*light*/)
+{
+    //debug("RecordTraversal::apply(Light) ", light.className());
+}
+
+void RecordTraversal::apply(const AmbientLight& light)
+{
+    //debug("RecordTraversal::apply(AmbientLight) ", light.className());
+    if (_viewDependentState) _viewDependentState->ambientLights.emplace_back(_state->modelviewMatrixStack.top(), &light);
+}
+
+void RecordTraversal::apply(const DirectionalLight& light)
+{
+    //debug("RecordTraversal::apply(DirectionalLight) ", light.className());
+    if (_viewDependentState) _viewDependentState->directionalLights.emplace_back(_state->modelviewMatrixStack.top(), &light);
+}
+
+void RecordTraversal::apply(const PointLight& light)
+{
+    //debug("RecordTraversal::apply(PointLight) ", light.className());
+    if (_viewDependentState) _viewDependentState->pointLights.emplace_back(_state->modelviewMatrixStack.top(), &light);
+}
+
+void RecordTraversal::apply(const SpotLight& light)
+{
+    //debug("RecordTraversal::apply(SpotLight) ", light.className());
+    if (_viewDependentState) _viewDependentState->spotLights.emplace_back(_state->modelviewMatrixStack.top(), &light);
+}
+
 void RecordTraversal::apply(const StateGroup& stateGroup)
 {
-    //    std::cout<<"Visiting StateGroup "<<std::endl;
+    //debug("Visiting StateGroup");
 
     for (auto& command : stateGroup.stateCommands)
     {
@@ -358,7 +388,7 @@ void RecordTraversal::apply(const Commands& commands)
 
 void RecordTraversal::apply(const Command& command)
 {
-    //    std::cout<<"Visiting Command "<<std::endl;
+    //debug("Visiting Command");
     _state->record();
     command.record(*(_state->_commandBuffer));
 }
@@ -369,11 +399,13 @@ void RecordTraversal::apply(const View& view)
     auto cached_traversalMask = _state->_commandBuffer->traversalMask;
     _state->_commandBuffer->traversalMask = traversalMask;
     _state->_commandBuffer->viewID = view.viewID;
+    _state->_commandBuffer->viewDependentState = view.viewDependentState.get();
 
     // cache the previous bins
     int32_t cached_minimumBinNumber = _minimumBinNumber;
     decltype(_bins) cached_bins;
     cached_bins.swap(_bins);
+    auto cached_viewDependentState = _viewDependentState;
 
     // assign and clear the View's bins
     int32_t min_binNumber = 0;
@@ -390,6 +422,13 @@ void RecordTraversal::apply(const View& view)
     {
         _bins[bin->binNumber] = bin;
         bin->clear();
+    }
+
+    // assign and clear the View's ViewDependentState
+    _viewDependentState = view.viewDependentState;
+    if (_viewDependentState)
+    {
+        _viewDependentState->clear();
     }
 
     if (view.camera)
@@ -409,8 +448,15 @@ void RecordTraversal::apply(const View& view)
         bin->accept(*this);
     }
 
+    if (_viewDependentState)
+    {
+        _viewDependentState->pack();
+        _viewDependentState->copy();
+    }
+
     // swap back previous bin setup.
     _minimumBinNumber = cached_minimumBinNumber;
     cached_bins.swap(_bins);
     _state->_commandBuffer->traversalMask = cached_traversalMask;
+    _viewDependentState = cached_viewDependentState;
 }

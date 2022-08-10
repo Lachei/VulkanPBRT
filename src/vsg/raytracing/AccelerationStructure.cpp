@@ -22,8 +22,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 using namespace vsg;
 
-AccelerationStructure::AccelerationStructure(VkAccelerationStructureTypeKHR type, Device* device, Allocator* allocator) :
-    Inherit(allocator),
+AccelerationStructure::AccelerationStructure(VkAccelerationStructureTypeKHR type, Device* device) :
     _accelerationStructure{},
     _accelerationStructureInfo{},
     _accelerationStructureBuildGeometryInfo{},
@@ -48,14 +47,14 @@ AccelerationStructure::~AccelerationStructure()
 {
     if (_accelerationStructure)
     {
-        Extensions* extensions = Extensions::Get(_device, true);
+        auto extensions = _device->getExtensions();
         extensions->vkDestroyAccelerationStructureKHR(*_device, _accelerationStructure, nullptr);
     }
 }
 
 void AccelerationStructure::compile(Context& context)
 {
-    Extensions* extensions = Extensions::Get(context.device, true);
+    auto extensions = context.device->getExtensions();
 
     VkAccelerationStructureBuildSizesInfoKHR accelerationStructureBuildSizesInfo{};
     accelerationStructureBuildSizesInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_SIZES_INFO_KHR;

@@ -20,6 +20,7 @@ namespace vsg
     {
     public:
         MultisampleState(VkSampleCountFlagBits rasterizationSamples = VK_SAMPLE_COUNT_1_BIT);
+        MultisampleState(const MultisampleState& ms);
 
         /// VkPipelineMultisampleStateCreateInfo settings
         VkSampleCountFlagBits rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
@@ -28,6 +29,8 @@ namespace vsg
         std::vector<VkSampleMask> sampleMasks;
         VkBool32 alphaToCoverageEnable = VK_FALSE;
         VkBool32 alphaToOneEnable = VK_FALSE;
+
+        int compare(const Object& rhs) const override;
 
         void read(Input& input) override;
         void write(Output& output) const override;

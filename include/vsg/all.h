@@ -24,22 +24,29 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/core/Export.h>
 #include <vsg/core/External.h>
 #include <vsg/core/Inherit.h>
+#include <vsg/core/Mask.h>
+#include <vsg/core/MemorySlots.h>
 #include <vsg/core/Object.h>
 #include <vsg/core/Objects.h>
 #include <vsg/core/ScratchMemory.h>
 #include <vsg/core/Value.h>
 #include <vsg/core/Version.h>
 #include <vsg/core/Visitor.h>
+#include <vsg/core/compare.h>
 #include <vsg/core/observer_ptr.h>
 #include <vsg/core/ref_ptr.h>
 #include <vsg/core/type_name.h>
+#include <vsg/core/visit.h>
 
 // Maths header files
 #include <vsg/maths/box.h>
+#include <vsg/maths/clamp.h>
+#include <vsg/maths/color.h>
 #include <vsg/maths/mat3.h>
 #include <vsg/maths/mat4.h>
 #include <vsg/maths/plane.h>
 #include <vsg/maths/quat.h>
+#include <vsg/maths/sample.h>
 #include <vsg/maths/sphere.h>
 #include <vsg/maths/transform.h>
 #include <vsg/maths/vec2.h>
@@ -47,6 +54,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/maths/vec4.h>
 
 // Node header files
+#include <vsg/nodes/AbsoluteTransform.h>
 #include <vsg/nodes/Bin.h>
 #include <vsg/nodes/CullGroup.h>
 #include <vsg/nodes/CullNode.h>
@@ -54,16 +62,19 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/nodes/Geometry.h>
 #include <vsg/nodes/Group.h>
 #include <vsg/nodes/LOD.h>
+#include <vsg/nodes/Light.h>
 #include <vsg/nodes/MatrixTransform.h>
 #include <vsg/nodes/Node.h>
 #include <vsg/nodes/PagedLOD.h>
 #include <vsg/nodes/QuadGroup.h>
 #include <vsg/nodes/StateGroup.h>
 #include <vsg/nodes/Switch.h>
+#include <vsg/nodes/TileDatabase.h>
 #include <vsg/nodes/Transform.h>
 #include <vsg/nodes/VertexIndexDraw.h>
 
 // Commands header files
+#include <vsg/commands/BeginQuery.h>
 #include <vsg/commands/BindIndexBuffer.h>
 #include <vsg/commands/BindVertexBuffers.h>
 #include <vsg/commands/BlitImage.h>
@@ -74,22 +85,30 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/commands/CopyAndReleaseImage.h>
 #include <vsg/commands/CopyImage.h>
 #include <vsg/commands/CopyImageToBuffer.h>
+#include <vsg/commands/CopyQueryPoolResults.h>
 #include <vsg/commands/Dispatch.h>
 #include <vsg/commands/Draw.h>
 #include <vsg/commands/DrawIndexed.h>
 #include <vsg/commands/DrawIndexedIndirect.h>
 #include <vsg/commands/DrawIndirect.h>
 #include <vsg/commands/DrawIndirectCommand.h>
+#include <vsg/commands/EndQuery.h>
 #include <vsg/commands/Event.h>
+#include <vsg/commands/ExecuteCommands.h>
 #include <vsg/commands/NextSubPass.h>
 #include <vsg/commands/PipelineBarrier.h>
 #include <vsg/commands/PushConstants.h>
+#include <vsg/commands/ResetQueryPool.h>
+#include <vsg/commands/ResolveImage.h>
 #include <vsg/commands/SetDepthBias.h>
 #include <vsg/commands/SetLineWidth.h>
 #include <vsg/commands/SetScissor.h>
 #include <vsg/commands/SetViewport.h>
+#include <vsg/commands/WriteTimestamp.h>
 
 // State header files
+#include <vsg/state/ArrayState.h>
+#include <vsg/state/BindDescriptorSet.h>
 #include <vsg/state/Buffer.h>
 #include <vsg/state/BufferInfo.h>
 #include <vsg/state/BufferView.h>
@@ -110,6 +129,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/state/InputAssemblyState.h>
 #include <vsg/state/MultisampleState.h>
 #include <vsg/state/PipelineLayout.h>
+#include <vsg/state/QueryPool.h>
 #include <vsg/state/RasterizationState.h>
 #include <vsg/state/ResourceHints.h>
 #include <vsg/state/Sampler.h>
@@ -119,11 +139,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/state/StateSwitch.h>
 #include <vsg/state/TessellationState.h>
 #include <vsg/state/VertexInputState.h>
+#include <vsg/state/ViewDependentState.h>
 #include <vsg/state/ViewportState.h>
 #include <vsg/state/material.h>
 
 // Traversal header files
-#include <vsg/traversals/ArrayState.h>
 #include <vsg/traversals/CompileTraversal.h>
 #include <vsg/traversals/ComputeBounds.h>
 #include <vsg/traversals/Intersector.h>
@@ -160,14 +180,16 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/viewer/Camera.h>
 #include <vsg/viewer/CloseHandler.h>
 #include <vsg/viewer/CommandGraph.h>
+#include <vsg/viewer/CompileManager.h>
 #include <vsg/viewer/CopyImageViewToWindow.h>
 #include <vsg/viewer/EllipsoidModel.h>
-#include <vsg/viewer/ExecuteCommands.h>
 #include <vsg/viewer/Presentation.h>
 #include <vsg/viewer/ProjectionMatrix.h>
 #include <vsg/viewer/RecordAndSubmitTask.h>
 #include <vsg/viewer/RenderGraph.h>
+#include <vsg/viewer/SecondaryCommandGraph.h>
 #include <vsg/viewer/Trackball.h>
+#include <vsg/viewer/UpdateOperations.h>
 #include <vsg/viewer/View.h>
 #include <vsg/viewer/ViewMatrix.h>
 #include <vsg/viewer/Viewer.h>
@@ -195,12 +217,12 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/vk/RenderPass.h>
 #include <vsg/vk/ResourceRequirements.h>
 #include <vsg/vk/Semaphore.h>
-#include <vsg/vk/ShaderCompiler.h>
 #include <vsg/vk/State.h>
 #include <vsg/vk/SubmitCommands.h>
 #include <vsg/vk/Surface.h>
 #include <vsg/vk/Swapchain.h>
 #include <vsg/vk/vk_buffer.h>
+#include <vsg/vk/vulkan.h>
 
 // Input/Output header files
 #include <vsg/io/AsciiInput.h>
@@ -210,25 +232,29 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/io/DatabasePager.h>
 #include <vsg/io/FileSystem.h>
 #include <vsg/io/Input.h>
-#include <vsg/io/ObjectCache.h>
+#include <vsg/io/Logger.h>
 #include <vsg/io/ObjectFactory.h>
 #include <vsg/io/Options.h>
 #include <vsg/io/Output.h>
+#include <vsg/io/Path.h>
 #include <vsg/io/ReaderWriter.h>
 #include <vsg/io/VSG.h>
+#include <vsg/io/convert_utf.h>
 #include <vsg/io/read.h>
 #include <vsg/io/read_line.h>
 #include <vsg/io/spirv.h>
 #include <vsg/io/stream.h>
+#include <vsg/io/tile.h>
 #include <vsg/io/write.h>
 
 // Utility header files
 #include <vsg/utils/AnimationPath.h>
 #include <vsg/utils/Builder.h>
 #include <vsg/utils/CommandLine.h>
-
-// Introspection header files
-#include <vsg/introspection/c_interface.h>
+#include <vsg/utils/GraphicsPipelineConfig.h>
+#include <vsg/utils/ShaderCompiler.h>
+#include <vsg/utils/ShaderSet.h>
+#include <vsg/utils/SharedObjects.h>
 
 // Text header files
 #include <vsg/text/CpuLayoutTechnique.h>

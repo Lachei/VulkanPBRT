@@ -30,6 +30,8 @@ namespace vsg
 
         void assignArrays(const DataList& in_arrays);
 
+        int compare(const Object& rhs) const override;
+
         void read(Input& input) override;
         void write(Output& output) const override;
 
@@ -40,13 +42,7 @@ namespace vsg
     protected:
         virtual ~BindVertexBuffers();
 
-        struct VulkanData
-        {
-            std::vector<VkBuffer> vkBuffers;
-            std::vector<VkDeviceSize> offsets;
-        };
-
-        vk_buffer<VulkanData> _vulkanData;
+        vk_buffer<VulkanArrayData> _vulkanData;
     };
     VSG_type_name(vsg::BindVertexBuffers);
 

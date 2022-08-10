@@ -12,6 +12,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
+#include <vsg/core/Mask.h>
 #include <vsg/core/Object.h>
 #include <vsg/core/type_name.h>
 #include <vsg/maths/mat4.h>
@@ -44,6 +45,12 @@ namespace vsg
     class View;
     class Bin;
     class Switch;
+    class ViewDependentState;
+    class Light;
+    class AmbientLight;
+    class DirectionalLight;
+    class PointLight;
+    class SpotLight;
 
     VSG_type_name(vsg::RecordTraversal);
 
@@ -55,11 +62,17 @@ namespace vsg
         RecordTraversal(const RecordTraversal&) = delete;
         RecordTraversal& operator=(const RecordTraversal& rhs) = delete;
 
+        template<typename... Args>
+        static ref_ptr<RecordTraversal> create(Args&&... args)
+        {
+            return ref_ptr<RecordTraversal>(new RecordTraversal(args...));
+        }
+
         std::size_t sizeofObject() const noexcept override { return sizeof(RecordTraversal); }
         const char* className() const noexcept override { return type_name<RecordTraversal>(); }
 
-        uint32_t traversalMask = 0xffffffff;
-        uint32_t overrideMask = 0x0;
+        Mask traversalMask = MASK_ALL;
+        Mask overrideMask = MASK_OFF;
 
         State* getState() { return _state; }
 
@@ -82,6 +95,13 @@ namespace vsg
         void apply(const CullNode& cullNode);
         void apply(const DepthSorted& depthSorted);
         void apply(const Switch& sw);
+
+        // positional state
+        void apply(const Light& light);
+        void apply(const AmbientLight& light);
+        void apply(const DirectionalLight& light);
+        void apply(const PointLight& light);
+        void apply(const SpotLight& light);
 
         // Vulkan nodes
         void apply(const Transform& transform);
@@ -108,6 +128,7 @@ namespace vsg
 
         int32_t _minimumBinNumber = 0;
         std::vector<ref_ptr<Bin>> _bins;
+        ref_ptr<ViewDependentState> _viewDependentState;
     };
 
 } // namespace vsg

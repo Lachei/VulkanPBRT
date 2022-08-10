@@ -11,36 +11,36 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 </editor-fold> */
 
 #include <vsg/core/Exception.h>
+#include <vsg/io/Logger.h>
 #include <vsg/io/Options.h>
 #include <vsg/vk/CommandBuffer.h>
 
 using namespace vsg;
 
-CommandBuffer::CommandBuffer(Device* device, CommandPool* commandPool, VkCommandBufferLevel level) :
-    deviceID(device->deviceID),
+CommandBuffer::CommandBuffer(CommandPool* commandPool, VkCommandBuffer commandBuffer, VkCommandBufferLevel level) :
+    deviceID(commandPool->getDevice()->deviceID),
     scratchMemory(ScratchMemory::create(4096)),
+    _commandBuffer(commandBuffer),
     _level(level),
-    _device(device),
+    _device(commandPool->getDevice()),
     _commandPool(commandPool),
     _currentPipelineLayout(VK_NULL_HANDLE),
     _currentPushConstantStageFlags(0)
 {
-    VkCommandBufferAllocateInfo allocateInfo = {};
-    allocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocateInfo.commandPool = *commandPool;
-    allocateInfo.level = level;
-    allocateInfo.commandBufferCount = 1;
-
-    if (VkResult result = vkAllocateCommandBuffers(*device, &allocateInfo, &_commandBuffer); result != VK_SUCCESS)
-    {
-        throw Exception{"Error: Failed to create command buffers.", result};
-    }
 }
 
 CommandBuffer::~CommandBuffer()
 {
     if (_commandBuffer)
     {
-        vkFreeCommandBuffers((*_device), (*_commandPool), 1, &_commandBuffer);
+        _commandPool->free(this);
     }
+}
+
+void CommandBuffer::reset()
+{
+    _currentPipelineLayout = VK_NULL_HANDLE;
+    _currentPushConstantStageFlags = 0;
+
+    _commandPool->reset();
 }

@@ -12,13 +12,12 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
-#include <vsg/vk/Device.h>
+#include <vsg/state/DescriptorSet.h>
 
 namespace vsg
 {
 
-    using DescriptorPoolSizes = std::vector<VkDescriptorPoolSize>;
-
+    /// DesctiporPool ecapsulates management of VkDescriptorPool
     class VSG_DECLSPEC DescriptorPool : public Inherit<Object, DescriptorPool>
     {
     public:
@@ -29,14 +28,30 @@ namespace vsg
         Device* getDevice() { return _device; }
         const Device* getDevice() const { return _device; }
 
-        std::mutex& getMutex() const { return _mutex; }
+        /// allocate or reuse available DescriptorSet::Implementation - called automatically when compiling DescriptorSet
+        ref_ptr<DescriptorSet::Implementation> allocateDescriptorSet(DescriptorSetLayout* descriptorSetLayout);
+
+        /// free DescriptorSet::Implementation for reuse - called automatically be destruction of DescriptorSet or release of it's Vulkan resources.
+        void freeDescriptorSet(ref_ptr<DescriptorSet::Implementation> dsi);
+
+        /// get the stats of the available DescriptorSets/Descritors
+        bool getAvailablity(uint32_t& maxSets, DescriptorPoolSizes& descriptorPoolSizes) const;
+
+        /// mutex used to ensure thead safe access of DesciptorPool resources.
+        /// Locked autoamtically by allocatoeDecstiproSet(..), freeDescriptorSet(), getAvailablity() and DescriptorSet:::Implementation
+        /// to esnure thread safe operation. Normal VulkanSceneGraph usage will not require users to lock this mutex so threat as an internal implementation detail.
+        mutable std::mutex mutex;
 
     protected:
         virtual ~DescriptorPool();
 
         VkDescriptorPool _descriptorPool;
         ref_ptr<Device> _device;
-        mutable std::mutex _mutex;
+
+        uint32_t _availableDescriptorSet;
+        DescriptorPoolSizes _availableDescriptorPoolSizes;
+
+        std::list<ref_ptr<DescriptorSet::Implementation>> _reclingList;
     };
     VSG_type_name(vsg::DescriptorPool);
 

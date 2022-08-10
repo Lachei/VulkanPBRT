@@ -15,8 +15,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/traversals/RecordTraversal.h>
 #include <vsg/viewer/View.h>
 
-#include <iostream>
-
 using namespace vsg;
 
 // thread safe container for managing the deviceID for each vsg;:View
@@ -48,16 +46,21 @@ static void releaseViewID(uint32_t viewID)
     s_ActiveViews[viewID] = false;
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// View
+//
 View::View() :
-    viewID(getUniqueViewID())
+    viewID(getUniqueViewID()),
+    viewDependentState(ViewDependentState::create())
 {
 }
 
 View::View(ref_ptr<Camera> in_camera, ref_ptr<Node> in_scenegraph) :
-    viewID(getUniqueViewID())
+    camera(in_camera),
+    viewID(getUniqueViewID()),
+    viewDependentState(ViewDependentState::create())
 {
-    camera = in_camera;
-
     if (in_scenegraph) addChild(in_scenegraph);
 }
 

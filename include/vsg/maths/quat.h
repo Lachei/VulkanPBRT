@@ -62,6 +62,8 @@ namespace vsg
         constexpr explicit t_quat(const t_quat<R>& v) :
             value{static_cast<T>(v.x), static_cast<T>(v.y), static_cast<T>(v.z), static_cast<T>(v.w)} {}
 
+        constexpr t_quat& operator=(const t_quat&) = default;
+
         constexpr std::size_t size() const { return 4; }
 
         value_type& operator[](std::size_t i) { return value[i]; }
@@ -147,6 +149,12 @@ namespace vsg
     VSG_type_name(vsg::dquat);
 
     template<typename T>
+    constexpr bool operator==(const t_quat<T>& lhs, const t_quat<T>& rhs)
+    {
+        return lhs[0] == rhs[0] && lhs[1] == rhs[1] && lhs[2] == rhs[2] && lhs[3] == rhs[3];
+    }
+
+    template<typename T>
     constexpr t_quat<T> operator-(const t_quat<T>& lhs, const t_quat<T>& rhs)
     {
         return t_quat<T>(lhs[0] - rhs[0], lhs[1] - rhs[1], lhs[2] - rhs[2], lhs[3] - rhs[3]);
@@ -168,6 +176,33 @@ namespace vsg
     constexpr t_quat<T> operator+(const t_quat<T>& lhs, const t_quat<T>& rhs)
     {
         return t_quat<T>(lhs[0] + rhs[0], lhs[1] + rhs[1], lhs[2] + rhs[2], lhs[3] + rhs[3]);
+    }
+
+    // Rotate a quaternion by another quaternion
+    template<typename T>
+    constexpr t_quat<T> operator*(const t_quat<T>& lhs, const t_quat<T>& rhs)
+    {
+        t_quat<T> q(rhs[3] * lhs[0] + rhs[0] * lhs[3] + rhs[1] * lhs[2] - rhs[2] * lhs[1],
+                    rhs[3] * lhs[1] - rhs[0] * lhs[2] + rhs[1] * lhs[3] + rhs[2] * lhs[0],
+                    rhs[3] * lhs[2] + rhs[0] * lhs[1] - rhs[1] * lhs[0] + rhs[2] * lhs[3],
+                    rhs[3] * lhs[3] - rhs[0] * lhs[0] - rhs[1] * lhs[1] - rhs[2] * lhs[2]);
+
+        return q;
+    }
+
+    // Rotate a vector by a quaternion
+    template<typename T>
+    constexpr t_vec3<T> operator*(const t_quat<T>& q, const t_vec3<T>& v)
+    {
+        // nVidia SDK implementation
+        t_vec3<T> uv, uuv;
+        t_vec3<T> qvec(q[0], q[1], q[2]);
+        uv = cross(qvec, v);
+        uuv = cross(qvec, uv);
+        T two(2.0);
+        uv *= (two * q[3]);
+        uuv *= two;
+        return v + uv + uuv;
     }
 
     template<typename T>

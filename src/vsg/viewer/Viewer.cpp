@@ -10,6 +10,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
+#include <vsg/io/Logger.h>
 #include <vsg/nodes/StateGroup.h>
 #include <vsg/state/Descriptor.h>
 #include <vsg/traversals/CompileTraversal.h>
@@ -17,7 +18,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/viewer/Viewer.h>
 
 #include <chrono>
-#include <iostream>
 #include <map>
 #include <set>
 
@@ -28,6 +28,7 @@ using namespace vsg;
 #endif
 
 Viewer::Viewer() :
+    updateOperations(UpdateOperations::create()),
     status(vsg::ActivityStatus::create()),
     _start_point(clock::now())
 {
@@ -47,6 +48,14 @@ void Viewer::deviceWaitIdle() const
     for (auto& window : _windows)
     {
         if (window->getDevice()) devices.insert(*(window->getDevice()));
+    }
+
+    for (auto& task : recordAndSubmitTasks)
+    {
+        for(auto& cg : task->commandGraphs)
+        {
+            devices.insert(*(cg->device));
+        }
     }
 
     for (auto& device : devices)
@@ -157,14 +166,15 @@ bool Viewer::acquireNextFrame()
             if (result == VK_ERROR_SURFACE_LOST_KHR ||
                 result == VK_ERROR_DEVICE_LOST ||
                 result == VK_ERROR_OUT_OF_DATE_KHR ||
-                result == VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT)
+                result == VK_ERROR_FULL_SCREEN_EXCLUSIVE_MODE_LOST_EXT ||
+                result == VK_SUBOPTIMAL_KHR)
             {
                 // force a rebuild of the Swapchain by calling Window::resize();
                 window->resize();
             }
             else
             {
-                std::cout << "Warning : window->acquireNextImage() VkResult = " << result << std::endl;
+                warn("window->acquireNextImage() VkResult = ", result);
                 break;
             }
         }
@@ -206,6 +216,10 @@ void Viewer::compile(ref_ptr<ResourceHints> hints)
         return;
     }
 
+    if (!compileManager) compileManager = CompileManager::create(*this, hints);
+
+    auto start_tick = clock::now();
+
     bool containsPagedLOD = false;
     ref_ptr<DatabasePager> databasePager;
 
@@ -244,17 +258,17 @@ void Viewer::compile(ref_ptr<ResourceHints> hints)
 
         auto physicalDevice = device->getPhysicalDevice();
 
-        auto maxSets = resourceRequirements.computeNumDescriptorSets();
-        auto descriptorPoolSizes = resourceRequirements.computeDescriptorPoolSizes();
-
         auto queueFamily = physicalDevice->getQueueFamily(VK_QUEUE_GRAPHICS_BIT); // TODO : could we just use transfer bit?
 
         deviceResource.compile = CompileTraversal::create(device, resourceRequirements);
-        deviceResource.compile->overrideMask = 0xffffffff;
-        deviceResource.compile->context.commandPool = vsg::CommandPool::create(device, queueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-        deviceResource.compile->context.graphicsQueue = device->getQueue(queueFamily);
 
-        if (descriptorPoolSizes.size() > 0) deviceResource.compile->context.descriptorPool = vsg::DescriptorPool::create(device, maxSets, descriptorPoolSizes);
+        for (auto& context : deviceResource.compile->contexts)
+        {
+            context->commandPool = vsg::CommandPool::create(device, queueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+            context->graphicsQueue = device->getQueue(queueFamily);
+
+            context->reserve(resourceRequirements);
+        }
     }
 
     // assign the viewID's to each View
@@ -307,26 +321,20 @@ void Viewer::compile(ref_ptr<ResourceHints> hints)
 
         if (task->databasePager)
         {
-            // crude hack for taking first device as the one for the DatabasePager to compile resources for.
-            for (auto& commandGraph : task->commandGraphs)
-            {
-                auto& deviceResource = deviceResourceMap[commandGraph->device];
-                task->databasePager->compileTraversal = deviceResource.compile;
-                break;
-            }
+            task->databasePager->compileManager = compileManager;
         }
     }
 
     // record any transfer commands
     for (auto& dp : deviceResourceMap)
     {
-        dp.second.compile->context.record();
+        dp.second.compile->record();
     }
 
     // wait for the transfers to complete
     for (auto& dp : deviceResourceMap)
     {
-        dp.second.compile->context.waitForCompletion();
+        dp.second.compile->waitForCompletion();
     }
 
     // start any DatabasePagers
@@ -337,6 +345,10 @@ void Viewer::compile(ref_ptr<ResourceHints> hints)
             task->databasePager->start();
         }
     }
+
+    auto end_tick = clock::now();
+    auto compile_time = std::chrono::duration<double, std::chrono::milliseconds::period>(end_tick - start_tick).count();
+    debug("Viewer::compile() ", compile_time, "ms");
 }
 
 void Viewer::assignRecordAndSubmitTaskAndPresentation(CommandGraphs in_commandGraphs)
@@ -372,7 +384,7 @@ void Viewer::assignRecordAndSubmitTaskAndPresentation(CommandGraphs in_commandGr
         CommandGraphs secondary_commandGraphs;
         for (auto& commandGraph : commandGraphs)
         {
-            if (commandGraph->level == VK_COMMAND_BUFFER_LEVEL_PRIMARY)
+            if (commandGraph->level() == VK_COMMAND_BUFFER_LEVEL_PRIMARY)
                 primary_commandGraphs.emplace_back(commandGraph);
             else
                 secondary_commandGraphs.emplace_back(commandGraph);
@@ -427,7 +439,7 @@ void Viewer::assignRecordAndSubmitTaskAndPresentation(CommandGraphs in_commandGr
 
 void Viewer::setupThreading()
 {
-    std::cout << "Viewer::setupThreading() " << std::endl;
+    debug("Viewer::setupThreading() ");
 
     stopThreading();
 
@@ -446,8 +458,8 @@ void Viewer::setupThreading()
         return;
     }
 
+    status->set(true);
     _threading = true;
-
     _frameBlock = FrameBlock::create(status);
     _submissionCompleted = Barrier::create(1 + numValidTasks);
 
@@ -565,7 +577,7 @@ void Viewer::stopThreading()
     if (!_threading) return;
     _threading = false;
 
-    std::cout << "Viewer::stopThreading()" << std::endl;
+    debug("Viewer::stopThreading()");
 
     // release the blocks to enable threads to exit cleanly
     // need to manually wake up the threads waiting on this frameBlock so they check the status value and exit cleanly.
@@ -588,6 +600,8 @@ void Viewer::update()
             task->databasePager->updateSceneGraph(_frameStamp);
         }
     }
+
+    updateOperations->run();
 }
 
 void Viewer::recordAndSubmit()
@@ -628,4 +642,9 @@ void Viewer::present()
     {
         presentation->present();
     }
+}
+
+void vsg::updateViewer(Viewer& viewer, const CompileResult& compileResult)
+{
+    updateTasks(viewer.recordAndSubmitTasks, viewer.compileManager, compileResult);
 }

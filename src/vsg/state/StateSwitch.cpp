@@ -25,7 +25,7 @@ void StateSwitch::record(CommandBuffer& commandBuffer) const
 {
     for (auto& child : children)
     {
-        if ((commandBuffer.traversalMask & (commandBuffer.overrideMask | child.mask)) != 0)
+        if ((commandBuffer.traversalMask & (commandBuffer.overrideMask | child.mask)) != MASK_OFF)
         {
             child.stateCommand->record(commandBuffer);
         }

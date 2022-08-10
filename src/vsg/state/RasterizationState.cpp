@@ -10,6 +10,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
+#include <vsg/core/compare.h>
 #include <vsg/io/Options.h>
 #include <vsg/state/RasterizationState.h>
 #include <vsg/vk/Context.h>
@@ -20,46 +21,64 @@ RasterizationState::RasterizationState()
 {
 }
 
+RasterizationState::RasterizationState(const RasterizationState& rs) :
+    Inherit(rs),
+    depthClampEnable(rs.depthClampEnable),
+    rasterizerDiscardEnable(rs.rasterizerDiscardEnable),
+    polygonMode(rs.polygonMode),
+    cullMode(rs.cullMode),
+    frontFace(rs.frontFace),
+    depthBiasEnable(rs.depthBiasEnable),
+    depthBiasConstantFactor(rs.depthBiasConstantFactor),
+    depthBiasClamp(rs.depthBiasClamp),
+    depthBiasSlopeFactor(rs.depthBiasSlopeFactor),
+    lineWidth(rs.lineWidth)
+{
+}
+
 RasterizationState::~RasterizationState()
 {
+}
+
+int RasterizationState::compare(const Object& rhs_object) const
+{
+    int result = Object::compare(rhs_object);
+    if (result != 0) return result;
+
+    auto& rhs = static_cast<decltype(*this)>(rhs_object);
+    return compare_region(depthClampEnable, lineWidth, rhs.depthClampEnable);
 }
 
 void RasterizationState::read(Input& input)
 {
     Object::read(input);
 
-    if (input.version_greater_equal(0, 0, 2))
-    {
-        input.readValue<uint32_t>("depthClampEnable", depthClampEnable);
-        input.readValue<uint32_t>("rasterizerDiscardEnable", rasterizerDiscardEnable);
-        input.readValue<uint32_t>("polygonMode", polygonMode);
-        input.readValue<uint32_t>("cullMode", cullMode);
-        input.readValue<uint32_t>("frontFace", frontFace);
-        input.readValue<uint32_t>("depthBiasEnable", depthBiasEnable);
-        input.readValue<uint32_t>("depthBiasConstantFactor", depthBiasConstantFactor);
-        input.read("depthBiasClamp", depthBiasClamp);
-        input.read("depthBiasSlopeFactor", depthBiasSlopeFactor);
-        input.read("lineWidth", lineWidth);
-    }
+    input.readValue<uint32_t>("depthClampEnable", depthClampEnable);
+    input.readValue<uint32_t>("rasterizerDiscardEnable", rasterizerDiscardEnable);
+    input.readValue<uint32_t>("polygonMode", polygonMode);
+    input.readValue<uint32_t>("cullMode", cullMode);
+    input.readValue<uint32_t>("frontFace", frontFace);
+    input.readValue<uint32_t>("depthBiasEnable", depthBiasEnable);
+    input.readValue<uint32_t>("depthBiasConstantFactor", depthBiasConstantFactor);
+    input.read("depthBiasClamp", depthBiasClamp);
+    input.read("depthBiasSlopeFactor", depthBiasSlopeFactor);
+    input.read("lineWidth", lineWidth);
 }
 
 void RasterizationState::write(Output& output) const
 {
     Object::write(output);
 
-    if (output.version_greater_equal(0, 0, 2))
-    {
-        output.writeValue<uint32_t>("depthClampEnable", depthClampEnable);
-        output.writeValue<uint32_t>("rasterizerDiscardEnable", rasterizerDiscardEnable);
-        output.writeValue<uint32_t>("polygonMode", polygonMode);
-        output.writeValue<uint32_t>("cullMode", cullMode);
-        output.writeValue<uint32_t>("frontFace", frontFace);
-        output.writeValue<uint32_t>("depthBiasEnable", depthBiasEnable);
-        output.writeValue<uint32_t>("depthBiasConstantFactor", depthBiasConstantFactor);
-        output.write("depthBiasClamp", depthBiasClamp);
-        output.write("depthBiasSlopeFactor", depthBiasSlopeFactor);
-        output.write("lineWidth", lineWidth);
-    }
+    output.writeValue<uint32_t>("depthClampEnable", depthClampEnable);
+    output.writeValue<uint32_t>("rasterizerDiscardEnable", rasterizerDiscardEnable);
+    output.writeValue<uint32_t>("polygonMode", polygonMode);
+    output.writeValue<uint32_t>("cullMode", cullMode);
+    output.writeValue<uint32_t>("frontFace", frontFace);
+    output.writeValue<uint32_t>("depthBiasEnable", depthBiasEnable);
+    output.writeValue<uint32_t>("depthBiasConstantFactor", depthBiasConstantFactor);
+    output.write("depthBiasClamp", depthBiasClamp);
+    output.write("depthBiasSlopeFactor", depthBiasSlopeFactor);
+    output.write("lineWidth", lineWidth);
 }
 
 void RasterizationState::apply(Context& context, VkGraphicsPipelineCreateInfo& pipelineInfo) const

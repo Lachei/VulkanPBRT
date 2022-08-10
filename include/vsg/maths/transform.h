@@ -13,6 +13,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 </editor-fold> */
 
 #include <vsg/core/ConstVisitor.h>
+#include <vsg/core/visit.h>
 #include <vsg/maths/mat3.h>
 #include <vsg/maths/mat4.h>
 #include <vsg/maths/quat.h>
@@ -135,6 +136,14 @@ namespace vsg
     }
 
     template<typename T>
+    constexpr t_mat3<T> transpose(const t_mat3<T>& m)
+    {
+        return t_mat3<T>(m[0][0], m[1][0], m[2][0],
+                         m[0][1], m[1][1], m[2][1],
+                         m[0][2], m[1][2], m[2][2]);
+    }
+
+    template<typename T>
     constexpr t_mat4<T> transpose(const t_mat4<T>& m)
     {
         return t_mat4<T>(m[0][0], m[1][0], m[2][0], m[3][0],
@@ -143,26 +152,39 @@ namespace vsg
                          m[0][3], m[1][3], m[2][3], m[3][3]);
     }
 
-    // Vulkan style 0 to 1 depth range
+    // Reverse depth convention: 1 to 0 depth range. Y NDC coordinates are inverted in Vulkan.
+    // For best precision we record setting up Windows with windowTraits->depthFormat = VK_FORMAT_D32_SFLOAT;
+    // Background reading : https://developer.nvidia.com/content/depth-precision-visualized
+    //                      https://vincent-p.github.io/posts/vulkan_perspective_matrix/
     template<typename T>
     constexpr t_mat4<T> perspective(T fovy_radians, T aspectRatio, T zNear, T zFar)
     {
         T f = static_cast<T>(1.0 / std::tan(fovy_radians * 0.5));
-        T r = static_cast<T>(1.0 / (zNear - zFar));
+        T r = static_cast<T>(1.0 / (zFar - zNear));
         return t_mat4<T>(f / aspectRatio, 0, 0, 0,
                          0, -f, 0, 0,
-                         0, 0, (zFar)*r, -1,
+                         0, 0, zNear * r, -1,
                          0, 0, (zFar * zNear) * r, 0);
     }
 
-    // from vulkan cookbook
+    // Reverse depth convention: 1 to 0 depth range. Y NDC coordinates are inverted in Vulkan.
+    template<typename T>
+    constexpr t_mat4<T> perspective(T left, T right, T bottom, T top, T zNear, T zFar)
+    {
+        return t_mat4<T>(2.0 * zNear / (right - left), 0.0, 0.0, 0.0,
+                         0.0, 2.0 * zNear / (bottom - top), 0.0, 0.0,
+                         (right + left) / (right - left), (bottom + top) / (bottom - top), zNear / (zFar - zNear), -1.0,
+                         0.0, 0.0, zNear * zFar / (zFar - zNear), 0.0);
+    }
+
+    // from vulkan cookbook with reverse depth
     template<typename T>
     constexpr t_mat4<T> orthographic(T left, T right, T bottom, T top, T zNear, T zFar)
     {
         return t_mat4<T>(2.0 / (right - left), 0.0, 0.0, 0.0,
                          0.0, 2.0 / (bottom - top), 0.0, 0.0,
-                         0.0, 0.0, 1.0 / (zNear - zFar), 0.0,
-                         -(right + left) / (right - left), -(bottom + top) / (bottom - top), zNear / (zNear - zFar), 1.0);
+                         0.0, 0.0, 1.0 / (zFar - zNear), 0.0,
+                         -(right + left) / (right - left), -(bottom + top) / (bottom - top), zFar / (zFar - zNear), 1.0);
     }
 
     template<typename T>
@@ -195,6 +217,12 @@ namespace vsg
     /// return true if required and matrix modified, return false if no transformation is required.
     extern VSG_DECLSPEC bool transform(CoordinateConvention source, CoordinateConvention destination, dmat4& matrix);
 
+    /// invert the top left 3x3 portion of a float 4x4 matrix.
+    extern VSG_DECLSPEC mat3 inverse_3x3(const mat4& m);
+
+    /// invert the top left 3x3 portion of a double 4x4 matrix.
+    extern VSG_DECLSPEC dmat3 inverse_3x3(const dmat4& m);
+
     /// fast float matrix inversion that use assumes the matrix is composed of only scales, rotations and translations forming a 4x3 matrix.
     extern VSG_DECLSPEC mat4 inverse_4x3(const mat4& m);
 
@@ -204,7 +232,7 @@ namespace vsg
     /// general purpose 4x4 float matrix inversion.
     extern VSG_DECLSPEC mat4 inverse_4x4(const mat4& m);
 
-    /// general purpose 4x4 float matrix inversion.
+    /// general purpose 4x4 double matrix inversion.
     extern VSG_DECLSPEC dmat4 inverse_4x4(const dmat4& m);
 
     /// matrix float inversion with automatic selection of inverse_4x3 when appropriate, otherwise uses inverse_4x4
@@ -213,30 +241,44 @@ namespace vsg
     /// double matrix inversion with automatic selection of inverse_4x3 when appropriate, otherwise uses inverse_4x4
     extern VSG_DECLSPEC dmat4 inverse(const dmat4& m);
 
+    /// compute determinant of float matrix
+    extern VSG_DECLSPEC float determinant(const mat4& m);
+
+    /// compute determinant of double matrix
+    extern VSG_DECLSPEC double determinant(const dmat4& m);
+
+    /// decompose float matrix into translation, rotation and scale components.
+    /// maps to TRS form: vsg::translate(translation) * vsg::rotate(rotation) * vsg::scale(scale);
+    /// assumes matrix has no skew or perspective components
+    extern VSG_DECLSPEC bool decompose(const mat4& m, vec3& translation, quat& rotation, vec3& scale);
+
+    /// decompose double matrix into translation, rotation and scale components.
+    /// maps to TRS form: vsg::translate(translation) * vsg::rotate(rotation) * vsg::scale(scale);
+    /// assumes matrix has no skew or perspective components
+    extern VSG_DECLSPEC bool decompose(const dmat4& m, dvec3& translation, dquat& rotation, dvec3& scale);
+
     /// compute the bounding sphere that encloses a frustum defined by specified float ModelViewMatrixProjection
     extern VSG_DECLSPEC sphere computeFrustumBound(const mat4& m);
 
     /// compute the bounding sphere that encloses a frustum defined by specified double ModelViewMatrixProjection
     extern VSG_DECLSPEC dsphere computeFrustumBound(const dmat4& m);
 
-    struct ComputeTransform : public ConstVisitor
+    /// visitor that computes a transform matrix, accumulating the result in order of objects visited
+    /// usage:  auto matrix = vsg::visit<vsg::ComputeTransform>(nodePath).matrix;
+    struct VSG_DECLSPEC ComputeTransform : public ConstVisitor
     {
         dmat4 matrix;
 
         void apply(const Transform& transform) override;
         void apply(const MatrixTransform& mt) override;
+        void apply(const Camera& camera) override;
     };
 
-    // convinience function for accumulating the transforms in scene graph along a specified nodePath.
+    /// convenience function for accumulating the transforms in scene graph along a specified nodePath.
     template<typename T>
     dmat4 computeTransform(const T& nodePath)
     {
-        ComputeTransform ct;
-        for (auto& node : nodePath)
-        {
-            node->accept(ct);
-        }
-        return ct.matrix;
+        return visit<ComputeTransform>(nodePath).matrix;
     }
 
 } // namespace vsg

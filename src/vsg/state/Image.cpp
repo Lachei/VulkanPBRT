@@ -11,6 +11,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 </editor-fold> */
 
 #include <vsg/core/Exception.h>
+#include <vsg/core/compare.h>
 #include <vsg/io/Options.h>
 #include <vsg/state/Image.h>
 #include <vsg/vk/Context.h>
@@ -73,7 +74,7 @@ Image::Image(ref_ptr<Data> in_data) :
             /* flags = VK_IMAGE_CREATE_1D_ARRAY_COMPATIBLE_BIT; // comment out as Vulkan headers don't yet provide this. */
             break;
         case (VK_IMAGE_VIEW_TYPE_2D_ARRAY):
-            imageType = VK_IMAGE_TYPE_2D;
+            imageType = VK_IMAGE_TYPE_3D;
             flags = VK_IMAGE_CREATE_2D_ARRAY_COMPATIBLE_BIT;
             arrayLayers = depth;
             depth = 1;
@@ -116,6 +117,17 @@ Image::~Image()
     for (auto& vd : _vulkanData) vd.release();
 }
 
+int Image::compare(const Object& rhs_object) const
+{
+    int result = Object::compare(rhs_object);
+    if (result != 0) return result;
+
+    auto& rhs = static_cast<decltype(*this)>(rhs_object);
+
+    if ((result = compare_pointer(data, rhs.data))) return result;
+    return compare_region(flags, initialLayout, rhs.flags);
+}
+
 VkResult Image::bind(DeviceMemory* deviceMemory, VkDeviceSize memoryOffset)
 {
     VulkanData& vd = _vulkanData[deviceMemory->getDevice()->deviceID];
@@ -127,6 +139,18 @@ VkResult Image::bind(DeviceMemory* deviceMemory, VkDeviceSize memoryOffset)
         vd.memoryOffset = memoryOffset;
     }
     return result;
+}
+
+VkResult Image::allocateAndBindMemory(Device* device, VkMemoryPropertyFlags memoryProperties, void* pNextAllocInfo)
+{
+    auto memRequirements = getMemoryRequirements(device->deviceID);
+    auto memory = DeviceMemory::create(device, memRequirements, memoryProperties, pNextAllocInfo);
+    auto [allocated, offset] = memory->reserve(memRequirements.size);
+    if (!allocated)
+    {
+        throw Exception{"Error: Failed to allocate DeviceMemory."};
+    }
+    return bind(memory, offset);
 }
 
 VkMemoryRequirements Image::getMemoryRequirements(uint32_t deviceID) const

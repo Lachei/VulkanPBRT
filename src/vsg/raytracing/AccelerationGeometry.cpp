@@ -23,8 +23,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 using namespace vsg;
 
-AccelerationGeometry::AccelerationGeometry(Allocator* allocator) :
-    Inherit(allocator),
+AccelerationGeometry::AccelerationGeometry() :
     _geometry({})
 {
     _geometry.geometry.triangles.vertexData.deviceAddress = VkDeviceAddress{0};
@@ -68,10 +67,10 @@ void AccelerationGeometry::compile(Context& context)
     _indexBuffer = indexBufferInfo[0];
 
     // create the VkGeometry
-    Extensions* extensions = Extensions::Get(context.device.get(), true);
+    auto extensions = context.device->getExtensions();
     VkDeviceOrHostAddressConstKHR vertexDataDeviceAddress{};
     VkDeviceOrHostAddressConstKHR indexDataDeviceAddress{};
-    VkBufferDeviceAddressInfoKHR bufferDeviceAI{};
+    VkBufferDeviceAddressInfo bufferDeviceAI{};
     bufferDeviceAI.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
     bufferDeviceAI.buffer = _vertexBuffer->buffer->vk(context.deviceID);
     vertexDataDeviceAddress.deviceAddress = extensions->vkGetBufferDeviceAddressKHR(*context.device, &bufferDeviceAI);

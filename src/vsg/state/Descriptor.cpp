@@ -10,6 +10,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
+#include <vsg/core/compare.h>
 #include <vsg/io/Options.h>
 #include <vsg/state/Descriptor.h>
 #include <vsg/traversals/CompileTraversal.h>
@@ -24,36 +25,32 @@ Descriptor::Descriptor(uint32_t in_dstBinding, uint32_t in_dstArrayElement, VkDe
 {
 }
 
+int Descriptor::compare(const Object& rhs_object) const
+{
+    int result = Object::compare(rhs_object);
+    if (result != 0) return result;
+
+    auto& rhs = static_cast<decltype(*this)>(rhs_object);
+
+    if ((result = compare_value(dstBinding, rhs.dstBinding))) return result;
+    if ((result = compare_value(dstArrayElement, rhs.dstArrayElement))) return result;
+    return compare_value(descriptorType, rhs.descriptorType);
+}
+
 void Descriptor::read(Input& input)
 {
     Object::read(input);
 
-    if (input.version_greater_equal(0, 1, 4))
-    {
-        input.read("dstBinding", dstBinding);
-        input.read("dstArrayElement", dstArrayElement);
-    }
-    else
-    {
-        input.read("DstBinding", dstBinding);
-        input.read("DstArrayElement", dstArrayElement);
-    }
+    input.read("dstBinding", dstBinding);
+    input.read("dstArrayElement", dstArrayElement);
 }
 
 void Descriptor::write(Output& output) const
 {
     Object::write(output);
 
-    if (output.version_greater_equal(0, 1, 4))
-    {
-        output.write("dstBinding", dstBinding);
-        output.write("dstArrayElement", dstArrayElement);
-    }
-    else
-    {
-        output.write("DstBinding", dstBinding);
-        output.write("DstArrayElement", dstArrayElement);
-    }
+    output.write("dstBinding", dstBinding);
+    output.write("dstArrayElement", dstArrayElement);
 }
 
 void Descriptor::assignTo(Context& /*context*/, VkWriteDescriptorSet& wds) const

@@ -22,41 +22,6 @@ namespace vsg
     class Buffer;
     class Image;
 
-    class VSG_DECLSPEC MemorySlots
-    {
-    public:
-        explicit MemorySlots(VkDeviceSize availableMemorySize);
-
-        using OptionalOffset = std::pair<bool, VkDeviceSize>;
-        OptionalOffset reserve(VkDeviceSize size, VkDeviceSize alignment);
-
-        void release(VkDeviceSize offset, VkDeviceSize size);
-
-        bool full() const { return _availableMemory.empty(); }
-
-        VkDeviceSize maximumAvailableSpace() const { return _availableMemory.empty() ? 0 : _availableMemory.rbegin()->first; }
-        VkDeviceSize totalAvailableSize() const;
-        VkDeviceSize totalReservedSize() const;
-        VkDeviceSize totalMemorySize() const { return _totalMemorySize; }
-
-        void report() const;
-        bool check() const;
-
-    protected:
-        using SizeOffsets = std::multimap<VkDeviceSize, VkDeviceSize>;
-        using SizeOffset = SizeOffsets::value_type;
-        SizeOffsets _availableMemory;
-
-        using OffsetSizes = std::map<VkDeviceSize, VkDeviceSize>;
-        using OffsetSize = OffsetSizes::value_type;
-        OffsetSizes _offsetSizes;
-
-        using OffsetAllocatedSlot = std::map<VkDeviceSize, OffsetSize>;
-        OffsetSizes _reservedOffsetSizes;
-
-        VkDeviceSize _totalMemorySize;
-    };
-
     class VSG_DECLSPEC DeviceMemory : public Inherit<Object, DeviceMemory>
     {
     public:
@@ -74,11 +39,13 @@ namespace vsg
         const VkMemoryRequirements& getMemoryRequirements() const { return _memoryRequirements; }
         const VkMemoryPropertyFlags& getMemoryPropertyFlags() const { return _properties; }
 
-        MemorySlots::OptionalOffset reserve(VkDeviceSize size) { return _memorySlots.reserve(size, _memoryRequirements.alignment); }
-        void release(VkDeviceSize offset, VkDeviceSize size) { _memorySlots.release(offset, size); }
-        bool full() const { return _memorySlots.full(); }
-        VkDeviceSize maximumAvailableSpace() const { return _memorySlots.maximumAvailableSpace(); }
-        const MemorySlots& memorySlots() const { return _memorySlots; }
+        MemorySlots::OptionalOffset reserve(VkDeviceSize size);
+        void release(VkDeviceSize offset, VkDeviceSize size);
+
+        bool full() const;
+        VkDeviceSize maximumAvailableSpace() const;
+        size_t totalAvailableSize() const;
+        size_t totalReservedSize() const;
 
         Device* getDevice() { return _device; }
         const Device* getDevice() const { return _device; }
@@ -91,6 +58,7 @@ namespace vsg
         VkMemoryPropertyFlags _properties;
         ref_ptr<Device> _device;
 
+        mutable std::mutex _mutex;
         MemorySlots _memorySlots;
     };
     VSG_type_name(vsg::DeviceMemory);

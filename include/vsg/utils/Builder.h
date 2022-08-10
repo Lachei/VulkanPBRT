@@ -12,46 +12,40 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 </editor-fold> */
 
+#include <vsg/maths/box.h>
+#include <vsg/maths/sphere.h>
 #include <vsg/traversals/CompileTraversal.h>
-
-#define VSG_COMPARE_PARAMETERS(A, B) \
-    if (A < B)                       \
-        return true;                 \
-    else if (B < A)                  \
-        return false;
+#include <vsg/utils/ShaderSet.h>
+#include <vsg/utils/SharedObjects.h>
 
 namespace vsg
 {
     struct StateInfo
     {
         bool lighting = true;
-        bool doubleSided = false;
+        bool two_sided = false;
         bool blending = false;
         bool greyscale = false; /// greyscale image
         bool wireframe = false;
-        bool instancce_colors_vec4 = true;
-        bool instancce_positions_vec3 = false;
+        bool instance_colors_vec4 = true;
+        bool instance_positions_vec3 = false;
 
         ref_ptr<Data> image;
         ref_ptr<Data> displacementMap;
-
-        bool operator<(const StateInfo& rhs) const
-        {
-            VSG_COMPARE_PARAMETERS(lighting, rhs.lighting)
-            VSG_COMPARE_PARAMETERS(doubleSided, rhs.doubleSided)
-            VSG_COMPARE_PARAMETERS(blending, rhs.blending)
-            VSG_COMPARE_PARAMETERS(greyscale, rhs.greyscale)
-            VSG_COMPARE_PARAMETERS(wireframe, rhs.wireframe)
-            VSG_COMPARE_PARAMETERS(instancce_colors_vec4, rhs.instancce_colors_vec4)
-            VSG_COMPARE_PARAMETERS(instancce_positions_vec3, rhs.instancce_positions_vec3)
-            VSG_COMPARE_PARAMETERS(image, rhs.image)
-            return displacementMap < rhs.displacementMap;
-        }
+        ref_ptr<DescriptorSetLayout> viewDescriptorSetLayout;
     };
     VSG_type_name(vsg::StateInfo);
 
     struct GeometryInfo
     {
+        GeometryInfo() = default;
+
+        template<typename T>
+        explicit GeometryInfo(const t_box<T>& bb) { set(bb); }
+
+        template<typename T>
+        explicit GeometryInfo(const t_sphere<T>& sp) { set(sp); }
+
         vec3 position = {0.0f, 0.0f, 0.0f};
         vec3 dx = {1.0f, 0.0f, 0.0f};
         vec3 dy = {0.0f, 1.0f, 0.0f};
@@ -59,21 +53,35 @@ namespace vsg
         vec4 color = {1.0f, 1.0f, 1.0f, 1.0f};
         mat4 transform;
 
+        template<typename T>
+        void set(const t_box<T>& bb)
+        {
+            position = (bb.min + bb.max) * 0.5f;
+            dx.set(bb.max.x - bb.min.x, 0.0f, 0.0f);
+            dy.set(0.0f, bb.max.y - bb.min.y, 0.0f);
+            dz.set(0.0f, 0.0f, bb.max.z - bb.min.z);
+        }
+
+        template<typename T>
+        void set(const t_sphere<T>& sp)
+        {
+            position = sp.center;
+            dx.set(sp.radius * 2.0f, 0.0f, 0.0f);
+            dy.set(0.0f, sp.radius * 2.0f, 0.0f);
+            dz.set(0.0f, 0.0f, sp.radius * 2.0f);
+        }
+
         /// used for instancing
         ref_ptr<vec3Array> positions;
         ref_ptr<Data> colors;
 
         bool operator<(const GeometryInfo& rhs) const
         {
-            VSG_COMPARE_PARAMETERS(position, rhs.position)
-            VSG_COMPARE_PARAMETERS(dx, rhs.dx)
-            VSG_COMPARE_PARAMETERS(dy, rhs.dy)
-            VSG_COMPARE_PARAMETERS(dz, rhs.dz)
-            VSG_COMPARE_PARAMETERS(color, rhs.color)
-            VSG_COMPARE_PARAMETERS(transform, rhs.transform)
-            VSG_COMPARE_PARAMETERS(positions, rhs.positions)
-            VSG_COMPARE_PARAMETERS(colors, rhs.colors)
-            return false;
+            int result = compare_region(position, transform, rhs.position);
+            if (result) return result < 0;
+
+            if ((result = compare_pointer(positions, rhs.positions))) return result < 0;
+            return compare_pointer(colors, rhs.colors) < 0;
         }
     };
     VSG_type_name(vsg::GeometryInfo);
@@ -83,11 +91,8 @@ namespace vsg
     public:
         bool verbose = false;
         ref_ptr<Options> options;
-
-        /// set up the compile traversal to compile for specified window
-        void setup(ref_ptr<Window> window, ref_ptr<ViewportState> viewport, uint32_t maxNumTextures = 32);
-
-        void compile(ref_ptr<Node> subgraph);
+        ref_ptr<SharedObjects> sharedObjects;
+        ref_ptr<ShaderSet> shaderSet;
 
         ref_ptr<Node> createBox(const GeometryInfo& info = {}, const StateInfo& stateInfo = {});
         ref_ptr<Node> createCapsule(const GeometryInfo& info = {}, const StateInfo& stateInfo = {});
@@ -100,39 +105,13 @@ namespace vsg
 
         ref_ptr<StateGroup> createStateGroup(const StateInfo& stateInfo = {});
 
+        /// assign compile traversal to enable compilation.
+        void assignCompileTraversal(ref_ptr<CompileTraversal> ct);
+
+        ref_ptr<CompileTraversal> compileTraversal;
+
     private:
         void transform(const mat4& matrix, ref_ptr<vec3Array> vertices, ref_ptr<vec3Array> normals);
-
-        uint32_t _allocatedTextureCount = 0;
-        uint32_t _maxNumTextures = 0;
-        ref_ptr<CompileTraversal> _compile;
-
-        struct DescriptorKey
-        {
-            ref_ptr<Data> image;
-            ref_ptr<Data> displacementMap;
-
-            bool operator<(const DescriptorKey& rhs) const
-            {
-                VSG_COMPARE_PARAMETERS(image, rhs.image);
-                return displacementMap < rhs.displacementMap;
-            }
-        };
-
-        struct StateSettings
-        {
-            ref_ptr<DescriptorSetLayout> descriptorSetLayout;
-            ref_ptr<PipelineLayout> pipelineLayout;
-            ref_ptr<BindGraphicsPipeline> bindGraphicsPipeline;
-            std::map<DescriptorKey, ref_ptr<BindDescriptorSets>> textureDescriptorSets;
-        };
-
-        std::map<StateInfo, StateSettings> _stateMap;
-
-        StateSettings& _getStateSettings(const StateInfo& stateInfo);
-        ref_ptr<BindDescriptorSets> _createDescriptorSet(const StateInfo& stateInfo);
-
-        void _assign(StateGroup& stateGroup, const StateInfo& stateInfo);
 
         vec3 y_texcoord(const StateInfo& info) const;
 

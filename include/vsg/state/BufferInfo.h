@@ -33,6 +33,8 @@ namespace vsg
         BufferInfo(const BufferInfo&) = delete;
         BufferInfo& operator=(const BufferInfo&) = delete;
 
+        int compare(const Object& rhs_object) const override;
+
         void release();
 
         /// Copy data to the VkBuffer(s) for all Devices associated with vsg::Buffer
@@ -62,6 +64,15 @@ namespace vsg
     VSG_type_name(vsg::BufferInfo);
 
     using BufferInfoList = std::vector<ref_ptr<BufferInfo>>;
+
+    struct VulkanArrayData
+    {
+        std::vector<VkBuffer> vkBuffers;
+        std::vector<VkDeviceSize> offsets;
+    };
+
+    /// assign the Vulkan buffer handles and offsets held in BufferInfoList to VulkanArrayData
+    extern VSG_DECLSPEC void assignVulkanArrayData(uint32_t deviceID, const BufferInfoList& arrays, VulkanArrayData& vkd);
 
     extern VSG_DECLSPEC ref_ptr<BufferInfo> copyDataToStagingBuffer(Context& context, const Data* data);
 

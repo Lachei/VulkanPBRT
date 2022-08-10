@@ -1,13 +1,13 @@
 cmake_minimum_required(VERSION 3.7)
 
 project(vsg
-    VERSION 0.2.3
+    VERSION 0.5.3
     DESCRIPTION "VulkanSceneGraph library"
     LANGUAGES CXX
 )
-set(VSG_SOVERSION 5)
+set(VSG_SOVERSION 9)
 SET(VSG_RELEASE_CANDIDATE 0)
-set(Vulkan_MIN_VERSION 1.2.162)
+set(Vulkan_MIN_VERSION 1.1.70.0)
 
 # create the version header
 set(VSG_MAX_DEVICES 1 CACHE STRING "Set maximum number of vk/vsg::Device that are supported.")
@@ -38,6 +38,10 @@ find_package(Threads REQUIRED)
 
 if (NOT DEFINED glslang_FOUND)
     find_package(vsg_glslang CONFIG PATHS ${CMAKE_SOURCE_DIR}/src/vsg)
+endif()
+
+if (NOT glslang_FOUND)
+    message("--   Support for compiling GLSL to SPIR-V and associated shader composition is not available.")
 endif()
 
 if (ANDROID)

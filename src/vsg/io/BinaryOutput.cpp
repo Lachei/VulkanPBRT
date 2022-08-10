@@ -14,9 +14,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 #include <vsg/io/BinaryOutput.h>
 
-#include <cstring>
-#include <iostream>
-
 using namespace vsg;
 
 BinaryOutput::BinaryOutput(std::ostream& output, ref_ptr<const Options> in_options) :
@@ -36,6 +33,21 @@ void BinaryOutput::write(size_t num, const std::string* value)
         for (; num > 0; --num, ++value)
         {
             _write(*value);
+        }
+    }
+}
+
+void BinaryOutput::write(size_t num, const Path* value)
+{
+    if (num == 1)
+    {
+        _write(value->string());
+    }
+    else
+    {
+        for (; num > 0; --num, ++value)
+        {
+            _write(value->string());
         }
     }
 }

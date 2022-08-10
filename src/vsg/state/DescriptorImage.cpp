@@ -11,6 +11,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 </editor-fold> */
 
 #include <vsg/commands/CopyAndReleaseImage.h>
+#include <vsg/core/compare.h>
 #include <vsg/io/Options.h>
 #include <vsg/state/DescriptorImage.h>
 #include <vsg/traversals/CompileTraversal.h>
@@ -48,22 +49,30 @@ DescriptorImage::DescriptorImage(const ImageInfoList& in_imageInfoList, uint32_t
 {
 }
 
+int DescriptorImage::compare(const Object& rhs_object) const
+{
+    int result = Descriptor::compare(rhs_object);
+    if (result != 0) return result;
+
+    auto& rhs = static_cast<decltype(*this)>(rhs_object);
+
+    return compare_pointer_container(imageInfoList, rhs.imageInfoList);
+}
+
 void DescriptorImage::read(Input& input)
 {
-    // TODO need to release on imageInfoList.
+    imageInfoList.clear();
 
     Descriptor::read(input);
 
-    // TODO old version
-
-    imageInfoList.resize(input.readValue<uint32_t>("NumImages"));
+    imageInfoList.resize(input.readValue<uint32_t>("images"));
     for (auto& imageInfo : imageInfoList)
     {
         imageInfo = ImageInfo::create();
 
         ref_ptr<Data> data;
-        input.readObject("Sampler", imageInfo->sampler);
-        input.readObject("Image", data);
+        input.readObject("sampler", imageInfo->sampler);
+        input.readObject("image", data);
 
         auto image = Image::create(data);
         if (imageInfo->sampler) image->usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -78,17 +87,15 @@ void DescriptorImage::write(Output& output) const
 {
     Descriptor::write(output);
 
-    // TODO old version
-
-    output.writeValue<uint32_t>("NumImages", imageInfoList.size());
+    output.writeValue<uint32_t>("images", imageInfoList.size());
     for (auto& imageInfo : imageInfoList)
     {
-        output.writeObject("Sampler", imageInfo->sampler.get());
+        output.writeObject("sampler", imageInfo->sampler.get());
 
         ref_ptr<Data> data;
         if (imageInfo->imageView && imageInfo->imageView->image) data = imageInfo->imageView->image->data;
 
-        output.writeObject("Image", data.get());
+        output.writeObject("image", data.get());
     }
 }
 

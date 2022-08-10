@@ -13,30 +13,34 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 </editor-fold> */
 
 #include <vsg/core/ScratchMemory.h>
-#include <vsg/state/ComputePipeline.h>
-#include <vsg/state/GraphicsPipeline.h>
+#include <vsg/state/PipelineLayout.h>
 #include <vsg/vk/CommandPool.h>
 
 namespace vsg
 {
 
+    // forward declare
+    class ViewDependentState;
+
+    /// CommandBuffer encapsulates VkCommandBuffer
     class VSG_DECLSPEC CommandBuffer : public Inherit<Object, CommandBuffer>
     {
     public:
-        CommandBuffer(Device* device, CommandPool* commandPool, VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY);
-
         const VkCommandBuffer* data() const { return &_commandBuffer; }
-
         operator VkCommandBuffer() const { return _commandBuffer; }
 
         std::atomic_uint& numDependentSubmissions() { return _numDependentSubmissions; }
 
         const uint32_t deviceID;
         uint32_t viewID = 0;
-        uint32_t traversalMask = 0xffffffff;
-        uint32_t overrideMask = 0x0;
+        Mask traversalMask = MASK_ALL;
+        Mask overrideMask = MASK_OFF;
+        ViewDependentState* viewDependentState = nullptr;
 
         VkCommandBufferLevel level() const { return _level; }
+
+        /// reset the CommandBuffer for the new frame.
+        void reset();
 
         Device* getDevice() { return _device; }
         const Device* getDevice() const { return _device; }
@@ -59,6 +63,9 @@ namespace vsg
         ref_ptr<ScratchMemory> scratchMemory;
 
     protected:
+        friend CommandPool;
+        CommandBuffer(CommandPool* commandPool, VkCommandBuffer commandBuffer, VkCommandBufferLevel level);
+
         virtual ~CommandBuffer();
 
         VkCommandBuffer _commandBuffer;

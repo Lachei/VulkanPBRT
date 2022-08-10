@@ -12,6 +12,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 
 #include <vsg/core/Exception.h>
+#include <vsg/io/Logger.h>
 #include <vsg/ui/ApplicationEvent.h>
 #include <vsg/ui/PointerEvent.h>
 #include <vsg/ui/ScrollWheelEvent.h>
@@ -21,7 +22,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <xcb/xproto.h>
 
 #include <chrono>
-#include <iostream>
 #include <thread>
 #include <cstring>
 
@@ -272,7 +272,11 @@ Xcb_Surface::Xcb_Surface(vsg::Instance* instance, xcb_connection_t* connection, 
     surfaceCreateInfo.connection = connection;
     surfaceCreateInfo.window = window;
 
-    /*VkResult result =*/vkCreateXcbSurfaceKHR(*instance, &surfaceCreateInfo, _instance->getAllocationCallbacks(), &_surface);
+    auto result = vkCreateXcbSurfaceKHR(*instance, &surfaceCreateInfo, _instance->getAllocationCallbacks(), &_surface);
+    if (result != VK_SUCCESS)
+    {
+        throw Exception{"Failed to created Xcb_Surface.", result};
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////
@@ -355,7 +359,7 @@ Xcb_Window::Xcb_Window(vsg::ref_ptr<WindowTraits> traits) :
     int screenCount = xcb_setup_roots_length (setup);
     if (screenNum >= screenCount)
     {
-        std::cout<<"Warning: request screenNum ("<<screenNum<<") too high, only "<<screenCount<<" screens available. Selecting screen 0 as fallback."<<std::endl;
+        warn("request screenNum (",screenNum,") too high, only ",screenCount," screens available. Selecting screen 0 as fallback.");
         screenNum = 0;
     }
 
@@ -387,7 +391,7 @@ Xcb_Window::Xcb_Window(vsg::ref_ptr<WindowTraits> traits) :
         uint16_t border_width = 0;
         uint16_t window_class = XCB_WINDOW_CLASS_INPUT_OUTPUT;
         xcb_visualid_t visual = XCB_COPY_FROM_PARENT;
-        uint32_t value_mask = XCB_CW_BACK_PIXEL | XCB_CW_OVERRIDE_REDIRECT | XCB_CW_EVENT_MASK;
+        uint32_t value_mask = XCB_CW_BACK_PIXEL | XCB_CW_BIT_GRAVITY | XCB_CW_OVERRIDE_REDIRECT | XCB_CW_EVENT_MASK;
         uint32_t event_mask = XCB_EVENT_MASK_EXPOSURE | XCB_EVENT_MASK_STRUCTURE_NOTIFY |
                             XCB_EVENT_MASK_KEY_PRESS | XCB_EVENT_MASK_KEY_RELEASE |
                             XCB_EVENT_MASK_POINTER_MOTION | XCB_EVENT_MASK_BUTTON_PRESS | XCB_EVENT_MASK_BUTTON_RELEASE | XCB_EVENT_MASK_ENTER_WINDOW | XCB_EVENT_MASK_LEAVE_WINDOW |
@@ -396,6 +400,7 @@ Xcb_Window::Xcb_Window(vsg::ref_ptr<WindowTraits> traits) :
         uint32_t value_list[] =
             {
                 _screen->black_pixel,
+                XCB_GRAVITY_NORTH_WEST,
                 override_redirect,
                 event_mask
             };
@@ -498,13 +503,14 @@ Xcb_Window::Xcb_Window(vsg::ref_ptr<WindowTraits> traits) :
     {
         _extent2D.width = geometry_reply->width;
         _extent2D.height = geometry_reply->height;
-        free(geometry_reply);
 
         // assign dimensions
         traits->x = geometry_reply->x;
         traits->y = geometry_reply->y;
         traits->width = geometry_reply->width;
         traits->height = geometry_reply->height;
+
+        free(geometry_reply);
     }
 
     traits->nativeWindow = _window;
@@ -573,56 +579,56 @@ bool Xcb_Window::pollEvents(UIEvents& events)
         }
         case(XCB_UNMAP_NOTIFY):
         {
-            //std::cout<<"xcb_unmap_notify_event_t"<<std::endl;
+            //debug("xcb_unmap_notify_event_t");
             _windowMapped = false;
             break;
         }
         case(XCB_MAP_NOTIFY):
         {
-            //std::cout<<"xcb_map_notify_event_t"<<std::endl;
+            //debug("xcb_map_notify_event_t");
             _windowMapped = true;
             break;
         }
         case (XCB_MAPPING_NOTIFY):
         {
-            //std::cout<<"xcb_mapping_notify_event_t"<<std::endl;
+            //debug("xcb_mapping_notify_event_t");
             break;
         }
         case(XCB_LIST_PROPERTIES):
         {
-            //std::cout<<"xcb_list_properties_request_t"<<std::endl;
+            //debug("xcb_list_properties_request_t");
             break;
         }
         case(XCB_PROPERTY_NOTIFY):
         {
-            //std::cout<<"xcb_property_notify_event_t"<<std::endl;
+            //debug("xcb_property_notify_event_t");
             break;
         }
         case(XCB_FOCUS_IN):
         {
-            //std::cout<<"xcb_focus_in_event_t"<<std::endl;
+            //debug("xcb_focus_in_event_t");
             break;
         }
         case(XCB_FOCUS_OUT):
         {
-            //std::cout<<"xcb_focus_out_event_t"<<std::endl;
+            //debug("xcb_focus_out_event_t");
             break;
         }
         case(XCB_ENTER_NOTIFY):
         {
-            //std::cout<<"xcb_enter_notify_event_t"<<std::endl;
+            //debug("xcb_enter_notify_event_t");
             break;
         }
         case(XCB_LEAVE_NOTIFY):
         {
-            //std::cout<<"xcb_leave_notify_event_t"<<std::endl;
+            //debug("xcb_leave_notify_event_t");
             break;
         }
         case(XCB_CONFIGURE_NOTIFY):
         {
             auto configure = reinterpret_cast<const xcb_configure_notify_event_t*>(event);
 
-            // Xcb configure events can come with x,y == (0,0) or with values relative to the root, so explictly get the new geometry and substitute if required to avoid inconsistencies
+            // Xcb configure events can come with x,y == (0,0) or with values relative to the root, so explicitly get the new geometry and substitute if required to avoid inconsistencies
             int32_t x = configure->x;
             int32_t y  = configure->y;
             uint32_t width = configure->width;
@@ -659,8 +665,6 @@ bool Xcb_Window::pollEvents(UIEvents& events)
             vsg::clock::time_point event_time = vsg::clock::now();
             bufferedEvents.emplace_back(vsg::ExposeWindowEvent::create(this, event_time, expose->x, expose->y, expose->width, expose->height));
 
-            _extent2D.width = expose->width;
-            _extent2D.height = expose->height;
             break;
         }
         case XCB_CLIENT_MESSAGE:
@@ -753,9 +757,18 @@ bool Xcb_Window::pollEvents(UIEvents& events)
 
             break;
         }
+        case (XCB_GE_GENERIC):
+        {
+            // can't find meaningful documentation on what information is encoded in a xcb_ge_generic_event_t
+            // so no way to map it to anything on the VSG side.
+            //
+            //auto generic_event = reinterpret_cast<const xcb_ge_generic_event_t*>(event);
+            //debug("generic_event->event_type = ", generic_event->event_type);
+            break;
+        }
         default:
         {
-            std::cout << "event not handled, response_type = " << static_cast<int>(response_type) << std::endl;
+            warn("xcb_event type not handled, response_type = ", static_cast<int>(response_type));
             break;
         }
         }

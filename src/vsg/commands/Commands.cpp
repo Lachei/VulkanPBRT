@@ -11,7 +11,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 </editor-fold> */
 
 #include <vsg/commands/Commands.h>
-
+#include <vsg/core/compare.h>
 #include <vsg/io/Input.h>
 #include <vsg/io/Options.h>
 #include <vsg/io/Output.h>
@@ -23,50 +23,31 @@ Commands::Commands(size_t numChildren) :
 {
 }
 
-Commands::Commands(Allocator* allocator, size_t numChildren) :
-    Inherit(allocator),
-    children(numChildren)
+Commands::~Commands()
 {
 }
 
-Commands::~Commands()
+int Commands::compare(const Object& rhs_object) const
 {
+    int result = Object::compare(rhs_object);
+    if (result != 0) return result;
+
+    auto& rhs = static_cast<decltype(*this)>(rhs_object);
+    return compare_pointer_container(children, rhs.children);
 }
 
 void Commands::read(Input& input)
 {
     Node::read(input);
 
-    if (input.version_greater_equal(0, 1, 4))
-    {
-        input.read("children", children);
-    }
-    else
-    {
-        children.resize(input.readValue<uint32_t>("NumChildren"));
-        for (auto& child : children)
-        {
-            input.read("Child", child);
-        }
-    }
+    input.readObjects("children", children);
 }
 
 void Commands::write(Output& output) const
 {
     Node::write(output);
 
-    if (output.version_greater_equal(0, 1, 4))
-    {
-        output.write("children", children);
-    }
-    else
-    {
-        output.writeValue<uint32_t>("NumChildren", children.size());
-        for (auto& child : children)
-        {
-            output.write("Child", child);
-        }
-    }
+    output.writeObjects("children", children);
 }
 
 void Commands::compile(Context& context)

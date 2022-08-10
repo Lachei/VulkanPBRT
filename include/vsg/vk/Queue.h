@@ -13,7 +13,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 </editor-fold> */
 
 #include <vsg/core/Object.h>
-#include <vulkan/vulkan.h>
+#include <vsg/vk/vulkan.h>
 
 #include <mutex>
 #include <vector>
@@ -23,7 +23,7 @@ namespace vsg
     // forward declare
     class Fence;
 
-    class VSG_DECLSPEC Queue : public Object
+    class VSG_DECLSPEC Queue : public Inherit<Object, Queue>
     {
     public:
         operator VkQueue() const { return _vkQueue; }
@@ -56,5 +56,6 @@ namespace vsg
         uint32_t _queueIndex;
         std::mutex _mutex;
     };
+    VSG_type_name(vsg::Queue);
 
 } // namespace vsg

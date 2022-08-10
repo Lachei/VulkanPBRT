@@ -14,6 +14,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/commands/BindVertexBuffers.h>
 #include <vsg/commands/Draw.h>
 #include <vsg/commands/DrawIndexed.h>
+#include <vsg/io/Logger.h>
 #include <vsg/maths/transform.h>
 #include <vsg/nodes/CullNode.h>
 #include <vsg/nodes/Geometry.h>
@@ -36,10 +37,10 @@ struct PushPopNode
     ~PushPopNode() { nodePath.pop_back(); }
 };
 
-Intersector::Intersector(ref_ptr<ArrayState> initialArrayData)
+Intersector::Intersector(ref_ptr<ArrayState> intialArrayState)
 {
     arrayStateStack.reserve(4);
-    arrayStateStack.emplace_back(initialArrayData ? initialArrayData : ArrayState::create());
+    arrayStateStack.emplace_back(intialArrayState ? intialArrayState : ArrayState::create());
 }
 
 void Intersector::apply(const Node& node)
@@ -129,9 +130,11 @@ void Intersector::apply(const VertexIndexDraw& vid)
 
     PushPopNode ppn(_nodePath, &vid);
 
+#if 0
     dsphere bound;
     if (!vid.getValue("bound", bound))
     {
+        // TODO ignores instancing
         box bb;
         for (auto& vertex : *arrayState.vertices) bb.add(vertex);
 
@@ -144,17 +147,21 @@ void Intersector::apply(const VertexIndexDraw& vid)
             const_cast<VertexIndexDraw&>(vid).setValue("bound", bound);
         }
 
-        // std::cout<<"Computed bounding sphere : "<<bound.center<<", "<<bound.radius<<std::endl;
+        //debug("Computed bounding sphere : ", bound.center, ", ", bound.radius);
     }
     else
     {
-        // std::cout<<"Found bounding sphere : "<<bound.center<<", "<<bound.radius<<std::endl;
+        //debug("Found bounding sphere : ", bound.center, ", ", bound.radius);
     }
 
     if (intersects(bound))
     {
-        intersectDrawIndexed(vid.firstIndex, vid.indexCount);
+
+        intersectDrawIndexed(vid.firstIndex, vid.indexCount, vid.firstInstance, vid.instanceCount);
     }
+#else
+    intersectDrawIndexed(vid.firstIndex, vid.indexCount, vid.firstInstance, vid.instanceCount);
+#endif
 }
 
 void Intersector::apply(const Geometry& geometry)
@@ -204,12 +211,12 @@ void Intersector::apply(const Draw& draw)
 {
     PushPopNode ppn(_nodePath, &draw);
 
-    intersectDraw(draw.firstVertex, draw.vertexCount);
+    intersectDraw(draw.firstVertex, draw.vertexCount, draw.firstInstance, draw.instanceCount);
 }
 
 void Intersector::apply(const DrawIndexed& drawIndexed)
 {
     PushPopNode ppn(_nodePath, &drawIndexed);
 
-    intersectDrawIndexed(drawIndexed.firstIndex, drawIndexed.indexCount);
+    intersectDrawIndexed(drawIndexed.firstIndex, drawIndexed.indexCount, drawIndexed.firstInstance, drawIndexed.instanceCount);
 }

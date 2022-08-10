@@ -40,13 +40,18 @@ Using the prototyping work as a guide implement the final scene graph library wi
 * Support for RTX Mesh shaders and ray tracing.
 * Scene graph level multi-bin support with bin sorting.
 * Support for Khronos ray tracing.
-
-#### Pending/Underway tasks:
+* Memory allocator with support with grouping associated types
 * Positional state support to enable easier support of lighting, shadows, texture projection.
-* Improved support for dynamic scene graphs.
-* Support for wide and standard strings in vsg::Path.
-* Support for integration with OpenGL/OSG applications via [EXT\_external\_object](https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_external_objects.txt) & [VK\_KHR\_external\_memory](https://www.khronos.org/registry/vulkan/specs/1.1-extensions/man/html/VK_KHR_external_memory.html#versions-1.1-promotions)
+* Matrix decomposition
 * Port to iOS
+* Unified state composer, shader set and cache
+* Update vsgXchange::Assimp to use the new state composer/shader set.
+* Support for wide and standard strings in vsg::Path.
+* Utilize vkEnumerateInstanceVersion
+* Update vsgImGui to latest
+* Improved support for dynamic scene graphs and dynamic views, dynamic descriptor pool reallocation
+
+#### Current development tasks:
 
 ### 4. Release Phase,  Spring 2022
 **Goal: Test scene graph library against real-world applications and shake down the API and implementation for it's first stable release.**
@@ -55,3 +60,8 @@ Using the prototyping work as a guide implement the final scene graph library wi
 * Build relationships with application developers and involve them in testing
 * Create tutorial and example programs to illustrate how to use VSG
 * Test, debug, refine and release 1.0.0!
+
+#### Future tasks relating to associated libraries
+* Update vsgXchange::OSG to use the new state composer/shader set.
+* Rewrite vsgQt handling of keyboard mapping
+* Support for integration with OpenGL/OSG applications via [EXT\_external\_object](https://www.khronos.org/registry/OpenGL/extensions/EXT/EXT_external_objects.txt) & [VK\_KHR\_external\_memory](https://www.khronos.org/registry/vulkan/specs/1.1-extensions/man/html/VK_KHR_external_memory.html#versions-1.1-promotions)

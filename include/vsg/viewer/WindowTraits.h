@@ -21,53 +21,22 @@ namespace vsg
     // forward declare
     class Window;
 
-    class WindowTraits : public Inherit<Object, WindowTraits>
+    class VSG_DECLSPEC WindowTraits : public Inherit<Object, WindowTraits>
     {
     public:
-        WindowTraits(const WindowTraits&) = default;
-        WindowTraits& operator=(const WindowTraits&) = default;
+        WindowTraits();
+        explicit WindowTraits(const WindowTraits& traits);
+        explicit WindowTraits(const std::string& title);
+        WindowTraits(int32_t in_x, int32_t in_y, uint32_t in_width, uint32_t in_height, const std::string& title = "vsg window");
+        WindowTraits(uint32_t in_width, uint32_t in_height, const std::string& title = "vsg window");
 
-        WindowTraits()
-        {
-            defaults();
-        }
+        WindowTraits& operator=(const WindowTraits&) = delete;
 
-        explicit WindowTraits(const std::string& title) :
-            windowTitle(title)
-        {
-            defaults();
-        }
+        /// set default values, called by all constructors except copy constructor
+        void defaults();
 
-        WindowTraits(int32_t in_x, int32_t in_y, uint32_t in_width, uint32_t in_height, const std::string& title = "vsg window") :
-            x(in_x),
-            y(in_y),
-            width(in_width),
-            height(in_height),
-            windowTitle(title)
-        {
-            defaults();
-        }
-
-        WindowTraits(uint32_t in_width, uint32_t in_height, const std::string& title = "vsg window") :
-            width(in_width),
-            height(in_height),
-            windowTitle(title)
-        {
-            defaults();
-        }
-
-        void defaults()
-        {
-            // vsg::DeviceFeatures use instance extension
-            instanceExtensionNames.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-
-            // provide anisotropic filtering as standard.
-            if (!deviceFeatures) deviceFeatures = vsg::DeviceFeatures::create();
-            deviceFeatures->get().samplerAnisotropy = VK_TRUE;
-
-            // prefer discrete gpu over integrated gpu over virtual gpu
-            deviceTypePreferences = {VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU, VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU, VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU};
-        }
+        /// validate the instanceExtensionNames and requestedLayers, assigning additional layers required by debugLayer, synchronizationLayer and apiDumpLayer flags.
+        void validate();
 
         int32_t x = 0;
         int32_t y = 0;
@@ -98,10 +67,12 @@ namespace vsg
         VkPipelineStageFlagBits imageAvailableSemaphoreWaitFlag = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 
         bool debugLayer = false;
+        bool synchronizationLayer = false;
         bool apiDumpLayer = false;
 
         // device preferences
         vsg::Names instanceExtensionNames;
+        vsg::Names requestedLayers;
         vsg::Names deviceExtensionNames;
         vsg::PhysicalDeviceTypes deviceTypePreferences;
         ref_ptr<DeviceFeatures> deviceFeatures;

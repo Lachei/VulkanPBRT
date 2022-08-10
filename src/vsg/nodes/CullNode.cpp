@@ -16,13 +16,11 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 using namespace vsg;
 
-CullNode::CullNode(Allocator* allocator) :
-    Inherit(allocator)
+CullNode::CullNode()
 {
 }
 
-CullNode::CullNode(const dsphere& in_bound, Node* in_child, Allocator* allocator) :
-    Inherit(allocator),
+CullNode::CullNode(const dsphere& in_bound, Node* in_child) :
     bound(in_bound),
     child(in_child)
 {
@@ -36,30 +34,14 @@ void CullNode::read(Input& input)
 {
     Node::read(input);
 
-    if (input.version_greater_equal(0, 1, 4))
-    {
-        input.read("bound", bound);
-        input.read("child", child);
-    }
-    else
-    {
-        input.read("Bound", bound);
-        input.read("Child", child);
-    }
+    input.read("bound", bound);
+    input.read("child", child);
 }
 
 void CullNode::write(Output& output) const
 {
     Node::write(output);
 
-    if (output.version_greater_equal(0, 1, 4))
-    {
-        output.write("bound", bound);
-        output.write("child", child);
-    }
-    else
-    {
-        output.write("Bound", bound);
-        output.write("Child", child);
-    }
+    output.write("bound", bound);
+    output.write("child", child);
 }
