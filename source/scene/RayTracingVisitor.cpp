@@ -1,4 +1,5 @@
 #include "RayTracingVisitor.hpp"
+#include <iostream>
 
 RayTracingSceneDescriptorCreationVisitor::RayTracingSceneDescriptorCreationVisitor()
 {
@@ -172,14 +173,9 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::VertexIndexDraw& vid)
     {
         for (int i = 0; i < vid.indices->data->valueCount() / 3; ++i)
         {
-            vsg::Light l{};
-            l.radius = 0;
-            l.type = vsg::LightSourceType::Area;
-            l.colorAmbient = {_material_array.back().emission_texture_id.r,
-                _material_array.back().emission_texture_id.g, _material_array.back().emission_texture_id.b};
-            l.colorDiffuse = l.colorAmbient;
-            l.colorSpecular = l.colorAmbient;
-            l.strengths = vsg::vec3(0, 0, 1);
+            auto l = vsg::TriangleLight::create();
+            l->color = {_material_array.back().emission_texture_id.r, _material_array.back().emission_texture_id.g,
+                _material_array.back().emission_texture_id.b};
 
             uint32_t index = 0;
             if (vid.indices->data->stride() == 2)
@@ -190,7 +186,7 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::VertexIndexDraw& vid)
             {
                 index = static_cast<uint32_t*>(vid.indices->data->dataPointer())[i * 3];
             }
-            l.v0 = static_cast<vsg::vec3*>(vid.arrays[0]->data->dataPointer())[index];
+            l->positions[0] = static_cast<vsg::vec3*>(vid.arrays[0]->data->dataPointer())[index];
             if (vid.indices->data->stride() == 2)
             {
                 index = static_cast<uint16_t*>(vid.indices->data->dataPointer())[i * 3 + 1];
@@ -199,7 +195,7 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::VertexIndexDraw& vid)
             {
                 index = static_cast<uint32_t*>(vid.indices->data->dataPointer())[i * 3 + 1];
             }
-            l.v1 = static_cast<vsg::vec3*>(vid.arrays[0]->data->dataPointer())[index];
+            l->positions[1] = static_cast<vsg::vec3*>(vid.arrays[0]->data->dataPointer())[index];
             if (vid.indices->data->stride() == 2)
             {
                 index = static_cast<uint16_t*>(vid.indices->data->dataPointer())[i * 3 + 2];
@@ -208,15 +204,15 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::VertexIndexDraw& vid)
             {
                 index = static_cast<uint32_t*>(vid.indices->data->dataPointer())[i * 3 + 2];
             }
-            l.v2 = static_cast<vsg::vec3*>(vid.arrays[0]->data->dataPointer())[index];
+            l->positions[2] = static_cast<vsg::vec3*>(vid.arrays[0]->data->dataPointer())[index];
             // transforming the light position
-            auto t = _transform_stack.top() * vsg::dvec4{l.v0.x, l.v0.y, l.v0.z, 1};
-            l.v0 = {static_cast<float>(t.x), static_cast<float>(t.y), static_cast<float>(t.z)};
-            t = _transform_stack.top() * vsg::dvec4{l.v1.x, l.v1.y, l.v1.z, 1};
-            l.v1 = {static_cast<float>(t.x), static_cast<float>(t.y), static_cast<float>(t.z)};
-            t = _transform_stack.top() * vsg::dvec4{l.v2.x, l.v2.y, l.v2.z, 1};
-            l.v2 = {static_cast<float>(t.x), static_cast<float>(t.y), static_cast<float>(t.z)};
-            packed_lights.push_back(l.getPacked());
+            auto t = _transform_stack.top() * vsg::dvec4{l->positions[0].x, l->positions[0].y, l->positions[0].z, 1};
+            l->positions[0] = {static_cast<float>(t.x), static_cast<float>(t.y), static_cast<float>(t.z)};
+            t = _transform_stack.top() * vsg::dvec4{l->positions[1].x, l->positions[1].y, l->positions[1].z, 1};
+            l->positions[1] = {static_cast<float>(t.x), static_cast<float>(t.y), static_cast<float>(t.z)};
+            t = _transform_stack.top() * vsg::dvec4{l->positions[2].x, l->positions[2].y, l->positions[2].z, 1};
+            l->positions[2] = {static_cast<float>(t.x), static_cast<float>(t.y), static_cast<float>(t.z)};
+            packed_lights.emplace_back(*l);
         }
     }
 }
@@ -406,7 +402,7 @@ void RayTracingSceneDescriptorCreationVisitor::apply(vsg::BindDescriptorSet& bds
 }
 void RayTracingSceneDescriptorCreationVisitor::apply(const vsg::Light& l)
 {
-    packed_lights.push_back(l.getPacked());
+    packed_lights.emplace_back(l);
 }
 void RayTracingSceneDescriptorCreationVisitor::update_descriptor(
     vsg::BindDescriptorSet* desc_set, const vsg::BindingMap& binding_map)
@@ -414,28 +410,25 @@ void RayTracingSceneDescriptorCreationVisitor::update_descriptor(
     if (packed_lights.empty())
     {
         std::cout << "Adding default directional light for raytracing" << std::endl;
-        vsg::Light l;
-        l.radius = 0;
-        l.type = vsg::LightSourceType::Directional;
+        auto l = vsg::DirectionalLight::create();
         vsg::vec3 col{2.F, 2.F, 2.F};
-        l.colorAmbient = col;
-        l.colorDiffuse = col;
-        l.colorSpecular = {0, 0, 0};
-        l.strengths = vsg::vec3(.5F, .0F, .0F);
-        l.dir = normalize(vsg::vec3(0.1F, 1, -5.1F));
-        packed_lights.push_back(l.getPacked());
+        l->color = col;
+        l->direction = normalize(vsg::vec3(0.1F, 1, -5.1F));
+        l->strengths = vsg::vec3(.5F, .0F, .0F);
+        packed_lights.emplace_back(*l);
     }
     if (!_lights)
     {
         float strength_sum = 0;
         for (auto& light : packed_lights)
         {
-            strength_sum += light.colorAmbient.x + light.colorAmbient.y + light.colorAmbient.z + light.colorDiffuse.x
-                            + light.colorDiffuse.y + light.colorDiffuse.z + light.colorSpecular.x
-                            + light.colorSpecular.y + light.colorSpecular.z;
-            light.inclusiveStrength = strength_sum;
+            // TODO: complete
+            // strength_sum += light.colorAmbient.x + light.colorAmbient.y + light.colorAmbient.z + light.colorDiffuse.x
+            //                + light.colorDiffuse.y + light.colorDiffuse.z + light.colorSpecular.x
+            //                + light.colorSpecular.y + light.colorSpecular.z;
+            // light.inclusiveStrength = strength_sum;
         }
-        auto lights = vsg::Array<vsg::Light::PackedLight>::create(packed_lights.size());
+        auto lights = vsg::Array<PackedLight>::create(packed_lights.size());
         std::copy(packed_lights.begin(), packed_lights.end(), lights->data());
         _lights = vsg::DescriptorBuffer::create(lights, 12, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
     }

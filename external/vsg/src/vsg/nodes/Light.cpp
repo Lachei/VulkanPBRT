@@ -110,6 +110,24 @@ void SpotLight::write(Output& output) const
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 //
+// TriangleLight
+//
+void TriangleLight::read(Input& input)
+{
+    Light::read(input);
+
+    input.read("positions", positions);
+}
+
+void TriangleLight::write(Output& output) const
+{
+    Light::write(output);
+
+    output.write("positions", positions);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//
 // Headlight
 //
 ref_ptr<vsg::Node> vsg::createHeadlight()

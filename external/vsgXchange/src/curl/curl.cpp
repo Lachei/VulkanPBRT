@@ -17,6 +17,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 #include <fstream>
 #include <iostream>
+#include <sstream>
 
 using namespace vsgXchange;
 
@@ -51,7 +52,7 @@ namespace vsgXchange
         std::string::size_type pos = filename.find("://");
         if (pos != std::string::npos)
         {
-            return vsg::concatPaths(fileCache, filename.substr(pos + 3, std::string::npos));
+            return fileCache / filename.substr(pos + 3, std::string::npos);
         }
         return {};
     }
@@ -94,7 +95,7 @@ vsg::ref_ptr<vsg::Object> curl::read(const vsg::Path& filename, vsg::ref_ptr<con
             contains_serverAddress = containsServerAddress(options->paths.front());
             if (contains_serverAddress)
             {
-                serverFilename = vsg::concatPaths(options->paths.front(), filename);
+                serverFilename = options->paths.front() / filename;
             }
         }
 

@@ -390,7 +390,7 @@ int main(int argc, char** argv)
         // -------------------------------------------------------------------------------------
         // image layout conversions and correct binding of different denoising tequniques
         // -------------------------------------------------------------------------------------
-        vsg::CompileTraversal image_layout_compile(window);
+        auto image_layout_compile = vsg::CompileTraversal::create(*window);
         auto commands = vsg::Commands::create();
         auto offline_g_buffer_stager = OfflineGBuffer::create();
         auto offline_illumination_buffer_stager = OfflineIllumination::create();
@@ -400,8 +400,8 @@ int main(int argc, char** argv)
             query_pool = vsg::QueryPool::create();  // standard init has 1 timestamp place
             query_pool->queryCount = 2;
             auto reset_query = vsg::ResetQueryPool::create(query_pool);
-            auto write1 = vsg::WriteTimestamp::create(query_pool, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
-            auto write2 = vsg::WriteTimestamp::create(query_pool, 1, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR);
+            auto write1 = vsg::WriteTimestamp::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, query_pool, 0);
+            auto write2 = vsg::WriteTimestamp::create(VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, query_pool, 1);
             commands->addChild(reset_query);
             commands->addChild(write1);
             pbrt_pipeline->add_trace_rays_to_command_graph(commands, push_constants);
@@ -415,9 +415,10 @@ int main(int argc, char** argv)
                 std::cout << "Missing offline GBuffer or offline Illumination Buffer info" << std::endl;
                 return 1;
             }
-            offline_g_buffer_stager->upload_to_g_buffer_command(g_buffer, commands, image_layout_compile.context);
+            offline_g_buffer_stager->upload_to_g_buffer_command(
+                g_buffer, commands, *image_layout_compile->contexts.front());
             offline_illumination_buffer_stager->upload_to_illumination_buffer_command(
-                illumination_buffer, commands, image_layout_compile.context);
+                illumination_buffer, commands, *image_layout_compile->contexts.front());
         }
 
         vsg::ref_ptr<Accumulator> accumulator;
@@ -426,8 +427,8 @@ int main(int argc, char** argv)
             accumulator = Accumulator::create(g_buffer, illumination_buffer, !use_external_buffers);
             accumulator->add_dispatch_to_command_graph(commands);
             accumulation_buffer = accumulator->accumulation_buffer;
-            illumination_buffer->compile(image_layout_compile.context);
-            illumination_buffer->update_image_layouts(image_layout_compile.context);
+            illumination_buffer->compile(*image_layout_compile->contexts.front());
+            illumination_buffer->update_image_layouts(*image_layout_compile->contexts.front());
             illumination_buffer
                 = accumulator->accumulated_illumination;  // swap illumination buffer to accumulated illumination for
                                                           // correct use in the following pipelines
@@ -440,7 +441,7 @@ int main(int argc, char** argv)
         }
         else
         {
-            vkpbrt::add_denoiser_to_commands(denoising_type, denoising_block_size, commands, image_layout_compile,
+            vkpbrt::add_denoiser_to_commands(denoising_type, denoising_block_size, commands, *image_layout_compile,
                 window_traits->width, window_traits->height, compute_constants, g_buffer, illumination_buffer,
                 accumulation_buffer, final_descriptor_image);
         }
@@ -449,8 +450,8 @@ int main(int argc, char** argv)
         {
             auto taa = Taa::create(window_traits->width, window_traits->height, 16, 16, g_buffer, accumulation_buffer,
                 final_descriptor_image);
-            taa->compile(image_layout_compile.context);
-            taa->update_image_layouts(image_layout_compile.context);
+            taa->compile(*image_layout_compile->contexts.front());
+            taa->update_image_layouts(*image_layout_compile->contexts.front());
             taa->add_dispatch_to_command_graph(commands);
             final_descriptor_image = taa->get_final_descriptor_image();
         }
@@ -461,7 +462,8 @@ int main(int argc, char** argv)
                 std::cout << "GBuffer information not available, export not possible" << std::endl;
                 return 1;
             }
-            offline_g_buffer_stager->download_from_g_buffer_command(g_buffer, commands, image_layout_compile.context);
+            offline_g_buffer_stager->download_from_g_buffer_command(
+                g_buffer, commands, *image_layout_compile->contexts.front());
         }
         if (export_illumination)
         {
@@ -471,33 +473,33 @@ int main(int argc, char** argv)
                 return 1;
             }
             offline_illumination_buffer_stager->download_from_illumination_buffer_command(
-                illumination_buffer, commands, image_layout_compile.context);
+                illumination_buffer, commands, *image_layout_compile->contexts.front());
         }
         if (final_descriptor_image->imageInfoList[0]->imageView->image->format != VK_FORMAT_B8G8R8A8_UNORM)
         {
             auto converter = FormatConverter::create(
                 final_descriptor_image->imageInfoList[0]->imageView, VK_FORMAT_B8G8R8A8_UNORM);
-            converter->compile_images(image_layout_compile.context);
-            converter->update_image_layouts(image_layout_compile.context);
+            converter->compile_images(*image_layout_compile->contexts.front());
+            converter->update_image_layouts(*image_layout_compile->contexts.front());
             converter->add_dispatch_to_command_graph(commands);
             final_descriptor_image = converter->final_image;
         }
         if (g_buffer)
         {
-            g_buffer->compile(image_layout_compile.context);
-            g_buffer->update_image_layouts(image_layout_compile.context);
+            g_buffer->compile(*image_layout_compile->contexts.front());
+            g_buffer->update_image_layouts(*image_layout_compile->contexts.front());
         }
         if (accumulation_buffer)
         {
-            accumulation_buffer->compile(image_layout_compile.context);
-            accumulation_buffer->update_image_layouts(image_layout_compile.context);
+            accumulation_buffer->compile(*image_layout_compile->contexts.front());
+            accumulation_buffer->update_image_layouts(*image_layout_compile->contexts.front());
         }
         if (illumination_buffer)
         {
-            illumination_buffer->compile(image_layout_compile.context);
-            illumination_buffer->update_image_layouts(image_layout_compile.context);
+            illumination_buffer->compile(*image_layout_compile->contexts.front());
+            illumination_buffer->update_image_layouts(*image_layout_compile->contexts.front());
         }
-        image_layout_compile.context.record();
+        image_layout_compile->contexts.front()->record();
 
         if (accumulation_buffer)
         {
@@ -544,7 +546,7 @@ int main(int argc, char** argv)
         viewer->compile();
 
         // waiting for image layout transitions
-        image_layout_compile.context.waitForCompletion();
+        image_layout_compile->contexts.front()->waitForCompletion();
 
         int frame_index = 0;
         int sample_index = 0;

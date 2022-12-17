@@ -2,6 +2,8 @@
 
 #include <renderModules/PipelineStructs.hpp>
 
+#include <iostream>
+
 BMFR::BMFR(uint32_t width, uint32_t height, uint32_t work_width, uint32_t work_height, vsg::ref_ptr<GBuffer> g_buffer,
     vsg::ref_ptr<IlluminationBuffer> illu_buffer, vsg::ref_ptr<AccumulationBuffer> acc_buffer, uint32_t fitting_kernel)
     : _width(width),

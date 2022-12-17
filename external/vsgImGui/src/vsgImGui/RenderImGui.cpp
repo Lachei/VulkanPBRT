@@ -128,36 +128,7 @@ void RenderImGui::_init(const vsg::ref_ptr<vsg::Window>& window)
 
 void RenderImGui::_uploadFonts()
 {
-    VkResult err;
 
-    auto commandPool = vsg::CommandPool::create(_device, _queueFamily, VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
-
-    auto commandBuffer = vsg::CommandBuffer::create(_device, commandPool, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
-
-    commandPool->reset(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // required?
-
-    VkCommandBufferBeginInfo begin_info = {};
-    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    begin_info.flags |= VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    err = vkBeginCommandBuffer(*commandBuffer, &begin_info);
-    check_vk_result(err);
-
-    ImGui_ImplVulkan_CreateFontsTexture(*commandBuffer);
-
-    VkSubmitInfo end_info = {};
-    end_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    end_info.commandBufferCount = 1;
-    end_info.pCommandBuffers = commandBuffer->data();
-    err = vkEndCommandBuffer(*commandBuffer);
-    check_vk_result(err);
-
-    err = vkQueueSubmit(*_queue, 1, &end_info, VK_NULL_HANDLE);
-    check_vk_result(err);
-
-    err = vkDeviceWaitIdle(*_device); // use a fence?
-
-    check_vk_result(err);
-    ImGui_ImplVulkan_DestroyFontUploadObjects();
 }
 
 void RenderImGui::add(const Component& component)

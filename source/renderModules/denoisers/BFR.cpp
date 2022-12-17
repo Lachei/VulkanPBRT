@@ -2,6 +2,7 @@
 #include <renderModules/PipelineStructs.hpp>
 
 #include <string>
+#include <iostream>
 
 BFR::BFR(uint32_t width, uint32_t height, uint32_t work_width, uint32_t work_height, vsg::ref_ptr<GBuffer> g_buffer,
     vsg::ref_ptr<IlluminationBuffer> illu_buffer, vsg::ref_ptr<AccumulationBuffer> acc_buffer)

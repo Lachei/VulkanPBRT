@@ -3,9 +3,62 @@
 #include <vsg/all.h>
 #include <vector>
 
+const uint32_t lst_undefined = 0;
+const uint32_t lst_directional = 1;
+const uint32_t lst_point = 2;
+const uint32_t lst_spot = 3;
+const uint32_t lst_ambient = 4;
+const uint32_t lst_area = 5;
+
 class RayTracingSceneDescriptorCreationVisitor : public vsg::Visitor
 {
 public:
+    struct PackedLight
+    {  // same layout as in shaders/ptSturctures.glsl
+        PackedLight() = default;
+        PackedLight& operator=(const PackedLight&) = default;
+        explicit PackedLight(const vsg::Light& l) {}
+        explicit PackedLight(const vsg::AmbientLight& l)
+        {
+            v0_type.w = lst_ambient;
+            col_ambient.xyz = col_diffuse.xyz = col_specular.xyz = l.color;
+            strengths.xyz = l.strengths;
+        }
+        explicit PackedLight(const vsg::DirectionalLight& l)
+        {
+            v0_type.w = lst_directional;
+            col_ambient.xyz = col_diffuse.xyz = col_specular.xyz = l.color;
+            dir_angle2.xyz = l.direction;
+            strengths.xyz = l.strengths;
+        }
+        explicit PackedLight(const vsg::PointLight& l)
+        {
+            v0_type.w = lst_point;
+            v0_type.xyz = l.position;
+            col_ambient.xyz = col_diffuse.xyz = col_specular.xyz = l.color;
+            strengths.xyz = l.strengths;
+        }
+        explicit PackedLight(const vsg::SpotLight& l) {}
+        explicit PackedLight(const vsg::TriangleLight& l)
+        {
+            v0_type.w = lst_area;
+            v0_type.xyz = l.positions[0];
+            v1_strength.xyz = l.positions[1];
+            v2_angle.xyz = l.positions[2];
+            col_ambient.xyz = col_diffuse.xyz = col_specular.xyz = l.color;
+            strengths.xyz = l.strengths;
+        }
+
+        vsg::vec4 v0_type;
+        vsg::vec4 v1_strength;
+        vsg::vec4 v2_angle;
+        vsg::vec4 dir_angle2;
+        vsg::vec4 col_ambient;
+        vsg::vec4 col_diffuse;
+        vsg::vec4 col_specular;
+        vsg::vec4 strengths;
+    };
+
     RayTracingSceneDescriptorCreationVisitor();
 
     // default visiting for standard nodes, simply forward to children
@@ -29,7 +82,7 @@ public:
     void update_descriptor(vsg::BindDescriptorSet* desc_set, const vsg::BindingMap& binding_map);
 
     // holds the binding command for the raytracing decriptor
-    std::vector<vsg::Light::PackedLight> packed_lights;
+    std::vector<PackedLight> packed_lights;
     // holds information about each geometry if it is opaque
     std::vector<bool> is_opaque;
 

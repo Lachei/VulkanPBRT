@@ -84,11 +84,11 @@ void GBufferRasterizer::setup_graphics_pipeline()
     vsg::AttachmentDescription depth = vsg::defaultDepthAttachment(VK_FORMAT_R32_SFLOAT);
     vsg::RenderPass::Attachments attachments{albedo, position, normal, material, depth};
 
-    VkAttachmentReference albedo_attachment_ref{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-    VkAttachmentReference position_attachment_ref{1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-    VkAttachmentReference normal_attachment_ref{2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-    VkAttachmentReference material_attachment_ref{3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-    VkAttachmentReference depthl_attachment_ref{4, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL};
+    vsg::AttachmentReference albedo_attachment_ref{0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+    vsg::AttachmentReference position_attachment_ref{1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+    vsg::AttachmentReference normal_attachment_ref{2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+    vsg::AttachmentReference material_attachment_ref{3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+    vsg::AttachmentReference depthl_attachment_ref{4, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL};
 
     vsg::SubpassDescription subpass{
         0, VK_PIPELINE_BIND_POINT_GRAPHICS, {                     },
@@ -99,19 +99,19 @@ void GBufferRasterizer::setup_graphics_pipeline()
     };
     vsg::RenderPass::Subpasses subpasses{subpass};
 
-    VkSubpassDependency albedo_dependency{VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+    vsg::SubpassDependency albedo_dependency{VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
         VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 0,
         VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0};
-    VkSubpassDependency position_dependency{VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+    vsg::SubpassDependency position_dependency{VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
         VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 0,
         VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0};
-    VkSubpassDependency normal_dependency{VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+    vsg::SubpassDependency normal_dependency{VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
         VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 0,
         VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0};
-    VkSubpassDependency materiall_dependency{VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+    vsg::SubpassDependency materiall_dependency{VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
         VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 0,
         VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0};
-    VkSubpassDependency depth_dependency{VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+    vsg::SubpassDependency depth_dependency{VK_SUBPASS_EXTERNAL, 0, VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
         VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR, 0,
         VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, 0};
 

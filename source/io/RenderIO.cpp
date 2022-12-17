@@ -2,6 +2,7 @@
 #include <future>
 #include <cctype>
 #include <nlohmann/json.hpp>
+#include <iostream>
 
 std::vector<vsg::ref_ptr<OfflineGBuffer>> GBufferIO::import_g_buffer_depth(const std::string& depth_format,
     const std::string& normal_format, const std::string& material_format, const std::string& albedo_format,

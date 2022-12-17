@@ -27,6 +27,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <assimp/Importer.hpp>
 #include <assimp/postprocess.h>
 #include <assimp/scene.h>
+#include <iostream>
 
 #if (ASSIMP_VERSION_MAJOR==5 && ASSIMP_VERSION_MINOR==0)
     #include <assimp/pbrmaterial.h>

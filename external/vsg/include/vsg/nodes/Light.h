@@ -23,6 +23,7 @@ namespace vsg
     public:
         std::string name;
         vec3 color = vec3(1.0f, 1.0f, 1.0f);
+        vec3 strengths = vec3(1.0f, 0, 0);
         float intensity = 1.0f;
 
         void read(Input& input) override;

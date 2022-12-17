@@ -155,7 +155,8 @@ void PBRTPipeline::setup_pipeline(vsg::Node* scene, bool use_external_gbuffer)
     // creating the constant infos uniform buffer object
     auto constant_infos = ConstantInfosValue::create();
     constant_infos->value().light_count = build_descriptor_binding.packed_lights.size();
-    constant_infos->value().light_strength_sum = build_descriptor_binding.packed_lights.back().inclusiveStrength;
+    // TODO: include this again
+    // constant_infos->value().light_strength_sum = build_descriptor_binding.packed_lights.back().inclusiveStrength;
     constant_infos->value().max_recursion_depth = _max_recursion_depth;
     uint32_t uniform_buffer_binding = vsg::ShaderStage::getSetBindingIndex(_binding_map, "Infos").second;
     auto constant_infos_descriptor = vsg::DescriptorBuffer::create(constant_infos, uniform_buffer_binding, 0);
